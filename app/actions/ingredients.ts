@@ -174,6 +174,57 @@ export async function createQuickIngredient(name: string): Promise<IngredientRes
   return { success: true, ingredient: result.ingredient };
 }
 
+export async function updateIngredient(id: string, formData: FormData): Promise<IngredientResult> {
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = ingredientSchema.safeParse({
+    ...raw,
+    isActive: raw.isActive === "on" || raw.isActive === "true",
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const data = parsed.data;
+  const normalizedName = normalizeIngredientName(data.name);
+
+  const duplicateName = await db.ingredient.findFirst({
+    where: {
+      normalizedName,
+      NOT: { id },
+    },
+    select: { id: true },
+  });
+
+  if (duplicateName) {
+    return { error: { name: ["Ingredient already exists"] } };
+  }
+
+  try {
+    const ingredient = await db.ingredient.update({
+      where: { id },
+      data: {
+        name: data.name,
+        normalizedName,
+        sku: data.sku?.trim() || (await nextIngredientSku(data.name)),
+        category: data.category,
+        defaultUnit: data.defaultUnit as Unit,
+        aliases: data.aliases || null,
+        notes: data.notes || null,
+        isActive: data.isActive,
+      },
+    });
+
+    revalidatePath("/ingredients");
+    revalidatePath("/inventory");
+    revalidatePath("/recipes");
+    revalidatePath("/yield");
+    return { success: true, ingredient };
+  } catch {
+    return { error: { sku: ["SKU already exists"] } };
+  }
+}
+
 export async function bulkCreateIngredients(formData: FormData): Promise<IngredientResult> {
   const text = String(formData.get("items") || "");
   const category = String(formData.get("category") || "General").trim() || "General";

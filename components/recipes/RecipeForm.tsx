@@ -135,7 +135,7 @@ export function RecipeForm({
       {
         ingredientId: ingredient.id,
         quantityRequired: values?.quantityRequired ?? "",
-        unit: values?.unit ?? ingredient.defaultUnit,
+        unit: ingredient.defaultUnit,
       },
     ]);
     setIngredientSearch("");
@@ -163,7 +163,7 @@ export function RecipeForm({
         addCreatedIngredientToCatalog(ingredient);
         addIngredientToRecipe(ingredient, {
           ...values,
-          unit: values?.unit ?? ingredient.defaultUnit,
+          unit: ingredient.defaultUnit,
         });
       }
     });
@@ -237,7 +237,7 @@ export function RecipeForm({
         handledIds.add(match.id);
         addIngredientToRecipe(match, {
           quantityRequired: line.quantityRequired,
-          unit: line.unit || match.defaultUnit,
+          unit: match.defaultUnit,
         });
       } else if (!unresolvedNames.has(line.name.toLowerCase())) {
         unresolvedNames.add(line.name.toLowerCase());
@@ -253,7 +253,6 @@ export function RecipeForm({
   function createMissingBulkIngredient(line: ParsedBulkLine) {
     quickAddIngredient(line.name, {
       quantityRequired: line.quantityRequired,
-      unit: line.unit,
     });
     setBulkIssues((current) => current.filter((item) => item.raw !== line.raw));
   }
@@ -547,6 +546,7 @@ export function RecipeForm({
                           value={ing.unit}
                           onChange={(e) => updateIngredient(index, "unit", e.target.value)}
                           options={unitOptions}
+                          disabled
                         />
                       </td>
                       <td className="px-4 py-3 text-right">
