@@ -9,9 +9,18 @@ import { Textarea } from "@/components/ui/Textarea";
 import { UNITS } from "@/lib/units";
 import { Unit } from "@prisma/client";
 
+type IngredientOption = {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  defaultUnit: Unit;
+};
+
 type InventoryFormProps = {
   action: (formData: FormData) => Promise<{ error?: Record<string, string[]>; success?: boolean }>;
   initialData?: {
+    ingredientId: string | null;
     name: string;
     sku: string;
     category: string;
@@ -27,15 +36,39 @@ type InventoryFormProps = {
     batchNumber: string | null;
     isActive: boolean;
   };
+  ingredients?: IngredientOption[];
   submitLabel?: string;
 };
 
-export function InventoryForm({ action, initialData, submitLabel = "Save Item" }: InventoryFormProps) {
+export function InventoryForm({
+  action,
+  initialData,
+  ingredients = [],
+  submitLabel = "Save Item",
+}: InventoryFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [selectedIngredientId, setSelectedIngredientId] = useState(initialData?.ingredientId ?? "");
+  const [catalogValues, setCatalogValues] = useState({
+    name: initialData?.name ?? "",
+    sku: initialData?.sku ?? "",
+    category: initialData?.category ?? "",
+    unit: initialData?.unit ?? Unit.g,
+  });
+
+  const selectedIngredient = ingredients.find(
+    (ingredient) => ingredient.id === selectedIngredientId
+  );
 
   function handleSubmit(formData: FormData) {
+    if (selectedIngredient) {
+      formData.set("name", selectedIngredient.name);
+      formData.set("sku", selectedIngredient.sku);
+      formData.set("category", selectedIngredient.category);
+      formData.set("unit", selectedIngredient.defaultUnit);
+    }
+
     startTransition(async () => {
       const result = await action(formData);
       if (result.error) {
@@ -48,40 +81,85 @@ export function InventoryForm({ action, initialData, submitLabel = "Save Item" }
   }
 
   const unitOptions = UNITS.map((u) => ({ value: u, label: u }));
+  const ingredientOptions = ingredients.map((ingredient) => ({
+    value: ingredient.id,
+    label: `${ingredient.name} (${ingredient.sku})`,
+  }));
+
+  function handleIngredientChange(ingredientId: string) {
+    setSelectedIngredientId(ingredientId);
+    const ingredient = ingredients.find((item) => item.id === ingredientId);
+
+    if (!ingredient) return;
+
+    setCatalogValues({
+      name: ingredient.name,
+      sku: ingredient.sku,
+      category: ingredient.category,
+      unit: ingredient.defaultUnit,
+    });
+  }
+
+  function updateCatalogValue(field: keyof typeof catalogValues, value: string) {
+    setCatalogValues((current) => ({ ...current, [field]: value }));
+  }
 
   return (
     <form action={handleSubmit} className="max-w-3xl space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
+        <Select
+          name="ingredientId"
+          label="Master Ingredient"
+          value={selectedIngredientId}
+          onChange={(event) => handleIngredientChange(event.target.value)}
+          options={ingredientOptions}
+          placeholder="Link to ingredient catalog..."
+          error={errors.ingredientId?.[0]}
+        />
         <Input
           name="name"
           label="Name *"
-          defaultValue={initialData?.name}
+          value={catalogValues.name}
+          onChange={(event) => updateCatalogValue("name", event.target.value)}
           error={errors.name?.[0]}
+          readOnly={Boolean(selectedIngredient)}
+          className={selectedIngredient ? "bg-gray-50" : ""}
           required
         />
         <Input
           name="sku"
           label="SKU *"
-          defaultValue={initialData?.sku}
+          value={catalogValues.sku}
+          onChange={(event) => updateCatalogValue("sku", event.target.value)}
           error={errors.sku?.[0]}
+          readOnly={Boolean(selectedIngredient)}
+          className={selectedIngredient ? "bg-gray-50" : ""}
           required
         />
         <Input
           name="category"
           label="Category *"
-          defaultValue={initialData?.category}
+          value={catalogValues.category}
+          onChange={(event) => updateCatalogValue("category", event.target.value)}
           error={errors.category?.[0]}
           placeholder="e.g. Dry Goods, Dairy, Meat"
+          readOnly={Boolean(selectedIngredient)}
+          className={selectedIngredient ? "bg-gray-50" : ""}
           required
         />
         <Select
           name="unit"
           label="Unit *"
-          defaultValue={initialData?.unit}
+          value={catalogValues.unit}
+          onChange={(event) => updateCatalogValue("unit", event.target.value)}
           options={unitOptions}
           error={errors.unit?.[0]}
+          disabled={Boolean(selectedIngredient)}
           required
         />
+        {selectedIngredient && (
+          <input type="hidden" name="unit" value={selectedIngredient.defaultUnit} />
+        )}
         <Input
           name="quantity"
           label="Quantity on Hand *"

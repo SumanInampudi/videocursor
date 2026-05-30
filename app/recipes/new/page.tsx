@@ -1,10 +1,10 @@
-import { createRecipe, getActiveInventoryForRecipes } from "@/app/actions/recipes";
+import { createRecipe, getActiveIngredientsForRecipes } from "@/app/actions/recipes";
 import { RecipeForm } from "@/components/recipes/RecipeForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewRecipePage() {
-  const inventoryItems = await getActiveInventoryForRecipes();
+  const ingredients = await getActiveIngredientsForRecipes();
 
   return (
     <div>
@@ -16,7 +16,7 @@ export default async function NewRecipePage() {
       </div>
       <RecipeForm
         action={createRecipe}
-        inventoryItems={inventoryItems}
+        ingredients={ingredients}
         submitLabel="Create Recipe"
       />
     </div>

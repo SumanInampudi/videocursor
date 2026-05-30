@@ -10,7 +10,7 @@ export async function getRecipes() {
   const recipes = await db.recipe.findMany({
     include: {
       ingredients: {
-        include: { inventoryItem: true },
+        include: { ingredient: { include: { inventoryItems: true } } },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -29,15 +29,24 @@ export async function getRecipe(id: string) {
     where: { id },
     include: {
       ingredients: {
-        include: { inventoryItem: true },
+        include: { ingredient: true },
       },
     },
   });
 }
 
-export async function getActiveInventoryForRecipes() {
-  return db.inventoryItem.findMany({
+export async function getActiveIngredientsForRecipes() {
+  return db.ingredient.findMany({
     where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      category: true,
+      defaultUnit: true,
+      aliases: true,
+      isActive: true,
+    },
     orderBy: { name: "asc" },
   });
 }
@@ -49,7 +58,7 @@ export async function createRecipe(formData: FormData) {
   const ingredients = [];
   for (let i = 0; i < ingredientCount; i++) {
     ingredients.push({
-      inventoryItemId: String(raw[`ingredient_${i}_inventoryItemId`] || ""),
+      ingredientId: String(raw[`ingredient_${i}_ingredientId`] || ""),
       quantityRequired: raw[`ingredient_${i}_quantityRequired`],
       unit: raw[`ingredient_${i}_unit`],
     });
@@ -81,7 +90,7 @@ export async function createRecipe(formData: FormData) {
       instructions: data.instructions || null,
       ingredients: {
         create: data.ingredients.map((ing) => ({
-          inventoryItemId: ing.inventoryItemId,
+          ingredientId: ing.ingredientId,
           quantityRequired: ing.quantityRequired,
           unit: ing.unit as Unit,
         })),
@@ -102,7 +111,7 @@ export async function updateRecipe(id: string, formData: FormData) {
   const ingredients = [];
   for (let i = 0; i < ingredientCount; i++) {
     ingredients.push({
-      inventoryItemId: String(raw[`ingredient_${i}_inventoryItemId`] || ""),
+      ingredientId: String(raw[`ingredient_${i}_ingredientId`] || ""),
       quantityRequired: raw[`ingredient_${i}_quantityRequired`],
       unit: raw[`ingredient_${i}_unit`],
     });
@@ -136,11 +145,11 @@ export async function updateRecipe(id: string, formData: FormData) {
         yieldUnit: data.yieldUnit,
         instructions: data.instructions || null,
         ingredients: {
-          create: data.ingredients.map((ing) => ({
-            inventoryItemId: ing.inventoryItemId,
-            quantityRequired: ing.quantityRequired,
-            unit: ing.unit as Unit,
-          })),
+        create: data.ingredients.map((ing) => ({
+          ingredientId: ing.ingredientId,
+          quantityRequired: ing.quantityRequired,
+          unit: ing.unit as Unit,
+        })),
         },
       },
     }),
@@ -165,7 +174,7 @@ export async function getYieldResults() {
   const recipes = await db.recipe.findMany({
     include: {
       ingredients: {
-        include: { inventoryItem: true },
+        include: { ingredient: { include: { inventoryItems: true } } },
       },
     },
   });

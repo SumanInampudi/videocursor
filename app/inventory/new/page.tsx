@@ -1,7 +1,12 @@
+import { getActiveIngredientsForRecipes } from "@/app/actions/recipes";
 import { createInventoryItem } from "@/app/actions/inventory";
 import { InventoryForm } from "@/components/inventory/InventoryForm";
 
-export default function NewInventoryPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NewInventoryPage() {
+  const ingredients = await getActiveIngredientsForRecipes();
+
   return (
     <div>
       <div className="mb-6">
@@ -10,7 +15,11 @@ export default function NewInventoryPage() {
           Capture detailed stock information for accurate recipe yield calculations
         </p>
       </div>
-      <InventoryForm action={createInventoryItem} submitLabel="Add Item" />
+      <InventoryForm
+        action={createInventoryItem}
+        ingredients={ingredients}
+        submitLabel="Add Item"
+      />
     </div>
   );
 }

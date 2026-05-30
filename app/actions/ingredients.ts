@@ -1,0 +1,222 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
+import {
+  STARTER_INGREDIENTS,
+  ingredientSkuPrefix,
+  normalizeIngredientName,
+} from "@/lib/ingredients";
+import { ingredientSchema } from "@/lib/validations";
+import { Unit } from "@prisma/client";
+
+type IngredientResult = {
+  error?: Record<string, string[]>;
+  success?: boolean;
+  ingredient?: {
+    id: string;
+    name: string;
+    sku: string;
+    category: string;
+    defaultUnit: Unit;
+    isActive: boolean;
+  };
+  created?: number;
+  skipped?: string[];
+};
+
+function parseBulkText(text: string) {
+  return text
+    .split(/\r?\n|,/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+async function nextIngredientSku(name: string) {
+  const prefix = ingredientSkuPrefix(name);
+  const existing = await db.ingredient.findMany({
+    where: { sku: { startsWith: prefix } },
+    select: { sku: true },
+  });
+
+  const used = new Set(existing.map((item) => item.sku));
+  let index = 1;
+  let sku = `${prefix}-${String(index).padStart(3, "0")}`;
+
+  while (used.has(sku)) {
+    index += 1;
+    sku = `${prefix}-${String(index).padStart(3, "0")}`;
+  }
+
+  return sku;
+}
+
+async function createIngredientFromName(name: string, category = "General", defaultUnit: Unit = Unit.g) {
+  const normalizedName = normalizeIngredientName(name);
+  if (!normalizedName) return { skipped: name };
+
+  const existing = await db.ingredient.findUnique({ where: { normalizedName } });
+  if (existing) return { duplicate: existing };
+
+  const ingredient = await db.ingredient.create({
+    data: {
+      name: name.trim(),
+      normalizedName,
+      sku: await nextIngredientSku(name),
+      category,
+      defaultUnit,
+      isActive: true,
+    },
+  });
+
+  return { ingredient };
+}
+
+export async function getIngredients(filters?: { search?: string; category?: string }) {
+  const ingredients = await db.ingredient.findMany({
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    include: { inventoryItems: true },
+  });
+
+  let filtered = ingredients;
+
+  if (filters?.search) {
+    const search = filters.search.toLowerCase();
+    filtered = filtered.filter(
+      (ingredient) =>
+        ingredient.name.toLowerCase().includes(search) ||
+        ingredient.sku.toLowerCase().includes(search) ||
+        ingredient.category.toLowerCase().includes(search) ||
+        ingredient.aliases?.toLowerCase().includes(search)
+    );
+  }
+
+  if (filters?.category) {
+    filtered = filtered.filter((ingredient) => ingredient.category === filters.category);
+  }
+
+  return filtered;
+}
+
+export async function getIngredientCategories() {
+  const ingredients = await db.ingredient.findMany({
+    select: { category: true },
+    distinct: ["category"],
+    orderBy: { category: "asc" },
+  });
+  return ingredients.map((ingredient) => ingredient.category);
+}
+
+export async function getActiveIngredientsForRecipes() {
+  return db.ingredient.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function createIngredient(formData: FormData): Promise<IngredientResult> {
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = ingredientSchema.safeParse({
+    ...raw,
+    sku: raw.sku || undefined,
+    isActive: raw.isActive === "on" || raw.isActive === "true",
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const data = parsed.data;
+  const normalizedName = normalizeIngredientName(data.name);
+
+  const duplicate = await db.ingredient.findUnique({ where: { normalizedName } });
+  if (duplicate) {
+    return { error: { name: ["Ingredient already exists"] } };
+  }
+
+  const sku = data.sku?.trim() || (await nextIngredientSku(data.name));
+
+  try {
+    const ingredient = await db.ingredient.create({
+      data: {
+        name: data.name,
+        normalizedName,
+        sku,
+        category: data.category,
+        defaultUnit: data.defaultUnit as Unit,
+        aliases: data.aliases || null,
+        notes: data.notes || null,
+        isActive: data.isActive,
+      },
+    });
+
+    revalidatePath("/ingredients");
+    revalidatePath("/recipes");
+    return { success: true, ingredient };
+  } catch {
+    return { error: { sku: ["SKU already exists"] } };
+  }
+}
+
+export async function createQuickIngredient(name: string): Promise<IngredientResult> {
+  const result = await createIngredientFromName(name);
+
+  if (result.duplicate) {
+    return { error: { name: ["Ingredient already exists"] }, ingredient: result.duplicate };
+  }
+
+  if (!result.ingredient) {
+    return { error: { name: ["Ingredient name is required"] } };
+  }
+
+  revalidatePath("/ingredients");
+  revalidatePath("/recipes");
+  return { success: true, ingredient: result.ingredient };
+}
+
+export async function bulkCreateIngredients(formData: FormData): Promise<IngredientResult> {
+  const text = String(formData.get("items") || "");
+  const category = String(formData.get("category") || "General").trim() || "General";
+  const defaultUnit = String(formData.get("defaultUnit") || "g") as Unit;
+  const names = parseBulkText(text);
+
+  if (names.length === 0) {
+    return { error: { items: ["Add at least one ingredient name"] } };
+  }
+
+  let created = 0;
+  const skipped: string[] = [];
+  const seen = new Set<string>();
+
+  for (const name of names) {
+    const normalized = normalizeIngredientName(name);
+    if (seen.has(normalized)) {
+      skipped.push(name);
+      continue;
+    }
+    seen.add(normalized);
+
+    const result = await createIngredientFromName(name, category, defaultUnit);
+    if (result.ingredient) created += 1;
+    if (result.duplicate || result.skipped) skipped.push(name);
+  }
+
+  revalidatePath("/ingredients");
+  revalidatePath("/recipes");
+  return { success: true, created, skipped };
+}
+
+export async function seedStarterIngredients(): Promise<IngredientResult> {
+  let created = 0;
+  const skipped: string[] = [];
+
+  for (const item of STARTER_INGREDIENTS) {
+    const result = await createIngredientFromName(item.name, item.category, item.defaultUnit);
+    if (result.ingredient) created += 1;
+    if (result.duplicate) skipped.push(item.name);
+  }
+
+  revalidatePath("/ingredients");
+  revalidatePath("/recipes");
+  return { success: true, created, skipped };
+}

@@ -1,3 +1,4 @@
+import { getActiveIngredientsForRecipes } from "@/app/actions/recipes";
 import { notFound } from "next/navigation";
 import { getInventoryItem, updateInventoryItem } from "@/app/actions/inventory";
 import { InventoryForm } from "@/components/inventory/InventoryForm";
@@ -9,7 +10,10 @@ type Props = {
 };
 
 export default async function EditInventoryPage({ params }: Props) {
-  const item = await getInventoryItem(params.id);
+  const [item, ingredients] = await Promise.all([
+    getInventoryItem(params.id),
+    getActiveIngredientsForRecipes(),
+  ]);
 
   if (!item) notFound();
 
@@ -23,7 +27,9 @@ export default async function EditInventoryPage({ params }: Props) {
       </div>
       <InventoryForm
         action={updateAction}
+        ingredients={ingredients}
         initialData={{
+          ingredientId: item.ingredientId,
           name: item.name,
           sku: item.sku,
           category: item.category,

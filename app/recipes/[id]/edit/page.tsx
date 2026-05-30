@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import {
-  getActiveInventoryForRecipes,
+  getActiveIngredientsForRecipes,
   getRecipe,
   updateRecipe,
 } from "@/app/actions/recipes";
@@ -13,9 +13,9 @@ type Props = {
 };
 
 export default async function EditRecipePage({ params }: Props) {
-  const [recipe, inventoryItems] = await Promise.all([
+  const [recipe, ingredients] = await Promise.all([
     getRecipe(params.id),
-    getActiveInventoryForRecipes(),
+    getActiveIngredientsForRecipes(),
   ]);
 
   if (!recipe) notFound();
@@ -30,7 +30,7 @@ export default async function EditRecipePage({ params }: Props) {
       </div>
       <RecipeForm
         action={updateAction}
-        inventoryItems={inventoryItems}
+        ingredients={ingredients}
         initialData={{
           name: recipe.name,
           description: recipe.description,
@@ -39,7 +39,7 @@ export default async function EditRecipePage({ params }: Props) {
           yieldUnit: recipe.yieldUnit,
           instructions: recipe.instructions,
           ingredients: recipe.ingredients.map((ing) => ({
-            inventoryItemId: ing.inventoryItemId,
+            ingredientId: ing.ingredientId,
             quantityRequired: Number(ing.quantityRequired),
             unit: ing.unit,
           })),

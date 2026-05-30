@@ -69,6 +69,7 @@ export async function createInventoryItem(formData: FormData) {
     await db.inventoryItem.create({
       data: {
         name: data.name,
+        ingredientId: data.ingredientId || null,
         sku: data.sku,
         category: data.category,
         description: data.description || null,
@@ -113,6 +114,7 @@ export async function updateInventoryItem(id: string, formData: FormData) {
       where: { id },
       data: {
         name: data.name,
+        ingredientId: data.ingredientId || null,
         sku: data.sku,
         category: data.category,
         description: data.description || null,

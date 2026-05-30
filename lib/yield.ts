@@ -3,12 +3,17 @@ import { Decimal } from "@prisma/client/runtime/library";
 type IngredientWithItem = {
   quantityRequired: Decimal | number;
   unit: string;
-  inventoryItem: {
+  ingredient: {
     id: string;
     name: string;
-    quantity: Decimal | number;
-    unit: string;
     isActive: boolean;
+    inventoryItems: {
+      id: string;
+      name: string;
+      quantity: Decimal | number;
+      unit: string;
+      isActive: boolean;
+    }[];
   };
 };
 
@@ -56,28 +61,37 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
   let minYield = Infinity;
   let bottleneckIngredient: string | null = null;
 
-  for (const ingredient of recipe.ingredients) {
-    const item = ingredient.inventoryItem;
+  for (const recipeIngredient of recipe.ingredients) {
+    const ingredient = recipeIngredient.ingredient;
 
-    if (!item.isActive) {
-      missingIngredients.push(`${item.name} (inactive)`);
+    if (!ingredient.isActive) {
+      missingIngredients.push(`${ingredient.name} (inactive)`);
       minYield = 0;
       continue;
     }
 
-    if (item.unit !== ingredient.unit) {
+    const matchingItems = ingredient.inventoryItems.filter(
+      (item) => item.isActive && item.unit === recipeIngredient.unit
+    );
+
+    const mismatchedItems = ingredient.inventoryItems.filter(
+      (item) => item.isActive && item.unit !== recipeIngredient.unit
+    );
+
+    if (matchingItems.length === 0 && mismatchedItems.length > 0) {
+      const units = Array.from(new Set(mismatchedItems.map((item) => item.unit))).join(", ");
       missingIngredients.push(
-        `${item.name} (unit mismatch: need ${ingredient.unit}, have ${item.unit})`
+        `${ingredient.name} (unit mismatch: need ${recipeIngredient.unit}, have ${units})`
       );
       minYield = 0;
       continue;
     }
 
-    const available = toNumber(item.quantity);
-    const required = toNumber(ingredient.quantityRequired);
+    const available = matchingItems.reduce((sum, item) => sum + toNumber(item.quantity), 0);
+    const required = toNumber(recipeIngredient.quantityRequired);
 
     if (available <= 0) {
-      missingIngredients.push(item.name);
+      missingIngredients.push(ingredient.name);
       minYield = 0;
       continue;
     }
@@ -86,7 +100,7 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
 
     if (possible < minYield) {
       minYield = possible;
-      bottleneckIngredient = item.name;
+      bottleneckIngredient = ingredient.name;
     }
   }
 

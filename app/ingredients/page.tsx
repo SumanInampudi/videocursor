@@ -1,0 +1,55 @@
+import { getIngredientCategories, getIngredients } from "@/app/actions/ingredients";
+import { IngredientSetup } from "@/components/ingredients/IngredientSetup";
+import { IngredientTable } from "@/components/ingredients/IngredientTable";
+import { Button } from "@/components/ui/Button";
+
+type SearchParams = {
+  search?: string;
+  category?: string;
+};
+
+export const dynamic = "force-dynamic";
+
+export default async function IngredientsPage({ searchParams }: { searchParams: SearchParams }) {
+  const [ingredients, categories] = await Promise.all([
+    getIngredients({ search: searchParams.search, category: searchParams.category }),
+    getIngredientCategories(),
+  ]);
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-servora-charcoal">Ingredients</h1>
+        <p className="text-sm text-gray-500">
+          Maintain the master catalog used by recipes; inventory can attach quantities and pricing later.
+        </p>
+      </div>
+
+      <IngredientSetup />
+
+      <form className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_220px_auto]">
+        <input
+          name="search"
+          defaultValue={searchParams.search ?? ""}
+          placeholder="Search name, SKU, category, or alias..."
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-servora-charcoal placeholder:text-gray-400 focus:border-servora-yellow focus:outline-none focus:ring-1 focus:ring-servora-yellow"
+        />
+        <select
+          name="category"
+          defaultValue={searchParams.category ?? ""}
+          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-servora-charcoal focus:border-servora-yellow focus:outline-none focus:ring-1 focus:ring-servora-yellow"
+        >
+          <option value="">All categories</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+        <Button type="submit">Search</Button>
+      </form>
+
+      <IngredientTable ingredients={ingredients} />
+    </div>
+  );
+}

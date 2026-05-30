@@ -1,14 +1,42 @@
 import { PrismaClient, Unit } from "@prisma/client";
+import { STARTER_INGREDIENTS, ingredientSkuPrefix, normalizeIngredientName } from "../lib/ingredients";
 
 const prisma = new PrismaClient();
+
+async function createIngredient(name: string, category: string, defaultUnit: Unit) {
+  return prisma.ingredient.create({
+    data: {
+      name,
+      normalizedName: normalizeIngredientName(name),
+      sku: `${ingredientSkuPrefix(name)}-001`,
+      category,
+      defaultUnit,
+      isActive: true,
+    },
+  });
+}
 
 async function main() {
   await prisma.recipeIngredient.deleteMany();
   await prisma.recipe.deleteMany();
   await prisma.inventoryItem.deleteMany();
+  await prisma.ingredient.deleteMany();
+
+  const starterIngredients = await Promise.all(
+    STARTER_INGREDIENTS.map((ingredient) =>
+      createIngredient(ingredient.name, ingredient.category, ingredient.defaultUnit)
+    )
+  );
+
+  const byName = new Map(starterIngredients.map((ingredient) => [ingredient.name, ingredient]));
+  const flourIngredient = await createIngredient("All-Purpose Flour", "Dry Goods", Unit.g);
+  const cheeseIngredient = await createIngredient("Mozzarella Cheese", "Dairy", Unit.g);
+  const tomatoesIngredient = await createIngredient("Fresh Tomatoes", "Produce", Unit.g);
+  const yeastIngredient = await createIngredient("Active Dry Yeast", "Baking", Unit.g);
 
   const flour = await prisma.inventoryItem.create({
     data: {
+      ingredientId: flourIngredient.id,
       name: "All-Purpose Flour",
       sku: "FLR-001",
       category: "Dry Goods",
@@ -25,6 +53,7 @@ async function main() {
 
   const cheese = await prisma.inventoryItem.create({
     data: {
+      ingredientId: cheeseIngredient.id,
       name: "Mozzarella Cheese",
       sku: "CHZ-001",
       category: "Dairy",
@@ -41,7 +70,8 @@ async function main() {
 
   const chicken = await prisma.inventoryItem.create({
     data: {
-      name: "Chicken Breast",
+      ingredientId: byName.get("Chicken Boneless")!.id,
+      name: "Chicken Boneless",
       sku: "MT-001",
       category: "Meat",
       description: "Boneless skinless chicken breast",
@@ -57,6 +87,7 @@ async function main() {
 
   const rice = await prisma.inventoryItem.create({
     data: {
+      ingredientId: byName.get("Basmati Rice")!.id,
       name: "Basmati Rice",
       sku: "RCE-001",
       category: "Dry Goods",
@@ -73,6 +104,7 @@ async function main() {
 
   const tomatoes = await prisma.inventoryItem.create({
     data: {
+      ingredientId: tomatoesIngredient.id,
       name: "Fresh Tomatoes",
       sku: "VEG-001",
       category: "Produce",
@@ -89,7 +121,8 @@ async function main() {
 
   await prisma.inventoryItem.create({
     data: {
-      name: "Olive Oil",
+      ingredientId: byName.get("Oil")!.id,
+      name: "Oil",
       sku: "OIL-001",
       category: "Oils",
       description: "Extra virgin olive oil",
@@ -105,7 +138,8 @@ async function main() {
 
   await prisma.inventoryItem.create({
     data: {
-      name: "Sea Salt",
+      ingredientId: byName.get("Salt")!.id,
+      name: "Salt",
       sku: "SPC-001",
       category: "Spices",
       description: "Fine sea salt",
@@ -121,6 +155,7 @@ async function main() {
 
   await prisma.inventoryItem.create({
     data: {
+      ingredientId: yeastIngredient.id,
       name: "Active Dry Yeast",
       sku: "BAK-001",
       category: "Baking",
@@ -146,16 +181,19 @@ async function main() {
       ingredients: {
         create: [
           {
+            ingredientId: flourIngredient.id,
             inventoryItemId: flour.id,
             quantityRequired: 200,
             unit: Unit.g,
           },
           {
+            ingredientId: cheeseIngredient.id,
             inventoryItemId: cheese.id,
             quantityRequired: 100,
             unit: Unit.g,
           },
           {
+            ingredientId: tomatoesIngredient.id,
             inventoryItemId: tomatoes.id,
             quantityRequired: 50,
             unit: Unit.g,
@@ -176,16 +214,19 @@ async function main() {
       ingredients: {
         create: [
           {
+            ingredientId: byName.get("Chicken Boneless")!.id,
             inventoryItemId: chicken.id,
             quantityRequired: 500,
             unit: Unit.g,
           },
           {
+            ingredientId: byName.get("Basmati Rice")!.id,
             inventoryItemId: rice.id,
             quantityRequired: 200,
             unit: Unit.g,
           },
           {
+            ingredientId: tomatoesIngredient.id,
             inventoryItemId: tomatoes.id,
             quantityRequired: 100,
             unit: Unit.g,
