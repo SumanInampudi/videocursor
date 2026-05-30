@@ -11,6 +11,9 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        "servora-charcoal": "#2B2B2B",
+        "servora-yellow": "#F5A623",
+        "servora-red": "#DC2626",
       },
     },
   },
