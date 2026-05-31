@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { generateRecipeBarcode } from "@/lib/barcode";
 import { db } from "@/lib/db";
 import { recipeSchema } from "@/lib/validations";
 import { calculateAllYields } from "@/lib/yield";
@@ -88,6 +89,7 @@ export async function createRecipe(formData: FormData) {
       yieldQuantity: data.yieldQuantity,
       yieldUnit: data.yieldUnit,
       instructions: data.instructions || null,
+      barcode: generateRecipeBarcode(data.name),
       ingredients: {
         create: data.ingredients.map((ing) => ({
           ingredientId: ing.ingredientId,
@@ -162,12 +164,60 @@ export async function updateRecipe(id: string, formData: FormData) {
 }
 
 export async function deleteRecipe(id: string) {
-  await db.recipe.delete({ where: { id } });
+  const recipe = await db.recipe.findUnique({
+    where: { id },
+    select: { name: true },
+  });
+
+  if (!recipe) {
+    return { error: "Recipe not found" };
+  }
+
+  const activeOrders = await db.orderLineItem.count({
+    where: {
+      recipeId: id,
+      order: { status: { in: ["NEW", "PROCESSING", "READY"] } },
+    },
+  });
+
+  if (activeOrders > 0) {
+    return {
+      error: `Cannot delete "${recipe.name}": it is on ${activeOrders} open order line(s). Complete or cancel those orders first.`,
+    };
+  }
+
+  try {
+    await db.recipe.delete({ where: { id } });
+  } catch {
+    return { error: `Could not delete "${recipe.name}". Try again or contact support.` };
+  }
 
   revalidatePath("/recipes");
   revalidatePath("/");
   revalidatePath("/yield");
+  revalidatePath("/orders");
+  revalidatePath("/recipes/pricing");
   return { success: true };
+}
+
+/** Resolve a recipe from a scanned barcode (prefix 2). */
+export async function getRecipeByBarcode(barcode: string) {
+  const normalized = barcode.replace(/\D/g, "");
+  if (normalized.length < 8) return null;
+
+  return db.recipe.findFirst({
+    where: {
+      OR: [{ barcode: normalized }, { barcode: normalized.slice(0, 13) }],
+    },
+    select: {
+      id: true,
+      name: true,
+      salePrice: true,
+      barcode: true,
+      category: true,
+      yieldUnit: true,
+    },
+  });
 }
 
 export async function getYieldResults() {

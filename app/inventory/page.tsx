@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getInventoryCategories, getInventoryItems } from "@/app/actions/inventory";
+import {
+  getInventoryCategories,
+  getInventoryItems,
+  getInventorySummary,
+} from "@/app/actions/inventory";
 import { InventoryFilters } from "@/components/inventory/InventoryFilters";
+import { InventorySummary } from "@/components/inventory/InventorySummary";
 import { InventoryTable } from "@/components/inventory/InventoryTable";
 import { Button } from "@/components/ui/Button";
 
@@ -18,13 +23,14 @@ export default async function InventoryPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const [items, categories] = await Promise.all([
+  const [items, categories, summary] = await Promise.all([
     getInventoryItems({
       search: searchParams.search,
       category: searchParams.category,
       lowStockOnly: searchParams.lowStock === "true",
     }),
     getInventoryCategories(),
+    getInventorySummary(),
   ]);
 
   return (
@@ -36,10 +42,17 @@ export default async function InventoryPage({
             Manage stock with granular details — quantities, locations, suppliers, and more
           </p>
         </div>
-        <Link href="/inventory/new">
-          <Button>Add Item</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/inventory/purchases/new">
+            <Button variant="secondary">Record purchase</Button>
+          </Link>
+          <Link href="/inventory/new">
+            <Button>Add Item</Button>
+          </Link>
+        </div>
       </div>
+
+      <InventorySummary summary={summary} />
 
       <Suspense fallback={null}>
         <InventoryFilters categories={categories} />

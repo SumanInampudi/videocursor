@@ -3,7 +3,24 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { inventoryItemSchema } from "@/lib/validations";
-import { Unit } from "@prisma/client";
+import { Prisma, Unit } from "@prisma/client";
+
+async function recordCostHistory(
+  tx: Prisma.TransactionClient,
+  inventoryItemId: string,
+  costPerUnit: number,
+  previousCost: number | null,
+  note?: string
+) {
+  await tx.inventoryCostHistory.create({
+    data: {
+      inventoryItemId,
+      costPerUnit,
+      previousCost,
+      note: note ?? null,
+    },
+  });
+}
 
 export async function getInventoryItems(filters?: {
   search?: string;
@@ -66,24 +83,27 @@ export async function createInventoryItem(formData: FormData) {
   const data = parsed.data;
 
   try {
-    await db.inventoryItem.create({
-      data: {
-        name: data.name,
-        ingredientId: data.ingredientId || null,
-        sku: data.sku,
-        category: data.category,
-        description: data.description || null,
-        notes: data.notes || null,
-        quantity: data.quantity,
-        unit: data.unit as Unit,
-        reorderLevel: data.reorderLevel,
-        costPerUnit: data.costPerUnit,
-        supplier: data.supplier || null,
-        storageLocation: data.storageLocation || null,
-        expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
-        batchNumber: data.batchNumber || null,
-        isActive: data.isActive,
-      },
+    await db.$transaction(async (tx) => {
+      const item = await tx.inventoryItem.create({
+        data: {
+          name: data.name,
+          ingredientId: data.ingredientId || null,
+          sku: data.sku,
+          category: data.category,
+          description: data.description || null,
+          notes: data.notes || null,
+          quantity: data.quantity,
+          unit: data.unit as Unit,
+          reorderLevel: data.reorderLevel,
+          costPerUnit: data.costPerUnit,
+          supplier: data.supplier || null,
+          storageLocation: data.storageLocation || null,
+          expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+          batchNumber: data.batchNumber || null,
+          isActive: data.isActive,
+        },
+      });
+      await recordCostHistory(tx, item.id, data.costPerUnit, null, "Initial cost");
     });
   } catch {
     return { error: { sku: ["SKU already exists"] } };
@@ -110,31 +130,52 @@ export async function updateInventoryItem(id: string, formData: FormData) {
   const data = parsed.data;
 
   try {
-    await db.inventoryItem.update({
-      where: { id },
-      data: {
-        name: data.name,
-        ingredientId: data.ingredientId || null,
-        sku: data.sku,
-        category: data.category,
-        description: data.description || null,
-        notes: data.notes || null,
-        quantity: data.quantity,
-        unit: data.unit as Unit,
-        reorderLevel: data.reorderLevel,
-        costPerUnit: data.costPerUnit,
-        supplier: data.supplier || null,
-        storageLocation: data.storageLocation || null,
-        expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
-        batchNumber: data.batchNumber || null,
-        isActive: data.isActive,
-      },
+    const existing = await db.inventoryItem.findUnique({ where: { id } });
+    if (!existing) {
+      return { error: { name: ["Item not found"] } };
+    }
+
+    const previousCost = Number(existing.costPerUnit);
+    const costChanged = previousCost !== data.costPerUnit;
+
+    await db.$transaction(async (tx) => {
+      await tx.inventoryItem.update({
+        where: { id },
+        data: {
+          name: data.name,
+          ingredientId: data.ingredientId || null,
+          sku: data.sku,
+          category: data.category,
+          description: data.description || null,
+          notes: data.notes || null,
+          quantity: data.quantity,
+          unit: data.unit as Unit,
+          reorderLevel: data.reorderLevel,
+          costPerUnit: data.costPerUnit,
+          supplier: data.supplier || null,
+          storageLocation: data.storageLocation || null,
+          expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+          batchNumber: data.batchNumber || null,
+          isActive: data.isActive,
+        },
+      });
+
+      if (costChanged) {
+        await recordCostHistory(
+          tx,
+          id,
+          data.costPerUnit,
+          previousCost,
+          "Updated from inventory form"
+        );
+      }
     });
   } catch {
     return { error: { sku: ["SKU already exists"] } };
   }
 
   revalidatePath("/inventory");
+  revalidatePath(`/inventory/${id}/edit`);
   revalidatePath("/");
   revalidatePath("/yield");
   revalidatePath("/recipes");
@@ -159,26 +200,47 @@ export async function deleteInventoryItem(id: string) {
   return { success: true };
 }
 
-export async function getDashboardStats() {
-  const items = await db.inventoryItem.findMany({
-    where: { isActive: true },
-  });
+export async function getInventorySummary() {
+  const items = await db.inventoryItem.findMany();
+  const activeItems = items.filter((item) => item.isActive);
 
-  const lowStockCount = items.filter(
+  const lowStockCount = activeItems.filter(
     (item) => Number(item.quantity) <= Number(item.reorderLevel)
   ).length;
 
-  const totalValue = items.reduce(
+  const totalStockValue = activeItems.reduce(
     (sum, item) => sum + Number(item.quantity) * Number(item.costPerUnit),
     0
   );
 
-  const recipeCount = await db.recipe.count();
+  const openCredit = await db.inventoryPurchase.findMany({
+    where: { paymentStatus: { in: ["CREDIT", "PARTIAL"] } },
+    select: { totalAmount: true, amountPaid: true },
+  });
+  const creditPurchaseCount = openCredit.length;
+  const totalPayables = openCredit.reduce(
+    (sum, p) => sum + Math.max(0, Number(p.totalAmount) - Number(p.amountPaid)),
+    0
+  );
 
   return {
     totalItems: items.length,
+    activeItems: activeItems.length,
     lowStockCount,
-    totalValue,
+    totalStockValue,
+    totalPayables,
+    creditPurchaseCount,
+  };
+}
+
+export async function getDashboardStats() {
+  const summary = await getInventorySummary();
+  const recipeCount = await db.recipe.count();
+
+  return {
+    totalItems: summary.activeItems,
+    lowStockCount: summary.lowStockCount,
+    totalValue: summary.totalStockValue,
     recipeCount,
   };
 }

@@ -5,9 +5,14 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
+  { href: "/reports", label: "P&L Reports" },
+  { href: "/orders", label: "Orders" },
+  { href: "/expenses", label: "Expenses" },
   { href: "/ingredients", label: "Ingredients" },
   { href: "/inventory", label: "Inventory" },
+  { href: "/inventory/payables", label: "Supplier payables" },
   { href: "/recipes", label: "Recipes" },
+  { href: "/recipes/barcodes", label: "Recipe barcodes" },
   { href: "/yield", label: "Yield Calculator" },
 ];
 

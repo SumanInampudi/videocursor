@@ -17,11 +17,38 @@ enum Unit {
   lb
 }
 
+enum OrderStatus {
+  NEW
+  PROCESSING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  RENT
+  SALARIES
+  UTILITIES
+  SUPPLIES
+  MARKETING
+  EQUIPMENT
+  INSURANCE
+  MAINTENANCE
+  OTHER
+}
+
+enum PurchasePaymentStatus {
+  PAID
+  CREDIT
+  PARTIAL
+}
+
 model Ingredient {
   id             String   @id @default(cuid())
   name           String
   normalizedName String   @unique
   sku            String   @unique
+  barcode        String   @unique
   category       String
   defaultUnit    Unit
   aliases        String?  @db.Text
@@ -58,13 +85,31 @@ model InventoryItem {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  ingredient        Ingredient?         @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
-  recipeIngredients RecipeIngredient[]
+  ingredient         Ingredient?              @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  recipeIngredients  RecipeIngredient[]
+  costHistory        InventoryCostHistory[]
+  orderConsumptions  OrderLineConsumption[]
+  purchases          InventoryPurchase[]
 
   @@index([ingredientId])
   @@index([category])
   @@index([isActive])
   @@map("inventory_items")
+}
+
+model InventoryCostHistory {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  costPerUnit     Decimal  @db.Decimal(12, 4)
+  previousCost    Decimal? @db.Decimal(12, 4)
+  effectiveAt     DateTime @default(now())
+  note            String?
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId])
+  @@index([effectiveAt])
+  @@map("inventory_cost_history")
 }
 
 model Recipe {
@@ -75,10 +120,13 @@ model Recipe {
   yieldQuantity Decimal  @db.Decimal(12, 4)
   yieldUnit     String
   instructions  String?  @db.Text
+  salePrice     Decimal? @db.Decimal(12, 4)
+  barcode       String   @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  ingredients RecipeIngredient[]
+  ingredients   RecipeIngredient[]
+  orderLineItems OrderLineItem[]
 
   @@index([category])
   @@map("recipes")
@@ -100,4 +148,100 @@ model RecipeIngredient {
   @@index([ingredientId])
   @@index([inventoryItemId])
   @@map("recipe_ingredients")
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique
+  customerName String?
+  notes        String?     @db.Text
+  status       OrderStatus @default(NEW)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  processedAt  DateTime?
+  readyAt      DateTime?
+  deliveredAt  DateTime?
+
+  lineItems OrderLineItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderLineItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  recipeId        String?
+  recipeName      String
+  quantity        Int
+  unitSalePrice   Decimal  @db.Decimal(12, 4)
+  ingredientCost  Decimal? @db.Decimal(12, 4)
+  revenue         Decimal? @db.Decimal(12, 4)
+  profit          Decimal? @db.Decimal(12, 4)
+  processedAt     DateTime?
+
+  order        Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  recipe       Recipe?                @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  consumptions OrderLineConsumption[]
+
+  @@index([orderId])
+  @@index([recipeId])
+  @@map("order_line_items")
+}
+
+model OrderLineConsumption {
+  id               String  @id @default(cuid())
+  orderLineItemId  String
+  inventoryItemId  String
+  quantityDeducted Decimal @db.Decimal(12, 4)
+  unit             Unit
+  costPerUnit      Decimal @db.Decimal(12, 4)
+  lineCost         Decimal @db.Decimal(12, 4)
+
+  orderLineItem OrderLineItem @relation(fields: [orderLineItemId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([orderLineItemId])
+  @@index([inventoryItemId])
+  @@map("order_line_consumptions")
+}
+
+model InventoryPurchase {
+  id              String                @id @default(cuid())
+  inventoryItemId String?
+  description     String
+  supplier        String?
+  totalAmount     Decimal               @db.Decimal(12, 4)
+  amountPaid      Decimal               @default(0) @db.Decimal(12, 4)
+  paymentStatus   PurchasePaymentStatus @default(PAID)
+  purchaseDate    DateTime              @db.Date
+  dueDate         DateTime?             @db.Date
+  notes           String?               @db.Text
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+
+  @@index([inventoryItemId])
+  @@index([paymentStatus])
+  @@index([purchaseDate])
+  @@map("inventory_purchases")
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  category    ExpenseCategory
+  description String
+  amount      Decimal         @db.Decimal(12, 4)
+  periodMonth String          @db.VarChar(7)
+  expenseDate DateTime?       @db.Date
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([periodMonth])
+  @@index([expenseDate])
+  @@index([category])
+  @@map("expenses")
 }

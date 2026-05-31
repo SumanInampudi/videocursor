@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { formatBarcodeDisplay } from "@/lib/barcode";
 import { UNITS } from "@/lib/units";
 import { Ingredient, InventoryItem } from "@prisma/client";
 
@@ -60,6 +61,7 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
           <tr>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Ingredient</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">SKU</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Barcode</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Category</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Unit</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Inventory Links</th>
@@ -74,7 +76,7 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
             if (isEditing) {
               return (
                 <tr key={ingredient.id} className="bg-yellow-50/40 align-top">
-                  <td colSpan={7} className="px-4 py-4">
+                  <td colSpan={8} className="px-4 py-4">
                     <form action={(formData) => saveIngredient(ingredient.id, formData)}>
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_150px_180px_100px_1fr_120px]">
                         <Input
@@ -144,6 +146,9 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
                   {ingredient.aliases && <div className="text-xs text-gray-500">{ingredient.aliases}</div>}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{ingredient.sku}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                  {formatBarcodeDisplay(ingredient.barcode)}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{ingredient.category}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{ingredient.defaultUnit}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{ingredient.inventoryItems.length}</td>

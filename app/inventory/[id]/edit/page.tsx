@@ -1,6 +1,7 @@
 import { getActiveIngredientsForRecipes } from "@/app/actions/recipes";
 import { notFound } from "next/navigation";
 import { getInventoryItem, updateInventoryItem } from "@/app/actions/inventory";
+import { CostHistoryPanel } from "@/components/inventory/CostHistoryPanel";
 import { InventoryForm } from "@/components/inventory/InventoryForm";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export default async function EditInventoryPage({ params }: Props) {
         }}
         submitLabel="Update Item"
       />
+      <CostHistoryPanel inventoryItemId={params.id} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { PrismaClient, Unit } from "@prisma/client";
+import { generateIngredientBarcode, generateRecipeBarcode } from "../lib/barcode";
 import { STARTER_INGREDIENTS, ingredientSkuPrefix, normalizeIngredientName } from "../lib/ingredients";
 
 const prisma = new PrismaClient();
@@ -9,6 +10,7 @@ async function createIngredient(name: string, category: string, defaultUnit: Uni
       name,
       normalizedName: normalizeIngredientName(name),
       sku: `${ingredientSkuPrefix(name)}-001`,
+      barcode: generateIngredientBarcode(name),
       category,
       defaultUnit,
       isActive: true,
@@ -17,6 +19,10 @@ async function createIngredient(name: string, category: string, defaultUnit: Uni
 }
 
 async function main() {
+  await prisma.orderLineConsumption.deleteMany();
+  await prisma.orderLineItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.inventoryCostHistory.deleteMany();
   await prisma.recipeIngredient.deleteMany();
   await prisma.recipe.deleteMany();
   await prisma.inventoryItem.deleteMany();
@@ -177,6 +183,8 @@ async function main() {
       category: "Pizza",
       yieldQuantity: 1,
       yieldUnit: "pizza",
+      salePrice: 12.99,
+      barcode: generateRecipeBarcode("Margherita Pizza"),
       instructions: "Prepare dough, add sauce, cheese, and bake at 450°F for 12 minutes.",
       ingredients: {
         create: [
@@ -210,6 +218,8 @@ async function main() {
       category: "Curry",
       yieldQuantity: 4,
       yieldUnit: "portions",
+      salePrice: 18.5,
+      barcode: generateRecipeBarcode("Chicken Curry"),
       instructions: "Cook chicken with spices, serve over rice.",
       ingredients: {
         create: [

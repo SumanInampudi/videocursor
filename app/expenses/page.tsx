@@ -1,0 +1,85 @@
+import Link from "next/link";
+import { getExpensesGroupedByMonth } from "@/app/actions/expenses";
+import { getProfitLossSummary } from "@/app/actions/finance";
+import { ExpenseTable } from "@/components/expenses/ExpenseTable";
+import { Button } from "@/components/ui/Button";
+import {
+  currentPeriodMonth,
+  formatPeriodMonthLabel,
+  parsePeriodMonth,
+  periodMonthToDateRange,
+  toDateInputValue,
+} from "@/lib/dates";
+import { formatCurrency } from "@/lib/units";
+
+export const dynamic = "force-dynamic";
+
+type SearchParams = {
+  month?: string;
+};
+
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const periodMonth = parsePeriodMonth(searchParams.month) ?? currentPeriodMonth();
+  const { from, to } = periodMonthToDateRange(periodMonth);
+
+  const [{ expenses, total }, periodSummary] = await Promise.all([
+    getExpensesGroupedByMonth(periodMonth),
+    getProfitLossSummary(toDateInputValue(from), toDateInputValue(to)),
+  ]);
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-servora-charcoal">Expenses</h1>
+          <p className="text-sm text-gray-500">
+            Operating costs by accounting month (rent, salaries, etc.). Each expense
+            counts toward P&amp;L in its assigned month, regardless of payment date.
+          </p>
+        </div>
+        <Link href={`/expenses/new?month=${periodMonth}`}>
+          <Button>Add expense</Button>
+        </Link>
+      </div>
+
+      <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+        <p className="text-gray-600">
+          <span className="font-semibold text-servora-charcoal">
+            {formatPeriodMonthLabel(periodMonth)}
+          </span>{" "}
+          expenses: {formatCurrency(total)} · P&amp;L operating expenses for this month:{" "}
+          <span className="font-semibold">{formatCurrency(periodSummary.operatingExpenses)}</span>
+        </p>
+        <Link href="/" className="mt-1 inline-block text-servora-yellow hover:underline">
+          View full P&amp;L on dashboard →
+        </Link>
+      </div>
+
+      <form
+        method="get"
+        action="/expenses"
+        className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4"
+      >
+        <div>
+          <label htmlFor="month" className="mb-1 block text-xs font-medium text-gray-500">
+            Accounting month
+          </label>
+          <input
+            id="month"
+            name="month"
+            type="month"
+            defaultValue={periodMonth}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <Button type="submit">View month</Button>
+      </form>
+
+      <ExpenseTable expenses={expenses} />
+    </div>
+  );
+}

@@ -1,132 +1,88 @@
 import Link from "next/link";
-import { getDashboardStats, getInventoryItems } from "@/app/actions/inventory";
-import { getYieldResults } from "@/app/actions/recipes";
+import { Suspense } from "react";
+import { getDailyProfitHistory, getProfitLossSummary } from "@/app/actions/finance";
+import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
+import { ProfitHistoryTable } from "@/components/dashboard/ProfitHistoryTable";
+import { ProfitLossPanel } from "@/components/dashboard/ProfitLossPanel";
 import { Button } from "@/components/ui/Button";
-import { YieldCard } from "@/components/yield/YieldCard";
-import { formatCurrency } from "@/lib/units";
+import {
+  defaultReportDateRange,
+  endOfDay,
+  parseDateParam,
+  startOfDay,
+  toDateInputValue,
+} from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
-  const [stats, lowStockItems, yieldResults] = await Promise.all([
-    getDashboardStats(),
-    getInventoryItems({ lowStockOnly: true }),
-    getYieldResults(),
+type SearchParams = {
+  from?: string;
+  to?: string;
+};
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const defaults = defaultReportDateRange();
+  const today = new Date();
+  const from = toDateInputValue(
+    startOfDay(parseDateParam(searchParams.from, new Date(defaults.from)))
+  );
+  const to = toDateInputValue(
+    endOfDay(parseDateParam(searchParams.to, parseDateParam(searchParams.from, today)))
+  );
+
+  const [summary, history] = await Promise.all([
+    getProfitLossSummary(from, to),
+    getDailyProfitHistory(30),
   ]);
 
-  const topYields = yieldResults.filter((r) => r.canMake).slice(0, 3);
+  const isCurrentMonth =
+    from === defaults.from && to === defaults.to && !searchParams.from && !searchParams.to;
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-servora-charcoal">Dashboard</h1>
           <p className="text-sm text-gray-500">
-            Overview of your inventory and recipe production capacity
+            {isCurrentMonth
+              ? "This month: delivered order profit minus operating expenses for matching accounting months"
+              : "Profit & margins for the selected date range"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/inventory/new">
-            <Button>Add Inventory</Button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/orders/new">
+            <Button>Place order</Button>
           </Link>
-          <Link href="/recipes/new">
-            <Button variant="secondary">Add Recipe</Button>
+          <Link href="/expenses/new">
+            <Button variant="secondary">Add expense</Button>
           </Link>
         </div>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active Items" value={String(stats.totalItems)} />
-        <StatCard
-          label="Low Stock Items"
-          value={String(stats.lowStockCount)}
-          highlight={stats.lowStockCount > 0 ? "danger" : undefined}
-        />
-        <StatCard label="Total Inventory Value" value={formatCurrency(stats.totalValue)} />
-        <StatCard label="Recipes" value={String(stats.recipeCount)} />
-      </div>
+      <Suspense fallback={<div className="mb-6 h-16 animate-pulse rounded-lg bg-gray-100" />}>
+        <div className="mb-6">
+          <DateRangePicker from={from} to={to} actionPath="/" />
+        </div>
+      </Suspense>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-servora-charcoal">
-              What Can You Make?
-            </h2>
-            <Link href="/yield" className="text-sm text-servora-yellow hover:underline">
-              View all →
-            </Link>
-          </div>
-          {topYields.length > 0 ? (
-            <div className="space-y-3">
-              {topYields.map((result, index) => (
-                <YieldCard key={result.recipeId} result={result} rank={index + 1} />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">
-              No recipes can be made with current stock. Add inventory or create recipes.
-            </div>
-          )}
-        </section>
+      <ProfitLossPanel summary={summary} />
 
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-servora-charcoal">Low Stock Alerts</h2>
-            <Link href="/inventory?lowStock=true" className="text-sm text-servora-red hover:underline">
-              View all →
-            </Link>
-          </div>
-          {lowStockItems.length > 0 ? (
-            <div className="rounded-lg border border-servora-red/30 bg-red-50">
-              <ul className="divide-y divide-red-100">
-                {lowStockItems.slice(0, 5).map((item) => (
-                  <li key={item.id} className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <p className="font-medium text-servora-charcoal">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.sku}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-servora-red">
-                        {Number(item.quantity)} {item.unit}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Reorder at {Number(item.reorderLevel)} {item.unit}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">
-              All items are above reorder levels.
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: "danger";
-}) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p
-        className={`mt-1 text-2xl font-bold ${
-          highlight === "danger" ? "text-servora-red" : "text-servora-charcoal"
-        }`}
-      >
-        {value}
-      </p>
+      <section className="mt-10">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-servora-charcoal">Daily history</h2>
+          <Link href="/reports" className="text-sm text-servora-yellow hover:underline">
+            Full reports →
+          </Link>
+        </div>
+        <p className="mb-3 text-xs text-gray-500">
+          Monthly expenses appear on the first day of their accounting month in this table.
+        </p>
+        <ProfitHistoryTable rows={history} />
+      </section>
     </div>
   );
 }

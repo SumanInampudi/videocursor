@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { generateIngredientBarcode } from "@/lib/barcode";
 import {
   STARTER_INGREDIENTS,
   ingredientSkuPrefix,
@@ -63,6 +64,7 @@ async function createIngredientFromName(name: string, category = "General", defa
       name: name.trim(),
       normalizedName,
       sku: await nextIngredientSku(name),
+      barcode: generateIngredientBarcode(name),
       category,
       defaultUnit,
       isActive: true,
@@ -86,6 +88,7 @@ export async function getIngredients(filters?: { search?: string; category?: str
       (ingredient) =>
         ingredient.name.toLowerCase().includes(search) ||
         ingredient.sku.toLowerCase().includes(search) ||
+        ingredient.barcode.includes(search.replace(/\D/g, "")) ||
         ingredient.category.toLowerCase().includes(search) ||
         ingredient.aliases?.toLowerCase().includes(search)
     );
@@ -142,6 +145,7 @@ export async function createIngredient(formData: FormData): Promise<IngredientRe
         name: data.name,
         normalizedName,
         sku,
+        barcode: generateIngredientBarcode(data.name),
         category: data.category,
         defaultUnit: data.defaultUnit as Unit,
         aliases: data.aliases || null,
@@ -255,6 +259,27 @@ export async function bulkCreateIngredients(formData: FormData): Promise<Ingredi
   revalidatePath("/ingredients");
   revalidatePath("/recipes");
   return { success: true, created, skipped };
+}
+
+/** Resolve an ingredient from a scanned barcode (prefix 3). */
+export async function getIngredientByBarcode(barcode: string) {
+  const normalized = barcode.replace(/\D/g, "");
+  if (normalized.length < 8) return null;
+
+  return db.ingredient.findFirst({
+    where: {
+      OR: [{ barcode: normalized }, { barcode: normalized.slice(0, 13) }],
+    },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      barcode: true,
+      category: true,
+      defaultUnit: true,
+      isActive: true,
+    },
+  });
 }
 
 export async function seedStarterIngredients(): Promise<IngredientResult> {

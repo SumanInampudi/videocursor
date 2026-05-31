@@ -29,7 +29,11 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
     if (!confirm(`Delete recipe "${name}"?`)) return;
 
     startTransition(async () => {
-      await deleteRecipe(id);
+      const result = await deleteRecipe(id);
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
       router.refresh();
     });
   }

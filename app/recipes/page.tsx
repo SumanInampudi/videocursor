@@ -17,9 +17,17 @@ export default async function RecipesPage() {
             Define bill of materials (BOM) to calculate how much food you can make
           </p>
         </div>
-        <Link href="/recipes/new">
-          <Button>Add Recipe</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/recipes/barcodes">
+            <Button variant="secondary">Barcodes</Button>
+          </Link>
+          <Link href="/recipes/pricing">
+            <Button variant="secondary">Pricing</Button>
+          </Link>
+          <Link href="/recipes/new">
+            <Button>Add Recipe</Button>
+          </Link>
+        </div>
       </div>
 
       <RecipeTable recipes={recipes} />

@@ -8,6 +8,10 @@ Smart inventory management for food service — track granular stock details and
 - **Recipe BOMs** — Define recipes with ingredient quantities linked to inventory items
 - **Yield Calculator** — Automatically compute max producible yield and identify bottleneck ingredients
 - **Low Stock Alerts** — Red badges when quantity falls at or below reorder level
+- **Orders** — Place orders, kanban dashboard (new → processing → ready → delivered), inventory deduction on fulfill
+- **Recipe pricing & profit** — Sale prices, estimated margins from inventory cost, locked COGS on fulfillment
+- **Recipe barcodes** — EAN-13-style barcode per recipe on the pricing page
+- **Inventory cost history** — Audit trail when cost per unit changes
 - **Servora Branding** — Professional white UI with yellow accents and red alerts
 
 ## Tech Stack
@@ -103,6 +107,11 @@ Open [http://localhost:3000](http://localhost:3000).
 | `/recipes/new` | Create recipe with BOM ingredients |
 | `/recipes/[id]/edit` | Edit recipe |
 | `/yield` | Full yield calculator — what can you make today? |
+| `/orders` | Order kanban dashboard |
+| `/orders/new` | Place a new order |
+| `/orders/[id]` | Order detail, profit breakdown, inventory deductions |
+| `/orders/costing` | Guide: inventory pricing, history, and order profit |
+| `/recipes/pricing` | Sale prices, margins, barcodes |
 
 ## Yield Calculation
 
