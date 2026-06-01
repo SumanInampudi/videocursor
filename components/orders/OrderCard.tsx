@@ -3,8 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { deleteOrder, updateOrderStatus } from "@/app/actions/orders";
+import {
+  deleteOrder,
+  getOrderFulfillmentPreview,
+  updateOrderStatus,
+} from "@/app/actions/orders";
 import { Button } from "@/components/ui/Button";
+import { confirmAction, useToast } from "@/components/ui/Toast";
+import { formatDateTimeIST } from "@/lib/format";
 import { formatCurrency } from "@/lib/units";
 import { OrderStatus } from "@prisma/client";
 
@@ -31,6 +37,7 @@ type OrderCardProps = {
 export function OrderCard({ order, nextAction }: OrderCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { success, error: toastError } = useToast();
 
   const total = order.lineItems.reduce(
     (sum, line) => sum + Number(line.unitSalePrice) * line.quantity,
@@ -39,13 +46,51 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
 
   function handleAdvance() {
     if (!nextAction) return;
+
+    const needsStockCheck =
+      nextAction.status === OrderStatus.READY && order.status === OrderStatus.PROCESSING;
+
     startTransition(async () => {
+      if (needsStockCheck) {
+        const preview = await getOrderFulfillmentPreview(order.id);
+        if (preview.error) {
+          toastError(preview.error);
+          return;
+        }
+        if (!preview.ok && preview.issues?.length) {
+          const proceed = confirmAction(
+            `Stock issues:\n${preview.issues.join("\n")}\n\nMark ready anyway?`
+          );
+          if (!proceed) return;
+        }
+      }
+
       const result = await updateOrderStatus(order.id, nextAction.status);
       if (result.error) {
-        alert(result.error);
+        toastError(result.error);
         return;
       }
+      success(`Order ${order.orderNumber} → ${nextAction.status}`);
       router.refresh();
+    });
+  }
+
+  function handleDelete() {
+    if (
+      !confirmAction(
+        `Delete order ${order.orderNumber}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await deleteOrder(order.id);
+      if (result.success) {
+        success(result.message ?? "Order deleted");
+        router.refresh();
+      } else {
+        toastError(result.message ?? "Failed to delete order");
+      }
     });
   }
 
@@ -76,12 +121,12 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
         ))}
       </ul>
 
-      <p className="mb-3 text-xs text-gray-400">
-        {new Date(order.createdAt).toLocaleString()}
+      <p className="mb-3 text-xs text-gray-400" title="IST">
+        {formatDateTimeIST(order.createdAt)}
       </p>
 
-      <div className="flex gap-2">
-        <Link href={`/orders/${order.id}`} className="flex-1">
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/orders/${order.id}`} className="flex-1 min-w-[80px]">
           <Button variant="ghost" className="w-full text-xs">
             Details
           </Button>
@@ -89,20 +134,14 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
         <Button
           variant="danger"
           className="text-xs"
-          onClick={async () => {
-            const result = await deleteOrder(order.id);
-            if (result.success) {
-              router.refresh();
-            } else {
-              alert(result.message);
-            }
-          }}
+          disabled={isPending}
+          onClick={handleDelete}
         >
           Delete
         </Button>
         {nextAction && (
           <Button
-            className="flex-1 text-xs"
+            className="flex-1 min-w-[80px] text-xs"
             disabled={isPending}
             onClick={handleAdvance}
           >

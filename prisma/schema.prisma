@@ -245,3 +245,16 @@ model Expense {
   @@index([category])
   @@map("expenses")
 }
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  details   String?  @db.Text
+  actorRole String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, createdAt])
+  @@map("audit_logs")
+}

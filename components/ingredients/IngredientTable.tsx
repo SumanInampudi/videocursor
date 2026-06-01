@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateIngredient } from "@/app/actions/ingredients";
+import { CreateStockButton } from "@/components/ingredients/CreateStockButton";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -157,7 +158,11 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
                     {ingredient.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right space-x-1">
+                  <CreateStockButton
+                    ingredientId={ingredient.id}
+                    hasStock={ingredient.inventoryItems.length > 0}
+                  />
                   <Button
                     type="button"
                     variant="ghost"

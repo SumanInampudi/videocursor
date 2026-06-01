@@ -18,3 +18,15 @@ body {
     text-wrap: balance;
   }
 }
+
+@media print {
+  aside,
+  header,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}

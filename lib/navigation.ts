@@ -10,14 +10,12 @@ export type NavRole = (typeof NAV_ROLES)[number];
 export type NavItem = {
   href: string;
   label: string;
-  /** If set, item is only shown when the user has one of these roles. */
   roles?: NavRole[];
 };
 
 export type NavSection = {
   id: string;
   label: string;
-  /** If set, entire section is hidden unless the user has one of these roles. */
   roles?: NavRole[];
   items: NavItem[];
 };
@@ -28,7 +26,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Overview",
     items: [
       { href: "/", label: "Dashboard" },
-      { href: "/reports", label: "P&L Reports" },
+      { href: "/reports", label: "P&L Reports", roles: ["owner", "manager", "viewer"] },
     ],
   },
   {
@@ -36,6 +34,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Operations",
     items: [
       { href: "/orders", label: "Orders" },
+      { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] },
       { href: "/yield", label: "Yield Calculator" },
     ],
   },
@@ -44,10 +43,8 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Catalog",
     items: [
       { href: "/ingredients", label: "Ingredients" },
-      { href: "/ingredients/barcodes", label: "Ingredient barcodes" },
       { href: "/recipes", label: "Recipes" },
-      { href: "/recipes/pricing", label: "Recipe pricing" },
-      { href: "/recipes/barcodes", label: "Recipe barcodes" },
+      { href: "/recipes/pricing", label: "Recipe pricing", roles: ["owner", "manager"] },
     ],
   },
   {
@@ -55,22 +52,25 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Inventory",
     items: [
       { href: "/inventory", label: "Stock" },
-      { href: "/inventory/payables", label: "Supplier payables" },
+      { href: "/inventory/payables", label: "Supplier payables", roles: ["owner", "manager"] },
     ],
   },
   {
     id: "finance",
     label: "Finance",
-    items: [{ href: "/expenses", label: "Expenses" }],
-  },
-  {
-    id: "administration",
-    label: "Administration",
-    roles: ["owner"],
+    roles: ["owner", "manager", "viewer"],
     items: [
-      // Future: { href: "/admin/users", label: "Users & roles", roles: ["owner"] },
+      { href: "/expenses", label: "Expenses" },
+      { href: "/admin/audit", label: "Audit log", roles: ["owner"] },
     ],
   },
+];
+
+export const DASHBOARD_QUICK_ACTIONS = [
+  { href: "/orders/new", label: "Place order", roles: ["owner", "manager", "kitchen"] as NavRole[] },
+  { href: "/inventory/purchases/new", label: "Record purchase", roles: ["owner", "manager"] as NavRole[] },
+  { href: "/expenses/new", label: "Add expense", roles: ["owner", "manager"] as NavRole[] },
+  { href: "/ingredients/barcodes", label: "Print barcodes", roles: ["owner", "manager"] as NavRole[] },
 ];
 
 function canAccess(allowedRoles: NavRole[] | undefined, userRoles: NavRole[] | null): boolean {
@@ -84,12 +84,14 @@ export function getVisibleNavSections(userRoles: NavRole[] | null = null): NavSe
     ...section,
     items: section.items.filter((item) => canAccess(item.roles, userRoles)),
   })).filter(
-    (section) =>
-      canAccess(section.roles, userRoles) && section.items.length > 0
+    (section) => canAccess(section.roles, userRoles) && section.items.length > 0
   );
 }
 
-/** Longest matching href wins (avoids /ingredients highlighting on /ingredients/barcodes). */
+export function getVisibleQuickActions(userRoles: NavRole[] | null = null) {
+  return DASHBOARD_QUICK_ACTIONS.filter((item) => canAccess(item.roles, userRoles));
+}
+
 export function getActiveNavHref(pathname: string, sections: NavSection[]): string | null {
   const hrefs = sections.flatMap((s) => s.items.map((i) => i.href));
   const matches = hrefs.filter((href) =>

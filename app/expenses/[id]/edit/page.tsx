@@ -5,13 +5,14 @@ import { ExpenseForm } from "@/components/expenses/ExpenseForm";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { id: string } };
+type Props = { params: Promise<{ id: string }> };
 
 export default async function EditExpensePage({ params }: Props) {
-  const expense = await getExpense(params.id);
+  const { id } = await params;
+  const expense = await getExpense(id);
   if (!expense) notFound();
 
-  const action = updateExpense.bind(null, params.id);
+  const action = updateExpense.bind(null, id);
 
   return (
     <div>

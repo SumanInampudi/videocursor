@@ -7,18 +7,19 @@ import { InventoryForm } from "@/components/inventory/InventoryForm";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function EditInventoryPage({ params }: Props) {
+  const { id } = await params;
   const [item, ingredients] = await Promise.all([
-    getInventoryItem(params.id),
+    getInventoryItem(id),
     getActiveIngredientsForRecipes(),
   ]);
 
   if (!item) notFound();
 
-  const updateAction = updateInventoryItem.bind(null, params.id);
+  const updateAction = updateInventoryItem.bind(null, id);
 
   return (
     <div>
@@ -48,7 +49,7 @@ export default async function EditInventoryPage({ params }: Props) {
         }}
         submitLabel="Update Item"
       />
-      <CostHistoryPanel inventoryItemId={params.id} />
+      <CostHistoryPanel inventoryItemId={id} />
     </div>
   );
 }

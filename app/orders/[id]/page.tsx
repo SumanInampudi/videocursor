@@ -6,11 +6,12 @@ import { OrderDetail } from "@/components/orders/OrderDetail";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function OrderDetailPage({ params }: Props) {
-  const order = await getOrder(params.id);
+  const { id } = await params;
+  const order = await getOrder(id);
   if (!order) notFound();
 
   return (

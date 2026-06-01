@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getOrderDashboardStats, getOrdersByStatus } from "@/app/actions/orders";
-import { OrderBoard } from "@/components/orders/OrderBoard";
+import { OrderBoardWithFilters } from "@/components/orders/OrderBoardWithFilters";
 import { Button } from "@/components/ui/Button";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export default async function OrdersPage() {
         <Stat label="Delivered today" value={stats.deliveredToday} />
       </div>
 
-      <OrderBoard grouped={grouped} />
+      <OrderBoardWithFilters grouped={grouped} />
     </div>
   );
 }

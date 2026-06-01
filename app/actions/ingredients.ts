@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { serializeForClient } from "@/lib/serialize";
 import { generateIngredientBarcode } from "@/lib/barcode";
 import {
   STARTER_INGREDIENTS,
@@ -10,20 +11,6 @@ import {
 } from "@/lib/ingredients";
 import { ingredientSchema } from "@/lib/validations";
 import { Unit } from "@prisma/client";
-
-/** Prisma Decimal values cannot cross the Server → Client boundary. */
-function serializeForClient<T>(value: T): T {
-  return JSON.parse(
-    JSON.stringify(value, (_key, v) =>
-      typeof v === "object" &&
-      v !== null &&
-      "toNumber" in v &&
-      typeof (v as { toNumber: () => number }).toNumber === "function"
-        ? (v as { toNumber: () => number }).toNumber()
-        : v
-    )
-  ) as T;
-}
 
 type IngredientResult = {
   error?: Record<string, string[]>;
@@ -276,6 +263,16 @@ export async function bulkCreateIngredients(formData: FormData): Promise<Ingredi
 }
 
 /** Resolve an ingredient from a scanned barcode (prefix 3). */
+export async function getInventoryItemForIngredientBarcode(barcode: string) {
+  const ingredient = await getIngredientByBarcode(barcode);
+  if (!ingredient) return null;
+
+  return db.inventoryItem.findFirst({
+    where: { ingredientId: ingredient.id },
+    select: { id: true, name: true, sku: true, supplier: true },
+  });
+}
+
 export async function getIngredientByBarcode(barcode: string) {
   const normalized = barcode.replace(/\D/g, "");
   if (normalized.length < 8) return null;
@@ -294,6 +291,39 @@ export async function getIngredientByBarcode(barcode: string) {
       isActive: true,
     },
   });
+}
+
+export async function createInventoryFromIngredient(ingredientId: string) {
+  const ingredient = await db.ingredient.findUnique({ where: { id: ingredientId } });
+  if (!ingredient) {
+    return { error: "Ingredient not found" };
+  }
+
+  const existing = await db.inventoryItem.findFirst({
+    where: { ingredientId },
+    select: { id: true },
+  });
+  if (existing) {
+    return { error: "Stock item already linked", itemId: existing.id };
+  }
+
+  const item = await db.inventoryItem.create({
+    data: {
+      ingredientId,
+      name: ingredient.name,
+      sku: `${ingredient.sku}-STK`,
+      category: ingredient.category,
+      quantity: 0,
+      unit: ingredient.defaultUnit,
+      reorderLevel: 0,
+      costPerUnit: 0,
+      isActive: true,
+    },
+  });
+
+  revalidatePath("/ingredients");
+  revalidatePath("/inventory");
+  return { success: true, itemId: item.id };
 }
 
 export async function seedStarterIngredients(): Promise<IngredientResult> {

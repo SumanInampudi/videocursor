@@ -3,10 +3,11 @@ import { createExpense } from "@/app/actions/expenses";
 import { ExpenseForm } from "@/components/expenses/ExpenseForm";
 import { currentPeriodMonth, parsePeriodMonth } from "@/lib/dates";
 
-type Props = { searchParams: { month?: string } };
+type Props = { searchParams: Promise<{ month?: string }> };
 
-export default function NewExpensePage({ searchParams }: Props) {
-  const periodMonth = parsePeriodMonth(searchParams.month) ?? currentPeriodMonth();
+export default async function NewExpensePage({ searchParams }: Props) {
+  const params = await searchParams;
+  const periodMonth = parsePeriodMonth(params.month) ?? currentPeriodMonth();
 
   return (
     <div>

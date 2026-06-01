@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { serializeForClient } from "@/lib/serialize";
 import { inventoryItemSchema } from "@/lib/validations";
 import { Prisma, Unit } from "@prisma/client";
 
@@ -53,7 +54,7 @@ export async function getInventoryItems(filters?: {
     );
   }
 
-  return filtered;
+  return serializeForClient(filtered);
 }
 
 export async function getInventoryCategories() {
@@ -66,7 +67,8 @@ export async function getInventoryCategories() {
 }
 
 export async function getInventoryItem(id: string) {
-  return db.inventoryItem.findUnique({ where: { id } });
+  const item = await db.inventoryItem.findUnique({ where: { id } });
+  return item ? serializeForClient(item) : null;
 }
 
 export async function createInventoryItem(formData: FormData) {

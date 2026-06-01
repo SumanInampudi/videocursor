@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { updateOrderStatus } from "@/app/actions/orders";
+import { formatDateTimeIST } from "@/lib/format";
 import { RecipeBarcode } from "@/components/recipes/RecipeBarcode";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { formatCurrency, formatQuantity } from "@/lib/units";
 import { OrderStatus } from "@prisma/client";
 
@@ -55,6 +57,7 @@ const NEXT: Partial<Record<OrderStatus, { label: string; status: OrderStatus }>>
 
 export function OrderDetail({ order }: OrderDetailProps) {
   const router = useRouter();
+  const { error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const totalRevenue = order.lineItems.reduce(
@@ -77,7 +80,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
     if (!next) return;
     startTransition(async () => {
       const result = await updateOrderStatus(order.id, next.status);
-      if (result.error) alert(result.error);
+      if (result.error) toastError(result.error);
       router.refresh();
     });
   }
@@ -94,11 +97,16 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
           </div>
         </div>
-        {next && (
-          <Button disabled={isPending} onClick={advance}>
-            {next.label}
+        <div className="flex flex-wrap gap-2 no-print">
+          <Button type="button" variant="secondary" onClick={() => window.print()}>
+            Print kitchen ticket
           </Button>
-        )}
+          {next && (
+            <Button disabled={isPending} onClick={advance}>
+              {next.label}
+            </Button>
+          )}
+        </div>
       </div>
 
       {order.notes && (

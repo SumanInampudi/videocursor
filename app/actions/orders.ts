@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { serializeForClient } from "@/lib/serialize";
 import { planInventoryDeductions } from "@/lib/orderFulfillment";
 import { createOrderSchema } from "@/lib/validations";
 import { OrderStatus, Prisma } from "@prisma/client";
@@ -55,11 +57,11 @@ export async function getOrdersByStatus() {
     grouped[order.status].push(order);
   }
 
-  return grouped;
+  return serializeForClient(grouped);
 }
 
 export async function getOrder(id: string) {
-  return db.order.findUnique({
+  const order = await db.order.findUnique({
     where: { id },
     include: {
       lineItems: {
@@ -72,10 +74,12 @@ export async function getOrder(id: string) {
       },
     },
   });
+
+  return order ? serializeForClient(order) : null;
 }
 
 export async function getRecipesForOrdering() {
-  return db.recipe.findMany({
+  const recipes = await db.recipe.findMany({
     select: {
       id: true,
       name: true,
@@ -87,6 +91,7 @@ export async function getRecipesForOrdering() {
     },
     orderBy: { name: "asc" },
   });
+  return serializeForClient(recipes);
 }
 
 export async function createOrder(formData: FormData) {
@@ -166,6 +171,45 @@ const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 };
 
+/** Preview stock impact before marking processing → ready. */
+export async function getOrderFulfillmentPreview(orderId: string) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: {
+      lineItems: {
+        include: {
+          recipe: {
+            include: {
+              ingredients: {
+                include: {
+                  ingredient: { include: { inventoryItems: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!order) return { error: "Order not found" };
+
+  const issues: string[] = [];
+  for (const line of order.lineItems) {
+    if (line.processedAt) continue;
+    if (!line.recipe) {
+      issues.push(`"${line.recipeName}": recipe removed from catalog`);
+      continue;
+    }
+    const plan = planInventoryDeductions(line.recipe.ingredients, line.quantity);
+    if (!plan.ok) {
+      issues.push(`"${line.recipe?.name ?? line.recipeName}": ${plan.error}`);
+    }
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
 export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
   const order = await db.order.findUnique({
     where: { id },
@@ -217,6 +261,11 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
   await db.order.update({
     where: { id },
     data: timestamps,
+  });
+
+  await logAudit("order.status_change", "order", id, {
+    from: order.status,
+    to: nextStatus,
   });
 
   revalidateOrders();
@@ -324,8 +373,15 @@ export async function getOrderDashboardStats() {
 
 export async function deleteOrder(orderId: string) {
   try {
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      select: { orderNumber: true },
+    });
     await db.order.delete({
       where: { id: orderId },
+    });
+    await logAudit("order.delete", "order", orderId, {
+      orderNumber: order?.orderNumber,
     });
     revalidateOrders();
     return { success: true, message: "Order deleted successfully." };

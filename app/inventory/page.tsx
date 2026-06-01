@@ -10,11 +10,11 @@ import { InventorySummary } from "@/components/inventory/InventorySummary";
 import { InventoryTable } from "@/components/inventory/InventoryTable";
 import { Button } from "@/components/ui/Button";
 
-type SearchParams = {
+type SearchParams = Promise<{
   search?: string;
   category?: string;
   lowStock?: string;
-};
+}>;
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,12 @@ export default async function InventoryPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const filters = await searchParams;
   const [items, categories, summary] = await Promise.all([
     getInventoryItems({
-      search: searchParams.search,
-      category: searchParams.category,
-      lowStockOnly: searchParams.lowStock === "true",
+      search: filters.search,
+      category: filters.category,
+      lowStockOnly: filters.lowStock === "true",
     }),
     getInventoryCategories(),
     getInventorySummary(),

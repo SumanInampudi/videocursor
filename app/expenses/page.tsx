@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getExpensesGroupedByMonth } from "@/app/actions/expenses";
 import { getProfitLossSummary } from "@/app/actions/finance";
+import { DuplicateMonthButton } from "@/components/expenses/DuplicateMonthButton";
 import { ExpenseTable } from "@/components/expenses/ExpenseTable";
 import { Button } from "@/components/ui/Button";
 import {
@@ -14,16 +15,17 @@ import { formatCurrency } from "@/lib/units";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = {
+type SearchParams = Promise<{
   month?: string;
-};
+}>;
 
 export default async function ExpensesPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  const periodMonth = parsePeriodMonth(searchParams.month) ?? currentPeriodMonth();
+  const params = await searchParams;
+  const periodMonth = parsePeriodMonth(params.month) ?? currentPeriodMonth();
   const { from, to } = periodMonthToDateRange(periodMonth);
 
   const [{ expenses, total }, periodSummary] = await Promise.all([
@@ -77,6 +79,7 @@ export default async function ExpensesPage({
           />
         </div>
         <Button type="submit">View month</Button>
+        <DuplicateMonthButton periodMonth={periodMonth} />
       </form>
 
       <ExpenseTable expenses={expenses} />

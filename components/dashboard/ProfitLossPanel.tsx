@@ -116,8 +116,11 @@ export function ProfitLossPanel({
 
       <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-900">
         <strong>Net profit</strong> = gross profit from delivered orders in this date range
-        minus <strong>full</strong> operating expenses for each accounting month that overlaps
-        the range (not prorated by day). <strong>COGS is not duplicated in Expenses.</strong>{" "}
+        minus operating expenses
+        {summary.expensesProrated
+          ? " (prorated to days in range)."
+          : " (full amount for each overlapping accounting month). "}
+        <strong>COGS is not duplicated in Expenses.</strong>{" "}
         Supplier credit for stock is tracked under{" "}
         <Link href="/inventory/payables" className="font-medium underline">
           Inventory → Payables

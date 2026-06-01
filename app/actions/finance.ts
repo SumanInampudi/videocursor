@@ -7,6 +7,7 @@ import {
   parseDateInputValue,
   periodMonthToDateRange,
   periodMonthsInRange,
+  startOfDay,
   toLocalDayKey,
 } from "@/lib/dates";
 import { aggregateProfitLoss } from "@/lib/finance";
@@ -27,7 +28,11 @@ function resolveReportRange(fromParam?: string, toParam?: string) {
   return { from, to };
 }
 
-export async function getProfitLossSummary(fromParam?: string, toParam?: string) {
+export async function getProfitLossSummary(
+  fromParam?: string,
+  toParam?: string,
+  prorateExpenses = false
+) {
   const { from, to } = resolveReportRange(fromParam, toParam);
   const periodMonths = periodMonthsInRange(from, to);
 
@@ -66,6 +71,7 @@ export async function getProfitLossSummary(fromParam?: string, toParam?: string)
     lineItems,
     expenses,
     orderCount,
+    prorateExpenses,
   });
 
   return { ...summary, periodMonths };
@@ -139,3 +145,50 @@ export async function getDailyProfitHistory(fromParam?: string, toParam?: string
       netProfit: totals.grossProfit - totals.expenses,
     }));
 }
+
+/** Prior period of same length immediately before `from`. */
+export async function getProfitLossComparison(
+  fromParam?: string,
+  toParam?: string,
+  prorateExpenses = false
+) {
+  const { from, to } = resolveReportRange(fromParam, toParam);
+  const spanMs = to.getTime() - from.getTime();
+  const prevTo = endOfDay(new Date(from.getTime() - 86_400_000));
+  const prevFrom = startOfDay(new Date(prevTo.getTime() - spanMs));
+
+  const periodMonths = periodMonthsInRange(prevFrom, prevTo);
+
+  const [lineItems, expenses, orderCount] = await Promise.all([
+    db.orderLineItem.findMany({
+      where: {
+        processedAt: { not: null },
+        order: {
+          status: OrderStatus.DELIVERED,
+          deliveredAt: { gte: prevFrom, lte: prevTo },
+        },
+      },
+      select: { revenue: true, ingredientCost: true, profit: true },
+    }),
+    db.expense.findMany({
+      where: { periodMonth: { in: periodMonths } },
+      select: { category: true, amount: true, periodMonth: true },
+    }),
+    db.order.count({
+      where: {
+        status: OrderStatus.DELIVERED,
+        deliveredAt: { gte: prevFrom, lte: prevTo },
+      },
+    }),
+  ]);
+
+  return aggregateProfitLoss({
+    from: prevFrom,
+    to: prevTo,
+    lineItems,
+    expenses,
+    orderCount,
+    prorateExpenses,
+  });
+}
+

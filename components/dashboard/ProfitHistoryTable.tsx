@@ -1,3 +1,4 @@
+import { formatDateIST } from "@/lib/format";
 import { formatCurrency } from "@/lib/units";
 
 type DayRow = {
@@ -41,7 +42,7 @@ export function ProfitHistoryTable({ rows }: { rows: DayRow[] }) {
           {recent.map((row) => (
             <tr key={row.date} className="hover:bg-gray-50">
               <td className="px-4 py-2 font-medium text-servora-charcoal">
-                {new Date(row.date + "T12:00:00").toLocaleDateString()}
+                {formatDateIST(row.date + "T12:00:00")}
               </td>
               <td className="px-4 py-2 text-right">{formatCurrency(row.revenue)}</td>
               <td className="px-4 py-2 text-right">{formatCurrency(row.grossProfit)}</td>

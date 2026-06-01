@@ -49,6 +49,8 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
   const [message, setMessage] = useState("");
 
   const { costEstimate } = recipe;
+  const marginLow =
+    costEstimate.marginPercent != null && costEstimate.marginPercent < 20;
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +73,14 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
       <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
         <div>
           <h3 className="text-lg font-semibold text-servora-charcoal">{recipe.name}</h3>
-          <p className="text-sm text-gray-500">{recipe.category}</p>
+          <p className="text-sm text-gray-500">
+            {recipe.category}
+            {marginLow && (
+              <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                Low margin (&lt;20%)
+              </span>
+            )}
+          </p>
 
           <form onSubmit={handleSave} className="mt-4 flex flex-wrap items-end gap-3">
             <div className="w-40">

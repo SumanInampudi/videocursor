@@ -9,18 +9,19 @@ import { RecipeForm } from "@/components/recipes/RecipeForm";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function EditRecipePage({ params }: Props) {
+  const { id } = await params;
   const [recipe, ingredients] = await Promise.all([
-    getRecipe(params.id),
+    getRecipe(id),
     getActiveIngredientsForRecipes(),
   ]);
 
   if (!recipe) notFound();
 
-  const updateAction = updateRecipe.bind(null, params.id);
+  const updateAction = updateRecipe.bind(null, id);
 
   return (
     <div>
