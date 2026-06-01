@@ -4,24 +4,35 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleKitchenLineDone } from "@/app/actions/kitchen";
 import { useToast } from "@/components/ui/Toast";
-import { isKitchenLineDone, isKitchenLineNew, type KitchenLineView } from "@/lib/kitchen-kds";
+import {
+  isKitchenLineDone,
+  isKitchenLineNew,
+  kitchenPendingQty,
+  type KitchenLineView,
+} from "@/lib/kitchen-kds";
+
 type KitchenLineRowProps = {
   line: KitchenLineView & { recipe?: { name: string } | null };
-  order: { kitchenAcknowledgedAt?: Date | string | null };
+  order: {
+    kitchenAcknowledgedAt?: Date | string | null;
+    kitchenBumpedAt?: Date | string | null;
+  };
   disabled?: boolean;
 };
 
 export function KitchenLineRow({ line, order, disabled }: KitchenLineRowProps) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [isToggling, startTransition] = useTransition();
   const { error: toastError } = useToast();
 
   const done = isKitchenLineDone(line);
   const isNew = isKitchenLineNew(line, order);
+  const pendingQty = kitchenPendingQty(line);
+  const doneQty = line.quantity - pendingQty;
   const label = line.recipe?.name ?? line.recipeName;
 
   function toggle() {
-    if (disabled || pending) return;
+    if (disabled || isToggling) return;
     startTransition(async () => {
       const result = await toggleKitchenLineDone(line.id);
       if (result.error) toastError(result.error);
@@ -42,7 +53,7 @@ export function KitchenLineRow({ line, order, disabled }: KitchenLineRowProps) {
       <button
         type="button"
         onClick={toggle}
-        disabled={disabled || pending}
+        disabled={disabled || isToggling}
         aria-pressed={done}
         aria-label={done ? `Mark ${label} not done` : `Mark ${label} done`}
         className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
@@ -74,7 +85,12 @@ export function KitchenLineRow({ line, order, disabled }: KitchenLineRowProps) {
           <span className="font-bold tabular-nums text-servora-charcoal">{line.quantity}×</span>{" "}
           <span className="font-medium">{label}</span>
         </p>
-        {isNew && !done && (
+        {!done && doneQty > 0 && pendingQty > 0 && (
+          <span className="mt-0.5 text-[9px] text-gray-500">
+            {doneQty} done · +{pendingQty} new
+          </span>
+        )}
+        {isNew && pendingQty > 0 && doneQty === 0 && (
           <span className="mt-0.5 inline-block rounded bg-amber-500 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
             New
           </span>

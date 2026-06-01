@@ -78,6 +78,7 @@ export function buildOrderFormData(
     existingOrderId?: string;
     posFlow?: boolean;
     covers?: number;
+    tipAmount?: number;
   }
 ): FormData {
   const formData = new FormData();
@@ -93,6 +94,9 @@ export function buildOrderFormData(
   if (fields.existingOrderId) formData.set("existingOrderId", fields.existingOrderId);
   if (fields.posFlow) formData.set("posFlow", "true");
   if (fields.covers != null) formData.set("covers", String(fields.covers));
+  if (fields.tipAmount != null && fields.tipAmount > 0) {
+    formData.set("tipAmount", String(fields.tipAmount));
+  }
   formData.set("lineCount", String(cart.length));
   cart.forEach((line, i) => {
     formData.set(`line_${i}_recipeId`, line.recipeId);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { formatPaymentMethod } from "@/lib/pos-payment";
+import { resolveOrderGrandTotal } from "@/lib/order-tax";
 import { formatCurrency } from "@/lib/units";
 import type { OrderPaymentMethod } from "@prisma/client";
 
@@ -19,6 +20,10 @@ export function computeOrderDisplayTotal(order: {
   lineItems: { quantity: number; unitSalePrice: number | { toString(): string } }[];
   subtotal?: number | { toString(): string } | null;
   discountTotal?: number | { toString(): string } | null;
+  grandTotal?: number | { toString(): string } | null;
+  taxTotal?: number | { toString(): string } | null;
+  tipAmount?: number | { toString(): string } | null;
+  pricesIncludeTax?: boolean | null;
 }) {
   const lineSubtotal = order.lineItems.reduce(
     (sum, line) => sum + Number(line.unitSalePrice) * line.quantity,
@@ -26,7 +31,8 @@ export function computeOrderDisplayTotal(order: {
   );
   const subtotal = order.subtotal != null ? Number(order.subtotal) : lineSubtotal;
   const discount = Number(order.discountTotal ?? 0);
-  return { subtotal, discount, total: Math.max(0, subtotal - discount) };
+  const total = resolveOrderGrandTotal(order);
+  return { subtotal, discount, total };
 }
 
 export function OrderMetaBadges({ order }: { order: OrderMeta }) {

@@ -9,6 +9,8 @@ import {
   buildLinePayloadsForBusiness,
   recalculateOrderSubtotalFromLines,
 } from "@/lib/order-line-build";
+import { validateOrderLinesStock } from "@/lib/order-stock-server";
+import { parseTipFromForm, buildOrderTaxFields } from "@/lib/apply-order-tax";
 import { serializeForClient } from "@/lib/serialize";
 import { sortOrdersByReceived } from "@/lib/orders-sort";
 import { isOpenTableOrder, openOrderTotal } from "@/lib/table-tabs";
@@ -207,6 +209,15 @@ export async function addLinesToOpenOrder(formData: FormData) {
   const built = await buildLinePayloadsForBusiness(businessId, parsed.data.lines);
   if ("error" in built) return { error: built.error };
 
+  const stockCheck = await validateOrderLinesStock(
+    businessId,
+    parsed.data.lines.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity })),
+    { existingOrderId: order.id }
+  );
+  if (!stockCheck.ok) {
+    return { error: { stock: stockCheck.issues } };
+  }
+
   const bumpedAt = new Date();
 
   await db.$transaction(async (tx) => {
@@ -220,8 +231,6 @@ export async function addLinesToOpenOrder(formData: FormData) {
           data: {
             quantity: newQty,
             revenue,
-            addedAt: bumpedAt,
-            kitchenDoneAt: null,
           },
         });
       } else {
@@ -271,7 +280,6 @@ export async function addLinesToOpenOrder(formData: FormData) {
       where: { id: order.id },
       data: {
         subtotal,
-        kitchenAcknowledgedAt: null,
         kitchenBumpedAt: bumpedAt,
         ...statusUpdate,
       },
@@ -287,6 +295,7 @@ export async function settleOrderPayment(formData: FormData) {
     orderId: formData.get("orderId"),
     paymentMethod: formData.get("paymentMethod"),
     discountCode: formData.get("discountCode") || undefined,
+    tipAmount: formData.get("tipAmount") || undefined,
   });
 
   if (!parsed.success) {
@@ -342,6 +351,17 @@ export async function settleOrderPayment(formData: FormData) {
   }
 
   const subtotal = built.subtotal;
+  const tipAmount =
+    typeof parsed.data.tipAmount === "number"
+      ? parsed.data.tipAmount
+      : parseTipFromForm(formData);
+
+  const taxFields = await buildOrderTaxFields(
+    businessId,
+    subtotal,
+    discountResult.discountTotal,
+    tipAmount
+  );
 
   const now = new Date();
   await db.order.update({
@@ -351,6 +371,7 @@ export async function settleOrderPayment(formData: FormData) {
       discountId: discountResult.discountId,
       discountCode: discountResult.discountCode,
       discountTotal: discountResult.discountTotal,
+      ...taxFields,
       paymentMethod: parsed.data.paymentMethod,
       paidAt: now,
       status: OrderStatus.DELIVERED,

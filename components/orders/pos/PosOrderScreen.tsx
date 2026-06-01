@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
-import { createPosOrder } from "@/app/actions/orders";
+import { createPosOrder, previewCartStock } from "@/app/actions/orders";
 import { getOrderForPosResume } from "@/app/actions/table-service";
 import { getRecipeByBarcode } from "@/app/actions/recipes";
 import { PosExitLink } from "@/components/layout/PosShell";
@@ -11,6 +11,7 @@ import { PosCartPanel } from "@/components/orders/pos/PosCartPanel";
 import { PosCategoryNav } from "@/components/orders/pos/PosCategoryNav";
 import { PosCheckoutModal } from "@/components/orders/pos/PosCheckoutModal";
 import { PosItemGrid } from "@/components/orders/pos/PosItemGrid";
+import { OrderReceiptModal } from "@/components/orders/OrderReceiptModal";
 import { PosSettleModal } from "@/components/orders/pos/PosSettleModal";
 import { PosTableFloor } from "@/components/orders/pos/PosTableFloor";
 import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
@@ -29,8 +30,13 @@ import { validatePosCheckout } from "@/lib/pos-checkout-validation";
 import { PAYMENT_METHOD_LABELS, type PosPaymentMethod } from "@/lib/pos-payment";
 import { isPayAtClose } from "@/lib/venue-settings";
 import type { VenuePosSettings } from "@/lib/venue-settings";
+import type { TaxSettings } from "@/lib/tax-settings";
 import type { DiningTableOption } from "@/components/orders/pos/PosChannelTablePicker";
 import type { OrderChannel } from "@prisma/client";
+
+function cartToStockLines(cart: OrderCartLine[]) {
+  return cart.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }));
+}
 
 type Recipe = PricedRecipe & { category: string; imageUrl?: string | null };
 
@@ -54,6 +60,7 @@ type PosOrderScreenProps = {
   customers: { id: string; name: string }[];
   venue: VenuePosSettings;
   tables: DiningTableOption[];
+  taxSettings: TaxSettings;
   showExitLink?: boolean;
 };
 
@@ -64,6 +71,7 @@ export function PosOrderScreen({
   customers,
   venue,
   tables,
+  taxSettings,
   showExitLink = true,
 }: PosOrderScreenProps) {
   const router = useRouter();
@@ -98,6 +106,8 @@ export function PosOrderScreen({
     diningTableId: "",
     externalRef: "",
   });
+  const [tipAmount, setTipAmount] = useState(0);
+  const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [lastPlaced, setLastPlaced] = useState<{
     orderId: string;
     orderNumber: string;
@@ -136,6 +146,7 @@ export function PosOrderScreen({
     setActiveOrderNumber(null);
     setCart([]);
     setDiscountAmount(0);
+    setTipAmount(0);
     setDiningTableId("");
     setChannel(venue.defaultChannel);
     setCheckoutKey((k) => k + 1);
@@ -182,6 +193,10 @@ export function PosOrderScreen({
     setCheckoutOpen(false);
     const stayOnPos = getStayOnPosAfterCheckout();
 
+    if (paid) {
+      setReceiptOrderId(orderId);
+    }
+
     if (stayOnPos) {
       resetTabState();
       setLastPlaced({
@@ -198,7 +213,6 @@ export function PosOrderScreen({
       router.refresh();
     } else if (paid) {
       success(`Paid ${PAYMENT_METHOD_LABELS[paid]} · ${orderNumber}`);
-      router.push(`/orders/${orderId}`);
       router.refresh();
     } else {
       success(`Bill opened · ${orderNumber}`);
@@ -226,9 +240,19 @@ export function PosOrderScreen({
       sendToKitchen: true,
       existingOrderId: activeOrderId ?? undefined,
       posFlow: true,
+      tipAmount: 0,
     });
 
     startTransition(async () => {
+      const stock = await previewCartStock(
+        cartToStockLines(cart),
+        activeOrderId ?? undefined
+      );
+      if (!stock.ok) {
+        setErrors({ stock: stock.issues });
+        toastError("Not enough inventory to add these items");
+        return;
+      }
       const result = await createPosOrder(formData);
       if (result.error) {
         setErrors(result.error as Record<string, string[]>);
@@ -258,9 +282,19 @@ export function PosOrderScreen({
       paymentMethod,
       existingOrderId: activeOrderId ?? undefined,
       posFlow: true,
+      tipAmount,
     });
 
     startTransition(async () => {
+      const stock = await previewCartStock(
+        cartToStockLines(cart),
+        activeOrderId ?? undefined
+      );
+      if (!stock.ok) {
+        setErrors({ stock: stock.issues });
+        toastError("Not enough inventory for this order");
+        return;
+      }
       const result = await createPosOrder(formData);
       if (result.error) {
         setErrors(result.error as Record<string, string[]>);
@@ -469,7 +503,9 @@ export function PosOrderScreen({
         cart={cart}
         subtotal={subtotal}
         discountAmount={discountAmount}
-        total={total}
+        taxSettings={taxSettings}
+        tipAmount={tipAmount}
+        onTipChange={setTipAmount}
         isPending={isPending}
         errors={errors}
         fields={checkoutFields}
@@ -483,18 +519,26 @@ export function PosOrderScreen({
         recipes={recipes}
       />
 
+      <OrderReceiptModal
+        orderId={receiptOrderId}
+        open={receiptOrderId != null}
+        onClose={() => setReceiptOrderId(null)}
+        title="Payment receipt"
+      />
+
       {settleTarget && (
         <PosSettleModal
           open={settleOpen}
           orderId={settleTarget.orderId}
           orderNumber={settleTarget.orderNumber}
           subtotal={settleTarget.total}
-          total={settleTarget.total}
+          taxSettings={taxSettings}
           onClose={() => setSettleOpen(false)}
-          onSettled={() => {
+          onSettled={(orderId) => {
             resetTabState();
             setSettleTarget(null);
             setView("tables");
+            if (orderId) setReceiptOrderId(orderId);
             router.refresh();
           }}
         />

@@ -1,12 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { updateOrderStatus } from "@/app/actions/orders";
 import { CancelOrderButton } from "@/components/orders/CancelOrderButton";
+import { OrderReceiptModal } from "@/components/orders/OrderReceiptModal";
 import { OrderSettlePanel } from "@/components/orders/OrderSettlePanel";
+import { OrderTaxSummary } from "@/components/orders/OrderTaxSummary";
 import { OrderStageTimeline } from "@/components/orders/OrderStageTimeline";
-import { ADVANCE_ACTION_LABEL, NEXT_STATUS } from "@/lib/order-pipeline";
+import {
+  ADVANCE_ACTION_LABEL,
+  nextStatusForChannel,
+} from "@/lib/order-pipeline";
 import { canCancelOrder } from "@/lib/order-cancel";
 import { isOpenTableOrder } from "@/lib/table-tabs";
 import { orderChannelLabel } from "@/lib/order-channel";
@@ -21,13 +26,15 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency, formatQuantity } from "@/lib/units";
+import type { TaxSettings } from "@/lib/tax-settings";
 import { OrderStatus } from "@prisma/client";
 
 type OrderDetailProps = {
+  taxSettings: TaxSettings;
   order: {
     id: string;
     orderNumber: string;
-    channel?: import("@prisma/client").OrderChannel;
+    channel: import("@prisma/client").OrderChannel;
     tableLabel?: string | null;
     diningTableId?: string | null;
     customerId?: string | null;
@@ -36,6 +43,14 @@ type OrderDetailProps = {
     discountCode?: string | null;
     discountTotal?: number | { toString(): string } | null;
     subtotal?: number | { toString(): string } | null;
+    grandTotal?: number | { toString(): string } | null;
+    taxTotal?: number | { toString(): string } | null;
+    tipAmount?: number | { toString(): string } | null;
+    gstRatePercent?: number | { toString(): string } | null;
+    cgstAmount?: number | { toString(): string } | null;
+    sgstAmount?: number | { toString(): string } | null;
+    igstAmount?: number | { toString(): string } | null;
+    pricesIncludeTax?: boolean | null;
     paymentMethod?: "CASH" | "CARD" | "PHONEPE" | null;
     paidAt?: Date | string | null;
     notes: string | null;
@@ -73,10 +88,11 @@ type OrderDetailProps = {
   };
 };
 
-export function OrderDetail({ order }: OrderDetailProps) {
+export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
   const router = useRouter();
   const { error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const { subtotal, discount, total: orderTotal } = computeOrderDisplayTotal(order);
   const displayRevenue = orderTotal;
@@ -90,7 +106,8 @@ export function OrderDetail({ order }: OrderDetailProps) {
   );
   const allProcessed = order.lineItems.every((l) => l.processedAt != null);
 
-  const nextStatus = NEXT_STATUS[order.status];
+  const channel = order.channel ?? "DINE_IN";
+  const nextStatus = nextStatusForChannel(order.status, channel);
   const next =
     nextStatus != null
       ? {
@@ -130,6 +147,11 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <Button type="button" variant="secondary" onClick={() => window.print()}>
               Print kitchen ticket
             </Button>
+            {order.paidAt && (
+              <Button type="button" variant="secondary" onClick={() => setReceiptOpen(true)}>
+                View receipt
+              </Button>
+            )}
             {next && (
               <Button disabled={isPending} onClick={advance}>
                 {next.label}
@@ -161,8 +183,9 @@ export function OrderDetail({ order }: OrderDetailProps) {
             orderId={order.id}
             orderNumber={order.orderNumber}
             subtotal={subtotal}
-            total={orderTotal}
+            taxSettings={taxSettings}
             discountCode={order.discountCode}
+            onSuccess={() => setReceiptOpen(true)}
           />
         </div>
       )}
@@ -183,13 +206,15 @@ export function OrderDetail({ order }: OrderDetailProps) {
         <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{order.notes}</p>
       )}
 
-      {discount > 0 && (
-        <p className="text-sm text-gray-600">
-          Subtotal {formatCurrency(subtotal)} · Discount −{formatCurrency(discount)}
-        </p>
-      )}
+      <OrderTaxSummary order={order} />
 
       <OrderStageTimeline order={order} />
+
+      <OrderReceiptModal
+        orderId={order.id}
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <SummaryCard label="Revenue" value={formatCurrency(displayRevenue)} />

@@ -50,6 +50,7 @@ export async function getPublicOrderQueue(businessSlug: string) {
       lineItems: {
         select: {
           quantity: true,
+          kitchenDoneQty: true,
           recipe: { select: { prepTimeMinutes: true } },
         },
       },

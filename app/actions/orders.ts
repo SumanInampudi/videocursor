@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { planInventoryDeductions } from "@/lib/orderFulfillment";
+import { validateOrderLinesStock } from "@/lib/order-stock-server";
 import { estimateOrderPrepMinutes } from "@/lib/order-prep-time";
 import {
   assertNoOpenOrderOnTable,
@@ -25,8 +26,13 @@ import {
 } from "@/lib/validations";
 import type { OrdersListQuery } from "@/lib/orders-list";
 import { ORDERS_PAGE_SIZE } from "@/lib/orders-list";
+import { parseTipFromForm, buildOrderTaxFields } from "@/lib/apply-order-tax";
 import { sortOrdersByReceived } from "@/lib/orders-sort";
-import { ORDER_STATUS, STATUS_FLOW } from "@/lib/order-pipeline";
+import {
+  ORDER_STATUS,
+  statusDeductionOnTransition,
+  statusFlowForChannel,
+} from "@/lib/order-pipeline";
 import { OrderChannel, OrderPaymentMethod, OrderStatus, Prisma } from "@prisma/client";
 
 const ORDER_PATHS = [
@@ -252,6 +258,7 @@ export async function createOrder(formData: FormData) {
     diningTableId: raw.diningTableId || undefined,
     externalRef: raw.externalRef || undefined,
     covers: raw.covers || undefined,
+    tipAmount: raw.tipAmount || undefined,
     lines,
   });
 
@@ -311,6 +318,14 @@ export async function createOrder(formData: FormData) {
   const built = await buildLinePayloadsForBusiness(businessId, parsed.data.lines);
   if ("error" in built) return { error: built.error };
 
+  const stockCheck = await validateOrderLinesStock(
+    businessId,
+    parsed.data.lines.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }))
+  );
+  if (!stockCheck.ok) {
+    return { error: { stock: stockCheck.issues } };
+  }
+
   let customerId: string | null = parsed.data.customerId || null;
   let customerName = parsed.data.customerName?.trim() || null;
 
@@ -342,6 +357,15 @@ export async function createOrder(formData: FormData) {
       ? parsed.data.covers
       : null;
 
+  const tipAmount =
+    "tipAmount" in parsed.data && typeof parsed.data.tipAmount === "number"
+      ? parsed.data.tipAmount
+      : parseTipFromForm(raw);
+
+  const taxFields = paymentMethod
+    ? await buildOrderTaxFields(businessId, subtotal, discountTotal, tipAmount)
+    : {};
+
   const order = await db.order.create({
     data: {
       businessId,
@@ -357,6 +381,7 @@ export async function createOrder(formData: FormData) {
       discountCode,
       subtotal,
       discountTotal,
+      ...taxFields,
       paymentMethod: paymentMethod ?? null,
       paidAt: paymentMethod ? new Date() : null,
       notes: parsed.data.notes || null,
@@ -389,6 +414,17 @@ export async function createPosOrder(formData: FormData) {
     return { error: { paymentMethod: ["Select Cash, Card, or PhonePe"] } };
   }
   return createOrder(formData);
+}
+
+/** Client preview before POS checkout (optional; server enforces on create). */
+export async function previewCartStock(
+  lines: { recipeId: string; quantity: number }[],
+  existingOrderId?: string
+) {
+  const { businessId } = await requireBusinessContext();
+  return validateOrderLinesStock(businessId, lines, {
+    existingOrderId: existingOrderId || undefined,
+  });
 }
 
 /** Preview stock impact before marking processing → packing. */
@@ -454,15 +490,13 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
     return { error: "Order not found" };
   }
 
-  const allowed = STATUS_FLOW[order.status];
+  const flow = statusFlowForChannel(order.channel);
+  const allowed = flow[order.status];
   if (!allowed.includes(nextStatus)) {
     return { error: `Cannot move from ${order.status} to ${nextStatus}` };
   }
 
-  if (
-    nextStatus === ORDER_STATUS.PACKING &&
-    order.status === ORDER_STATUS.PROCESSING
-  ) {
+  if (statusDeductionOnTransition(order.status, nextStatus, order.channel)) {
     const fulfillResult = await fulfillOrderInventory(order);
     if ("error" in fulfillResult) {
       return fulfillResult;

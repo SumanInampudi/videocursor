@@ -21,6 +21,7 @@ import {
   orderNeedsKitchenAttention,
 } from "@/lib/kitchen-kds";
 import { orderChannelLabel, orderTicketLabel } from "@/lib/order-channel";
+import { statusDeductionOnTransition } from "@/lib/order-pipeline";
 import { OrderChannel, OrderStatus } from "@prisma/client";
 
 type KitchenOrderCardProps = {
@@ -45,6 +46,7 @@ type KitchenOrderCardProps = {
       recipeName: string;
       addedAt: Date | string;
       kitchenDoneAt?: Date | string | null;
+      kitchenDoneQty?: number;
       recipe: { name: string } | null;
     }[];
   };
@@ -90,9 +92,11 @@ export function KitchenOrderCard({
   function handleAdvance() {
     if (!nextAction) return;
 
-    const needsStockCheck =
-      nextAction.status === OrderStatus.PACKING &&
-      order.status === OrderStatus.PROCESSING;
+    const needsStockCheck = statusDeductionOnTransition(
+      order.status,
+      nextAction.status,
+      order.channel
+    );
 
     startTransition(async () => {
       if (needsStockCheck) {
@@ -190,7 +194,7 @@ export function KitchenOrderCard({
             />
           </div>
           <span className="shrink-0 text-[10px] font-semibold tabular-nums text-gray-600">
-            {done}/{total}
+            {done}/{total} items
           </span>
         </div>
       )}

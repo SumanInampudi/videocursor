@@ -71,4 +71,17 @@ body {
   main {
     padding: 0 !important;
   }
+  body * {
+    visibility: hidden;
+  }
+  #order-receipt-print,
+  #order-receipt-print * {
+    visibility: visible;
+  }
+  #order-receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
 }

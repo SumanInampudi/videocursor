@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { KitchenOrderCard } from "@/components/orders/KitchenOrderCard";
 import { useKitchenChime } from "@/components/kitchen/useKitchenChime";
 import type { KdsThresholds } from "@/lib/kds-timers";
+import { getKitchenNextAction } from "@/lib/order-pipeline";
 import { sortKitchenBoardOrders } from "@/lib/kitchen-kds";
 import { OrderStatus } from "@prisma/client";
 
@@ -29,6 +30,7 @@ type KitchenOrder = {
     recipeName: string;
     addedAt: Date | string;
     kitchenDoneAt?: Date | string | null;
+    kitchenDoneQty?: number;
     recipe: { name: string; yieldUnit: string } | null;
   }[];
 };
@@ -144,7 +146,10 @@ export function KitchenOrderBoard({ grouped, thresholds }: KitchenOrderBoardProp
                       key={order.id}
                       order={order}
                       accent={column.accent}
-                      nextAction={column.nextAction}
+                      nextAction={
+                        getKitchenNextAction(order.status, order.channel) ??
+                        column.nextAction
+                      }
                       thresholds={thresholds}
                     />
                   ))

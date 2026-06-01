@@ -178,8 +178,11 @@ export const createOrderSchema = z.object({
   lines: z.array(orderLineSchema).min(1, "Add at least one item"),
 });
 
+const tipAmountField = z.coerce.number().min(0, "Tip cannot be negative").optional();
+
 export const posCheckoutSchema = createOrderSchema.extend({
   paymentMethod: z.enum(orderPaymentMethods, { message: "Select a payment method" }),
+  tipAmount: tipAmountField,
 });
 
 /** Send to kitchen without payment (dine-in pay at close). */
@@ -192,6 +195,7 @@ export const settleOrderSchema = z.object({
   orderId: z.string().min(1),
   paymentMethod: z.enum(orderPaymentMethods, { message: "Select a payment method" }),
   discountCode: z.string().optional(),
+  tipAmount: tipAmountField,
 });
 
 export const addOrderLinesSchema = z.object({

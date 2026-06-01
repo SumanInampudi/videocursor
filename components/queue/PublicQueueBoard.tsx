@@ -12,21 +12,26 @@ type PublicQueueBoardProps = {
   initialUpdatedAt: string;
 };
 
-const STEP_LABELS = ["Received", "Preparing", "Packing", "Ready"] as const;
+const STEP_LABELS_ONLINE = ["Received", "Preparing", "Packing", "Ready"] as const;
+const STEP_LABELS_DINE_IN = ["Received", "Preparing", "Ready"] as const;
 
-const STEP_BAR_COLORS = [
+const STEP_BAR_COLORS_ONLINE = [
   "bg-amber-500",
   "bg-sky-500",
   "bg-violet-500",
   "bg-emerald-500",
 ] as const;
 
-const STEP_BAR_MUTED = [
+const STEP_BAR_COLORS_DINE_IN = ["bg-amber-500", "bg-sky-500", "bg-emerald-500"] as const;
+
+const STEP_BAR_MUTED_ONLINE = [
   "bg-amber-100",
   "bg-sky-100",
   "bg-violet-100",
   "bg-emerald-100",
 ] as const;
+
+const STEP_BAR_MUTED_DINE_IN = ["bg-amber-100", "bg-sky-100", "bg-emerald-100"] as const;
 
 const STATUS_BADGE: Record<
   Exclude<OrderStatus, "DELIVERED" | "CANCELLED">,
@@ -57,22 +62,32 @@ function queueSubtitle(ticket: PublicQueueTicket): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function QueueProgressBar({ stepIndex }: { stepIndex: number }) {
-  const activeIndex = Math.min(stepIndex, STEP_LABELS.length) - 1;
+function QueueProgressBar({
+  stepIndex,
+  channel,
+}: {
+  stepIndex: number;
+  channel: PublicQueueTicket["channel"];
+}) {
+  const isDineIn = channel === "DINE_IN";
+  const labels = isDineIn ? STEP_LABELS_DINE_IN : STEP_LABELS_ONLINE;
+  const colors = isDineIn ? STEP_BAR_COLORS_DINE_IN : STEP_BAR_COLORS_ONLINE;
+  const muted = isDineIn ? STEP_BAR_MUTED_DINE_IN : STEP_BAR_MUTED_ONLINE;
+  const activeIndex = Math.min(stepIndex, labels.length) - 1;
 
   return (
     <div className="mt-3 flex gap-1.5" aria-hidden>
-      {STEP_LABELS.map((label, i) => {
+      {labels.map((label, i) => {
         const done = i < stepIndex;
-        const current = i === activeIndex && stepIndex < STEP_LABELS.length;
+        const current = i === activeIndex && stepIndex < labels.length;
         return (
           <div key={label} className="min-w-0 flex-1">
             <div
               className={`h-1.5 rounded-full transition-colors ${
                 done
-                  ? STEP_BAR_COLORS[i]
+                  ? colors[i]
                   : current
-                    ? `${STEP_BAR_MUTED[i]} ring-1 ring-inset ring-black/10`
+                    ? `${muted[i]} ring-1 ring-inset ring-black/10`
                     : "bg-neutral-200"
               }`}
             />
@@ -125,8 +140,16 @@ function QueueOrderCell({ ticket }: { ticket: PublicQueueTicket }) {
       </div>
 
       <p className="mt-1.5 text-[11px] leading-snug text-neutral-500">{ticket.waitLabel}</p>
+      {ticket.itemsProgressLabel &&
+        ticket.itemsDone > 0 &&
+        ticket.itemsDone < ticket.itemsTotal &&
+        ticket.status !== "READY" && (
+          <p className="mt-1 text-[11px] font-semibold text-sky-800">
+            {ticket.itemsProgressLabel}
+          </p>
+        )}
 
-      <QueueProgressBar stepIndex={ticket.stepIndex} />
+      <QueueProgressBar stepIndex={ticket.stepIndex} channel={ticket.channel} />
     </div>
   );
 }

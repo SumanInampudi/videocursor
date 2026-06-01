@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { toDateInputValue, toPeriodMonth } from "@/lib/dates";
+import { groupPayablesBySupplierAndDay } from "@/lib/payables-by-day";
 import { serializeForClient } from "@/lib/serialize";
+import { ExpenseCategory } from "@prisma/client";
 import { inventoryPurchaseSchema } from "@/lib/validations";
 import { PurchasePaymentStatus } from "@prisma/client";
 
@@ -79,7 +82,20 @@ export async function getPayablesSummary() {
     0
   );
 
-  return serializeForClient({ purchases: open, totalOwed, count: open.length });
+  const bySupplierDay = groupPayablesBySupplierAndDay(
+    open.map((p) => ({
+      ...p,
+      totalAmount: Number(p.totalAmount),
+      amountPaid: Number(p.amountPaid),
+    }))
+  );
+
+  return serializeForClient({
+    purchases: open,
+    totalOwed,
+    count: open.length,
+    bySupplierDay,
+  });
 }
 
 export async function getInventoryItemsForPurchase() {
@@ -163,15 +179,37 @@ export async function recordPurchasePayment(id: string, formData: FormData) {
   const paymentStatus: PurchasePaymentStatus =
     newPaid >= total - 0.001 ? "PAID" : "PARTIAL";
 
-  await db.inventoryPurchase.update({
-    where: { id },
-    data: {
-      amountPaid: Math.min(newPaid, total),
-      paymentStatus,
-    },
+  const { businessId } = await requireBusinessContext();
+
+  await db.$transaction(async (tx) => {
+    await tx.inventoryPurchase.update({
+      where: { id },
+      data: {
+        amountPaid: Math.min(newPaid, total),
+        paymentStatus,
+      },
+    });
+
+    if (amount > 0) {
+      const payDate = purchase.purchaseDate;
+      const expenseDate = new Date(payDate);
+      expenseDate.setHours(0, 0, 0, 0);
+      await tx.expense.create({
+        data: {
+          businessId,
+          category: ExpenseCategory.SUPPLIES,
+          description: "Supplier payment (payables)",
+          amount,
+          periodMonth: toPeriodMonth(expenseDate),
+          expenseDate,
+          notes: `${purchase.description} · ${purchase.supplier ?? "Supplier"} · ${toDateInputValue(expenseDate)}`,
+        },
+      });
+    }
   });
 
   revalidatePurchases();
+  revalidatePath("/expenses");
   return { success: true };
 }
 

@@ -10,6 +10,7 @@ import { ReceiveCartPanel } from "@/components/inventory/receive/ReceiveCartPane
 import { ReceiveItemGrid } from "@/components/inventory/receive/ReceiveItemGrid";
 import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
 import { useToast } from "@/components/ui/Toast";
+import { formatCurrency } from "@/lib/units";
 import {
   addToReceiveCart,
   buildReceiveFormData,
@@ -94,9 +95,14 @@ export function StockReceiveScreen({
       }
       setCart([]);
       setErrors({});
-      success(
-        `Received ${result.lineCount} line(s) — stock updated · purchases logged for payables`
-      );
+      const parts = [
+        `Received ${result.lineCount} line(s)`,
+        result.expenseRecorded ? "expense recorded for cash paid" : null,
+        result.creditOwed && result.creditOwed > 0
+          ? `${formatCurrency(result.creditOwed)} on supplier credit`
+          : null,
+      ].filter(Boolean);
+      success(parts.join(" · "));
       router.refresh();
     });
   }

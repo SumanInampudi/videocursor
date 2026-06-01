@@ -32,18 +32,20 @@ export async function toggleKitchenLineDone(lineId: string) {
   const { businessId } = await requireBusinessContext();
   const line = await db.orderLineItem.findFirst({
     where: { id: lineId, order: { businessId } },
-    select: { id: true, kitchenDoneAt: true, orderId: true },
+    select: { id: true, quantity: true, kitchenDoneQty: true, orderId: true },
   });
   if (!line) return { error: "Line not found" };
 
-  const nextDone = line.kitchenDoneAt ? null : new Date();
+  const fullyDone = line.kitchenDoneQty >= line.quantity;
   await db.orderLineItem.update({
     where: { id: lineId },
-    data: { kitchenDoneAt: nextDone },
+    data: fullyDone
+      ? { kitchenDoneQty: 0, kitchenDoneAt: null }
+      : { kitchenDoneQty: line.quantity, kitchenDoneAt: new Date() },
   });
 
   revalidateKitchen();
-  return { success: true, done: nextDone != null };
+  return { success: true, done: !fullyDone };
 }
 
 export async function getKitchenPackWarning(orderId: string): Promise<{
@@ -56,7 +58,14 @@ export async function getKitchenPackWarning(orderId: string): Promise<{
     where: { id: orderId, businessId },
     include: {
       lineItems: {
-        select: { id: true, quantity: true, recipeName: true, addedAt: true, kitchenDoneAt: true },
+        select: {
+          id: true,
+          quantity: true,
+          recipeName: true,
+          addedAt: true,
+          kitchenDoneAt: true,
+          kitchenDoneQty: true,
+        },
       },
     },
   });

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
-import { createOrder } from "@/app/actions/orders";
+import { createOrder, previewCartStock } from "@/app/actions/orders";
 import { getRecipeByBarcode } from "@/app/actions/recipes";
 import { OrderCustomerSection } from "@/components/orders/OrderCustomerSection";
 import { OrderDiscountSection } from "@/components/orders/OrderDiscountSection";
@@ -19,6 +19,7 @@ import {
   updateCartLineQty,
   type OrderCartLine,
 } from "@/lib/order-cart";
+import { StockShortageAlert } from "@/components/orders/StockShortageAlert";
 import { formatCurrency } from "@/lib/units";
 
 type RecipeOption = {
@@ -90,6 +91,13 @@ export function OrderForm({ recipes, customers = [] }: OrderFormProps) {
     });
 
     startTransition(async () => {
+      const stock = await previewCartStock(
+        cart.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }))
+      );
+      if (!stock.ok) {
+        setErrors({ stock: stock.issues });
+        return;
+      }
       const result = await createOrder(formData);
       if (result.error) {
         setErrors(result.error as Record<string, string[]>);
@@ -247,6 +255,10 @@ export function OrderForm({ recipes, customers = [] }: OrderFormProps) {
           </span>
         </div>
       </div>
+
+      {errors.stock && errors.stock.length > 0 && (
+        <StockShortageAlert issues={errors.stock} />
+      )}
 
       <Button type="submit" disabled={isPending || cart.length === 0}>
         {isPending ? "Placing…" : "Place order"}

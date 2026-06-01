@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { STARTER_INGREDIENTS, normalizeIngredientName } from "@/lib/ingredients";
 import { serializeForClient } from "@/lib/serialize";
 import type { ReceiveCatalogItem } from "@/lib/stock-receive-cart";
+import { recordStockReceiveExpense } from "@/lib/stock-receive-finance";
 import { stockReceiveSchema } from "@/lib/validations";
 import { Prisma, PurchasePaymentStatus, Unit } from "@prisma/client";
 
@@ -18,6 +19,8 @@ const REVALIDATE_PATHS = [
   "/ingredients",
   "/yield",
   "/recipes",
+  "/expenses",
+  "/reports",
 ];
 
 function revalidateStock() {
@@ -279,6 +282,17 @@ export async function postStockReceive(formData: FormData) {
           },
         });
       }
+
+      await recordStockReceiveExpense(tx, {
+        businessId,
+        purchaseDate,
+        grandTotal,
+        amountPaid,
+        supplierName,
+        lineCount: data.lines.length,
+        invoiceRef: data.invoiceRef,
+        headerNote,
+      });
     });
   } catch (e) {
     return {
@@ -288,10 +302,15 @@ export async function postStockReceive(formData: FormData) {
     };
   }
 
+  const creditOwed = Math.max(0, grandTotal - amountPaid);
+
   revalidateStock();
   return {
     success: true,
     lineCount: data.lines.length,
     total: grandTotal,
+    amountPaid,
+    creditOwed,
+    expenseRecorded: amountPaid > 0,
   };
 }

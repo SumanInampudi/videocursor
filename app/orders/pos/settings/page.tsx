@@ -5,16 +5,20 @@ import { PosExitLink } from "@/components/layout/PosShell";
 import { DiningTablesManager } from "@/components/orders/pos/DiningTablesManager";
 import { ReservationsPanel } from "@/components/orders/pos/ReservationsPanel";
 import { PosCategoryOrderEditor } from "@/components/orders/pos/PosCategoryOrderEditor";
+import { TaxSettingsForm } from "@/components/orders/pos/TaxSettingsForm";
 import { VenueSettingsForm } from "@/components/orders/pos/VenueSettingsForm";
+import { getTaxSettingsSerialized } from "@/app/actions/tax-settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function PosSettingsPage() {
-  const [{ allCategories, ordered, savedOrder }, venue, tables] = await Promise.all([
-    getPosCategorySettings(),
-    getVenuePosSettings(),
-    getDiningTablesForAdmin(),
-  ]);
+  const [{ allCategories, ordered, savedOrder }, venue, tables, taxSettings] =
+    await Promise.all([
+      getPosCategorySettings(),
+      getVenuePosSettings(),
+      getDiningTablesForAdmin(),
+      getTaxSettingsSerialized(),
+    ]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -32,6 +36,7 @@ export default async function PosSettingsPage() {
       </header>
       <div className="flex-1 space-y-6 overflow-y-auto p-4 md:p-6">
         <VenueSettingsForm initial={venue} />
+        <TaxSettingsForm initial={taxSettings} />
         <DiningTablesManager tables={tables} />
         <ReservationsPanel tables={tables} />
         <div className="rounded-lg border border-gray-200 bg-white p-4">

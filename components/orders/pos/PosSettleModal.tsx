@@ -1,16 +1,17 @@
 "use client";
 
 import { OrderSettlePanel } from "@/components/orders/OrderSettlePanel";
+import type { TaxSettings } from "@/lib/tax-settings";
 
 type PosSettleModalProps = {
   open: boolean;
   orderId: string;
   orderNumber: string;
   subtotal: number;
-  total: number;
+  taxSettings: TaxSettings;
   discountCode?: string | null;
   onClose: () => void;
-  onSettled: () => void;
+  onSettled: (orderId: string) => void;
 };
 
 export function PosSettleModal({
@@ -18,7 +19,7 @@ export function PosSettleModal({
   orderId,
   orderNumber,
   subtotal,
-  total,
+  taxSettings,
   discountCode,
   onClose,
   onSettled,
@@ -42,11 +43,11 @@ export function PosSettleModal({
           orderId={orderId}
           orderNumber={orderNumber}
           subtotal={subtotal}
-          total={total}
+          taxSettings={taxSettings}
           discountCode={discountCode}
           compact
-          onSuccess={() => {
-            onSettled();
+          onSuccess={(id) => {
+            onSettled(id);
             onClose();
           }}
         />

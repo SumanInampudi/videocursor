@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { RecipeThumbnail } from "@/components/recipes/RecipeThumbnail";
+import { OrderTotalsBreakdown } from "@/components/orders/OrderTotalsBreakdown";
+import { TipSelector } from "@/components/orders/TipSelector";
 import type { OrderCartLine } from "@/lib/order-cart";
+import { computeOrderTaxAmounts } from "@/lib/order-tax";
+import type { TaxSettings } from "@/lib/tax-settings";
 import {
   ORDER_PAYMENT_METHODS,
   PAYMENT_METHOD_HINTS,
@@ -13,6 +17,7 @@ import {
 import { OrderPrepEstimate } from "@/components/orders/OrderPrepEstimate";
 import { orderChannelLabel } from "@/lib/order-channel";
 import type { PricedRecipe } from "@/lib/order-cart";
+import { StockShortageAlert } from "@/components/orders/StockShortageAlert";
 import { formatFieldErrors } from "@/lib/format-field-errors";
 import { formatCurrency } from "@/lib/units";
 import type { OrderChannel } from "@prisma/client";
@@ -33,7 +38,9 @@ type PosCheckoutModalProps = {
   cart: OrderCartLine[];
   subtotal: number;
   discountAmount: number;
-  total: number;
+  taxSettings: TaxSettings;
+  tipAmount: number;
+  onTipChange: (amount: number) => void;
   isPending: boolean;
   errors: Record<string, string[]>;
   onClose: () => void;
@@ -50,7 +57,9 @@ export function PosCheckoutModal({
   cart,
   subtotal,
   discountAmount,
-  total,
+  taxSettings,
+  tipAmount,
+  onTipChange,
   isPending,
   errors,
   onClose,
@@ -67,12 +76,26 @@ export function PosCheckoutModal({
     if (open) setPaymentMethod(null);
   }, [open]);
 
+  const tax = useMemo(
+    () =>
+      computeOrderTaxAmounts(
+        taxSettings,
+        subtotal,
+        discountAmount,
+        sendToKitchen ? 0 : tipAmount
+      ),
+    [taxSettings, subtotal, discountAmount, tipAmount, sendToKitchen]
+  );
+
   if (!open) return null;
 
   const checkoutAlert = formatFieldErrors(errors);
   const hasCheckoutErrors = Object.keys(errors).some(
     (k) => (errors[k]?.length ?? 0) > 0
   );
+
+  const netBeforeTip = Math.max(0, subtotal - discountAmount);
+  const displayTotal = sendToKitchen ? netBeforeTip : tax.grandTotal;
 
   function handleConfirm() {
     if (sendToKitchen) {
@@ -100,8 +123,8 @@ export function PosCheckoutModal({
               <p className="text-sm text-gray-500">
                 {sendToKitchen
                   ? addingToOrder
-                    ? `Add items to ${addingToOrder} · pay when guests leave`
-                    : "Open table bill · payment at close"
+                    ? `Add items to ${addingToOrder} · GST & tip at settle`
+                    : "Open table bill · GST & tip when you close the table"
                   : "Select payment, then confirm to create the order"}
               </p>
             </div>
@@ -142,27 +165,52 @@ export function PosCheckoutModal({
           </p>
         </div>
 
-        <div className="space-y-1 border-b border-gray-100 px-4 py-3 text-sm">
-          {discountAmount > 0 && (
-            <>
+        <div className="flex-1 space-y-4 overflow-y-auto border-b border-gray-100 px-4 py-3">
+          {sendToKitchen ? (
+            <div className="space-y-1 text-sm">
               <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
+                <span>Bill subtotal</span>
                 <span>{formatCurrency(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-green-700">
-                <span>Discount</span>
-                <span>−{formatCurrency(discountAmount)}</span>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-700">
+                  <span>Discount</span>
+                  <span>−{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-lg font-bold text-servora-charcoal">
+                <span>Tab total (est.)</span>
+                <span>{formatCurrency(displayTotal)}</span>
               </div>
+              {taxSettings.enabled && (
+                <p className="text-xs text-gray-500">
+                  GST ({taxSettings.gstRatePercent}%) and tip are calculated when the bill is
+                  settled.
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <OrderTotalsBreakdown
+                subtotal={subtotal}
+                discountAmount={discountAmount}
+                tax={tax}
+                compact
+              />
+              <TipSelector
+                netBeforeTip={
+                  tax.pricesIncludeTax ? netBeforeTip : netBeforeTip + tax.taxTotal
+                }
+                tipAmount={tipAmount}
+                onTipChange={onTipChange}
+                disabled={isPending}
+              />
             </>
           )}
-          <div className="flex justify-between text-xl font-bold text-servora-charcoal">
-            <span>Amount due</span>
-            <span>{formatCurrency(total)}</span>
-          </div>
         </div>
 
         {!sendToKitchen && (
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="overflow-y-auto px-4 py-4">
             <p className="mb-3 text-sm font-medium text-servora-charcoal">Payment method</p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {ORDER_PAYMENT_METHODS.map((method) => {
@@ -196,7 +244,12 @@ export function PosCheckoutModal({
         )}
 
         <div className="border-t border-gray-100 p-4 safe-area-bottom">
-          {hasCheckoutErrors && (
+          {errors.stock && errors.stock.length > 0 && (
+            <div className="mb-3">
+              <StockShortageAlert issues={errors.stock} />
+            </div>
+          )}
+          {hasCheckoutErrors && !errors.stock?.length && (
             <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-servora-red" role="alert">
               {checkoutAlert}
             </p>
@@ -214,15 +267,15 @@ export function PosCheckoutModal({
             {isPending
               ? "Saving…"
               : sendToKitchen
-                ? `Send to kitchen · ${formatCurrency(total)}`
+                ? `Send to kitchen · ${formatCurrency(displayTotal)}`
                 : paymentMethod
-                  ? `Paid · ${PAYMENT_METHOD_LABELS[paymentMethod]} · ${formatCurrency(total)}`
+                  ? `Paid · ${PAYMENT_METHOD_LABELS[paymentMethod]} · ${formatCurrency(displayTotal)}`
                   : "Select payment method"}
           </Button>
           <p className="mt-2 text-center text-xs text-gray-400">
             {sendToKitchen
               ? "Bill stays open until you settle from Tables or the order page"
-              : "Order is created only after you confirm payment"}
+              : "Receipt shown after payment is confirmed"}
           </p>
         </div>
       </div>
