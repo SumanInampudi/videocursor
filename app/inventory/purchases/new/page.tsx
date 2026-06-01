@@ -1,11 +1,15 @@
 import Link from "next/link";
+import { getSupplierOptions } from "@/app/actions/suppliers";
 import { createInventoryPurchase, getInventoryItemsForPurchase } from "@/app/actions/purchases";
 import { PurchaseForm } from "@/components/inventory/PurchaseForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewPurchasePage() {
-  const items = await getInventoryItemsForPurchase();
+  const [items, suppliers] = await Promise.all([
+    getInventoryItemsForPurchase(),
+    getSupplierOptions(),
+  ]);
 
   return (
     <div>
@@ -17,7 +21,7 @@ export default async function NewPurchasePage() {
         Log what you bought from suppliers. Choose <strong>paid</strong> or{" "}
         <strong>credit</strong> so you can track how much you still owe.
       </p>
-      <PurchaseForm action={createInventoryPurchase} items={items} />
+      <PurchaseForm action={createInventoryPurchase} items={items} suppliers={suppliers} />
     </div>
   );
 }

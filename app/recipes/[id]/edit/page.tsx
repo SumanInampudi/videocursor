@@ -5,6 +5,7 @@ import {
   updateRecipe,
 } from "@/app/actions/recipes";
 import { RecipeForm } from "@/components/recipes/RecipeForm";
+import { RecipeMenuImageFields } from "@/components/recipes/RecipeMenuImageFields";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,11 @@ export default async function EditRecipePage({ params }: Props) {
           })),
         }}
         submitLabel="Update Recipe"
+      />
+      <RecipeMenuImageFields
+        recipeId={recipe.id}
+        recipeName={recipe.name}
+        imageUrl={recipe.imageUrl}
       />
     </div>
   );

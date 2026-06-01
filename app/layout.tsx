@@ -1,7 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { AppShell } from "@/components/layout/AppShell";
+import { ShellSwitcher } from "@/components/layout/ShellSwitcher";
+import { getAuthContext } from "@/lib/auth";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#F5A623",
+};
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -14,15 +23,19 @@ export const metadata: Metadata = {
   description: "Smart inventory management for food service — track stock and calculate recipe yields.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const auth = await getAuthContext();
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} antialiased`}>
-        <AppShell>{children}</AppShell>
+        <ShellSwitcher userRoles={auth.roles} user={auth.user}>
+          {children}
+        </ShellSwitcher>
       </body>
     </html>
   );

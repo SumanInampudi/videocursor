@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { serializeForClient } from "@/lib/serialize";
 import { estimateRecipeIngredientCost } from "@/lib/costing";
 import { recipePricingSchema } from "@/lib/validations";
 
@@ -28,6 +29,7 @@ export async function updateRecipePricing(recipeId: string, formData: FormData) 
   revalidatePath(`/recipes/${recipeId}/pricing`);
   revalidatePath("/orders");
   revalidatePath("/orders/new");
+  revalidatePath("/orders/pos");
   return { success: true };
 }
 
@@ -47,7 +49,7 @@ export async function getRecipePricingDetail(recipeId: string) {
 
   const costEstimate = estimateRecipeIngredientCost(recipe, 1);
 
-  return { recipe, costEstimate };
+  return serializeForClient({ recipe, costEstimate });
 }
 
 export async function getRecipesWithPricing() {
@@ -62,16 +64,19 @@ export async function getRecipesWithPricing() {
     orderBy: { name: "asc" },
   });
 
-  return recipes.map((recipe) => ({
-    ...recipe,
-    costEstimate: estimateRecipeIngredientCost(recipe, 1),
-  }));
+  return serializeForClient(
+    recipes.map((recipe) => ({
+      ...recipe,
+      costEstimate: estimateRecipeIngredientCost(recipe, 1),
+    }))
+  );
 }
 
 export async function getInventoryCostHistory(inventoryItemId: string) {
-  return db.inventoryCostHistory.findMany({
+  const rows = await db.inventoryCostHistory.findMany({
     where: { inventoryItemId },
     orderBy: { effectiveAt: "desc" },
     take: 50,
   });
+  return serializeForClient(rows);
 }

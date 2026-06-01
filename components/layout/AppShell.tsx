@@ -4,33 +4,33 @@ import Footer from "./Footer";
 import { ToastProvider } from "@/components/ui/Toast";
 import { MobileNav } from "./MobileNav";
 import type { NavRole } from "@/lib/navigation";
-import { getServerRoles, roleLabel } from "@/lib/auth";
+import type { SessionUser } from "@/lib/session-types";
 
 type AppShellProps = {
   children: React.ReactNode;
   userRoles?: NavRole[] | null;
+  user?: SessionUser | null;
 };
 
-export function AppShell({ children, userRoles }: AppShellProps) {
-  const roles = userRoles ?? getServerRoles();
+export function AppShell({ children, userRoles = null, user }: AppShellProps) {
+  const hideNav = userRoles?.length === 1 && (userRoles[0] === "pos" || userRoles[0] === "kitchen");
 
   return (
     <ToastProvider>
       <div className="flex min-h-screen flex-col bg-gray-50">
-        <Header />
+        <Header user={user} />
         <div className="flex flex-1 pt-16">
-          <div className="hidden md:block">
-            <Sidebar userRoles={roles} />
-          </div>
-          <MobileNav userRoles={roles} />
-          <main className="flex-1 overflow-auto p-4 pb-20 md:p-6 md:pb-16">{children}</main>
+          {!hideNav && (
+            <div className="hidden md:block">
+              <Sidebar userRoles={userRoles} />
+            </div>
+          )}
+          {!hideNav && <MobileNav userRoles={userRoles} />}
+          <main className="safe-area-padding flex-1 overflow-auto p-4 pb-24 md:p-6 md:pb-20 lg:pb-16">
+            {children}
+          </main>
         </div>
         <Footer />
-        {roles && roles.length > 0 && (
-          <p className="fixed bottom-8 right-2 z-40 hidden text-[10px] text-gray-400 md:block">
-            Role: {roleLabel(roles[0]!)}
-          </p>
-        )}
       </div>
     </ToastProvider>
   );

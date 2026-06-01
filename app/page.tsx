@@ -6,6 +6,7 @@ import {
   getProfitLossComparison,
   getProfitLossSummary,
 } from "@/app/actions/finance";
+import { DashboardPayables } from "@/components/dashboard/DashboardPayables";
 import { DashboardLowStock } from "@/components/dashboard/DashboardLowStock";
 import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
@@ -14,7 +15,7 @@ import { ProfitComparison } from "@/components/dashboard/ProfitComparison";
 import { ProfitHistoryTable } from "@/components/dashboard/ProfitHistoryTable";
 import { ProfitLossPanel } from "@/components/dashboard/ProfitLossPanel";
 import { Button } from "@/components/ui/Button";
-import { getServerRoles } from "@/lib/auth";
+import { getAuthContext } from "@/lib/auth";
 import { defaultReportDateRange } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function DashboardPage({
   const from = params.from ?? defaults.from;
   const to = params.to ?? defaults.to;
   const prorate = params.prorate === "1";
-  const roles = getServerRoles();
+  const { roles } = await getAuthContext();
 
   const [summary, history, comparison, lowStock] = await Promise.all([
     getProfitLossSummary(from, to, prorate),
@@ -59,8 +60,8 @@ export default async function DashboardPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/orders/new">
-            <Button>Place order</Button>
+          <Link href="/orders/pos">
+            <Button className="min-h-[44px]">POS register</Button>
           </Link>
           <Link href="/expenses/new">
             <Button variant="secondary">Add expense</Button>
@@ -83,7 +84,10 @@ export default async function DashboardPage({
             </div>
           </Suspense>
         </div>
-        <DashboardLowStock items={lowStock} />
+        <div className="space-y-4">
+          <DashboardPayables />
+          <DashboardLowStock items={lowStock} />
+        </div>
       </div>
 
       <ProfitComparison

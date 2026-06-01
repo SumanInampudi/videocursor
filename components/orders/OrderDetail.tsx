@@ -4,7 +4,12 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { updateOrderStatus } from "@/app/actions/orders";
 import { formatDateTimeIST } from "@/lib/format";
+import { formatPaymentMethod } from "@/lib/pos-payment";
 import { RecipeBarcode } from "@/components/recipes/RecipeBarcode";
+import {
+  OrderMetaBadges,
+  computeOrderDisplayTotal,
+} from "@/components/orders/OrderMetaBadges";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -15,7 +20,14 @@ type OrderDetailProps = {
   order: {
     id: string;
     orderNumber: string;
+    customerId?: string | null;
     customerName: string | null;
+    customer?: { id: string; name: string } | null;
+    discountCode?: string | null;
+    discountTotal?: number | { toString(): string } | null;
+    subtotal?: number | { toString(): string } | null;
+    paymentMethod?: "CASH" | "CARD" | "PHONEPE" | null;
+    paidAt?: Date | string | null;
     notes: string | null;
     status: OrderStatus;
     createdAt: Date;
@@ -60,10 +72,8 @@ export function OrderDetail({ order }: OrderDetailProps) {
   const { error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
 
-  const totalRevenue = order.lineItems.reduce(
-    (sum, line) => sum + Number(line.unitSalePrice) * line.quantity,
-    0
-  );
+  const { subtotal, discount, total: orderTotal } = computeOrderDisplayTotal(order);
+  const displayRevenue = orderTotal;
   const totalCost = order.lineItems.reduce(
     (sum, line) => sum + Number(line.ingredientCost ?? 0),
     0
@@ -90,9 +100,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-servora-charcoal">{order.orderNumber}</h1>
-          {order.customerName && (
-            <p className="text-sm text-gray-600">{order.customerName}</p>
-          )}
+          <OrderMetaBadges order={order} />
           <div className="mt-2">
             <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
           </div>
@@ -109,12 +117,30 @@ export function OrderDetail({ order }: OrderDetailProps) {
         </div>
       </div>
 
+      {order.paymentMethod && (
+        <p className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+          <strong>Payment:</strong> {formatPaymentMethod(order.paymentMethod)}
+          {order.paidAt && (
+            <span className="text-green-700">
+              {" "}
+              · {formatDateTimeIST(order.paidAt)}
+            </span>
+          )}
+        </p>
+      )}
+
       {order.notes && (
         <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{order.notes}</p>
       )}
 
+      {discount > 0 && (
+        <p className="text-sm text-gray-600">
+          Subtotal {formatCurrency(subtotal)} · Discount −{formatCurrency(discount)}
+        </p>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="Revenue" value={formatCurrency(totalRevenue)} />
+        <SummaryCard label="Revenue" value={formatCurrency(displayRevenue)} />
         <SummaryCard
           label="Ingredient cost"
           value={allProcessed ? formatCurrency(totalCost) : "Pending (at ready)"}
@@ -129,7 +155,10 @@ export function OrderDetail({ order }: OrderDetailProps) {
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-servora-charcoal">Line items</h2>
         {order.lineItems.map((line) => {
-          const revenue = Number(line.unitSalePrice) * line.quantity;
+          const revenue =
+            line.revenue != null
+              ? Number(line.revenue)
+              : Number(line.unitSalePrice) * line.quantity;
           const unitCost =
             line.ingredientCost != null
               ? Number(line.ingredientCost) / line.quantity

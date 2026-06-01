@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { generateRecipeBarcode } from "@/lib/barcode";
 import { db } from "@/lib/db";
+import { serializeForClient } from "@/lib/serialize";
 import { recipeSchema } from "@/lib/validations";
 import { calculateAllYields } from "@/lib/yield";
 import { Unit } from "@prisma/client";
@@ -19,14 +20,16 @@ export async function getRecipes() {
 
   const yields = calculateAllYields(recipes);
 
-  return recipes.map((recipe) => ({
-    ...recipe,
-    yieldResult: yields.find((y) => y.recipeId === recipe.id)!,
-  }));
+  return serializeForClient(
+    recipes.map((recipe) => ({
+      ...recipe,
+      yieldResult: yields.find((y) => y.recipeId === recipe.id)!,
+    }))
+  );
 }
 
 export async function getRecipe(id: string) {
-  return db.recipe.findUnique({
+  const recipe = await db.recipe.findUnique({
     where: { id },
     include: {
       ingredients: {
@@ -34,6 +37,8 @@ export async function getRecipe(id: string) {
       },
     },
   });
+
+  return recipe ? serializeForClient(recipe) : null;
 }
 
 export async function getActiveIngredientsForRecipes() {
@@ -101,6 +106,7 @@ export async function createRecipe(formData: FormData) {
   });
 
   revalidatePath("/recipes");
+  revalidatePath("/orders/pos");
   revalidatePath("/");
   revalidatePath("/yield");
   return { success: true };
@@ -158,6 +164,7 @@ export async function updateRecipe(id: string, formData: FormData) {
   ]);
 
   revalidatePath("/recipes");
+  revalidatePath("/orders/pos");
   revalidatePath("/");
   revalidatePath("/yield");
   return { success: true };
@@ -205,7 +212,7 @@ export async function getRecipeByBarcode(barcode: string) {
   const normalized = barcode.replace(/\D/g, "");
   if (normalized.length < 8) return null;
 
-  return db.recipe.findFirst({
+  const recipe = await db.recipe.findFirst({
     where: {
       OR: [{ barcode: normalized }, { barcode: normalized.slice(0, 13) }],
     },
@@ -216,8 +223,11 @@ export async function getRecipeByBarcode(barcode: string) {
       barcode: true,
       category: true,
       yieldUnit: true,
+      imageUrl: true,
     },
   });
+
+  return recipe ? serializeForClient(recipe) : null;
 }
 
 export async function getYieldResults() {

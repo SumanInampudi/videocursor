@@ -16,7 +16,10 @@ type ItemOption = {
   name: string;
   sku: string;
   supplier: string | null;
+  supplierId: string | null;
 };
+
+type SupplierOption = { id: string; name: string };
 
 const PAYMENT_OPTIONS = [
   { value: "PAID", label: "Paid in full" },
@@ -27,9 +30,11 @@ const PAYMENT_OPTIONS = [
 export function PurchaseForm({
   action,
   items,
+  suppliers = [],
 }: {
   action: (formData: FormData) => Promise<{ error?: Record<string, string[]>; success?: boolean }>;
   items: ItemOption[];
+  suppliers?: SupplierOption[];
 }) {
   const router = useRouter();
   const { success, error: toastError } = useToast();
@@ -38,6 +43,7 @@ export function PurchaseForm({
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [paymentStatus, setPaymentStatus] = useState("PAID");
   const [selectedItem, setSelectedItem] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
 
   const item = items.find((i) => i.id === selectedItem);
 
@@ -88,7 +94,12 @@ export function PurchaseForm({
         name="inventoryItemId"
         label="Link to inventory item (optional)"
         value={selectedItem}
-        onChange={(e) => setSelectedItem(e.target.value)}
+        onChange={(e) => {
+          const id = e.target.value;
+          setSelectedItem(id);
+          const linked = items.find((i) => i.id === id);
+          if (linked?.supplierId) setSelectedSupplierId(linked.supplierId);
+        }}
         options={[
           { value: "", label: "General purchase…" },
           ...items.map((i) => ({ value: i.id, label: `${i.name} (${i.sku})` })),
@@ -102,11 +113,32 @@ export function PurchaseForm({
         error={errors.description?.[0]}
         required
       />
+      {suppliers.length > 0 ? (
+        <Select
+          name="supplierId"
+          label="Supplier"
+          value={selectedSupplierId}
+          onChange={(e) => setSelectedSupplierId(e.target.value)}
+          options={[
+            { value: "", label: "— Select supplier —" },
+            ...suppliers.map((s) => ({ value: s.id, label: s.name })),
+          ]}
+          error={errors.supplierId?.[0]}
+        />
+      ) : (
+        <p className="text-xs text-gray-500">
+          <a href="/suppliers/new" className="text-servora-yellow hover:underline">
+            Add suppliers
+          </a>{" "}
+          to link purchases for payables.
+        </p>
+      )}
       <Input
         name="supplier"
-        label="Supplier"
+        label="Supplier name (optional, free text)"
         defaultValue={item?.supplier ?? ""}
         error={errors.supplier?.[0]}
+        placeholder="Used if not selecting from list"
       />
       <Input
         name="totalAmount"

@@ -1,32 +1,27 @@
-import Link from "next/link";
 import { getOrdersByStatus } from "@/app/actions/orders";
-import { KitchenBoard } from "@/components/orders/KitchenBoard";
-import { Button } from "@/components/ui/Button";
+import { KitchenOrderBoard } from "@/components/orders/KitchenOrderBoard";
+import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function KitchenPage() {
   const grouped = await getOrdersByStatus();
-  const ready = grouped.READY ?? [];
-  const processing = grouped.PROCESSING ?? [];
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const isActiveToday = (createdAt: Date) => new Date(createdAt) >= todayStart;
+
+  const filterActive = <T extends { createdAt: Date }>(orders: T[]) =>
+    orders.filter((o) => isActiveToday(o.createdAt));
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Link href="/orders" className="text-sm text-servora-yellow hover:underline">
-            ← Orders
-          </Link>
-          <h1 className="mt-2 text-3xl font-bold text-servora-charcoal">Kitchen display</h1>
-          <p className="text-sm text-gray-500">
-            Large view for ready & processing orders · auto-refreshes every 30s
-          </p>
-        </div>
-        <Link href="/orders/new">
-          <Button>New order</Button>
-        </Link>
-      </div>
-      <KitchenBoard ready={ready} processing={processing} />
-    </div>
+    <KitchenOrderBoard
+      grouped={{
+        NEW: filterActive(grouped[OrderStatus.NEW] ?? []),
+        PROCESSING: filterActive(grouped[OrderStatus.PROCESSING] ?? []),
+        READY: filterActive(grouped[OrderStatus.READY] ?? []),
+      }}
+    />
   );
 }

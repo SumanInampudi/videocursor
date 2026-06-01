@@ -14,8 +14,8 @@ export default async function RecipePricingPage() {
         <div>
           <h1 className="text-2xl font-bold text-servora-charcoal">Recipe pricing</h1>
           <p className="text-sm text-gray-500">
-            Set sale prices, view estimated margins from current inventory costs, and print
-            barcodes per recipe
+            Set sale prices and menu photos (shown on POS and order screens), view margins,
+            and manage barcodes
           </p>
         </div>
         <Link href="/recipes">

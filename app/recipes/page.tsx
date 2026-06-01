@@ -14,7 +14,13 @@ export default async function RecipesPage() {
         <div>
           <h1 className="text-2xl font-bold text-servora-charcoal">Recipes</h1>
           <p className="text-sm text-gray-500">
-            Define bill of materials (BOM) to calculate how much food you can make
+            Define bill of materials (BOM) to calculate how much food you can make.{" "}
+            <Link href="/recipes/pricing" className="font-medium text-servora-yellow hover:underline">
+              Recipe pricing
+            </Link>{" "}
+            and{" "}
+            <span className="text-servora-charcoal">edit recipe → POS menu image</span> are where you
+            upload photos for the register.
           </p>
         </div>
         <div className="flex gap-2">

@@ -10,6 +10,10 @@ import {
 } from "@/app/actions/orders";
 import { Button } from "@/components/ui/Button";
 import { confirmAction, useToast } from "@/components/ui/Toast";
+import {
+  OrderMetaBadges,
+  computeOrderDisplayTotal,
+} from "@/components/orders/OrderMetaBadges";
 import { formatDateTimeIST } from "@/lib/format";
 import { formatCurrency } from "@/lib/units";
 import { OrderStatus } from "@prisma/client";
@@ -26,7 +30,14 @@ type OrderCardProps = {
   order: {
     id: string;
     orderNumber: string;
+    customerId?: string | null;
     customerName: string | null;
+    customer?: { id: string; name: string } | null;
+    discountCode?: string | null;
+    discountTotal?: number | { toString(): string } | null;
+    subtotal?: number | { toString(): string } | null;
+    paymentMethod?: "CASH" | "CARD" | "PHONEPE" | null;
+    paidAt?: Date | string | null;
     status: OrderStatus;
     createdAt: Date;
     lineItems: OrderLine[];
@@ -39,10 +50,7 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
   const [isPending, startTransition] = useTransition();
   const { success, error: toastError } = useToast();
 
-  const total = order.lineItems.reduce(
-    (sum, line) => sum + Number(line.unitSalePrice) * line.quantity,
-    0
-  );
+  const { total } = computeOrderDisplayTotal(order);
 
   function handleAdvance() {
     if (!nextAction) return;
@@ -104,9 +112,7 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
           >
             {order.orderNumber}
           </Link>
-          {order.customerName && (
-            <p className="text-xs text-gray-500">{order.customerName}</p>
-          )}
+          <OrderMetaBadges order={order} />
         </div>
         <span className="text-sm font-medium text-servora-charcoal">
           {formatCurrency(total)}

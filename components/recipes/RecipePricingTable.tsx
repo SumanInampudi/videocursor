@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateRecipePricing } from "@/app/actions/pricing";
 import { RecipeBarcode } from "@/components/recipes/RecipeBarcode";
+import { RecipeImageUploadCompact } from "@/components/recipes/RecipeImageUploadCompact";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { formatCurrency } from "@/lib/units";
@@ -15,6 +16,7 @@ type RecipePricingRow = {
   name: string;
   category: string;
   barcode: string;
+  imageUrl: string | null;
   salePrice: { toString(): string } | null;
   costEstimate: RecipeCostEstimate;
 };
@@ -70,7 +72,12 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
+      <div className="grid gap-6 lg:grid-cols-[auto_1fr_auto]">
+        <RecipeImageUploadCompact
+          recipeId={recipe.id}
+          recipeName={recipe.name}
+          imageUrl={recipe.imageUrl}
+        />
         <div>
           <h3 className="text-lg font-semibold text-servora-charcoal">{recipe.name}</h3>
           <p className="text-sm text-gray-500">

@@ -1,3 +1,4 @@
+import { getSupplierOptions } from "@/app/actions/suppliers";
 import { getActiveIngredientsForRecipes } from "@/app/actions/recipes";
 import { createInventoryItem } from "@/app/actions/inventory";
 import { InventoryForm } from "@/components/inventory/InventoryForm";
@@ -5,7 +6,10 @@ import { InventoryForm } from "@/components/inventory/InventoryForm";
 export const dynamic = "force-dynamic";
 
 export default async function NewInventoryPage() {
-  const ingredients = await getActiveIngredientsForRecipes();
+  const [ingredients, suppliers] = await Promise.all([
+    getActiveIngredientsForRecipes(),
+    getSupplierOptions(),
+  ]);
 
   return (
     <div>
@@ -18,6 +22,7 @@ export default async function NewInventoryPage() {
       <InventoryForm
         action={createInventoryItem}
         ingredients={ingredients}
+        suppliers={suppliers}
         submitLabel="Add Item"
       />
     </div>

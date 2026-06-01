@@ -43,11 +43,14 @@ const COLUMNS: {
 
 export function OrderBoard({ grouped }: OrderBoardProps) {
   return (
-    <div className="grid gap-4 lg:grid-cols-4">
+    <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4">
       {COLUMNS.map((column) => {
         const orders = grouped[column.status] ?? [];
         return (
-          <section key={column.status} className="min-w-0">
+          <section
+            key={column.status}
+            className="min-w-[min(100%,280px)] shrink-0 snap-start md:min-w-0"
+          >
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
                 {column.title}

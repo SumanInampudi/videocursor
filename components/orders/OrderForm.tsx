@@ -4,11 +4,21 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { createOrder } from "@/app/actions/orders";
 import { getRecipeByBarcode } from "@/app/actions/recipes";
+import { OrderCustomerSection } from "@/components/orders/OrderCustomerSection";
+import { OrderDiscountSection } from "@/components/orders/OrderDiscountSection";
 import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { RecipeMenuTile } from "@/components/recipes/RecipeMenuTile";
+import { RecipeThumbnail } from "@/components/recipes/RecipeThumbnail";
 import { formatBarcodeDisplay } from "@/lib/barcode";
+import {
+  addToOrderCart,
+  cartSubtotal,
+  updateCartLineQty,
+  type OrderCartLine,
+} from "@/lib/order-cart";
 import { formatCurrency } from "@/lib/units";
 
 type RecipeOption = {
@@ -17,59 +27,40 @@ type RecipeOption = {
   salePrice: { toString(): string } | null;
   barcode: string;
   yieldUnit: string;
+  imageUrl?: string | null;
 };
 
-type CartLine = {
-  recipeId: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-};
+type CustomerOption = { id: string; name: string };
 
 type OrderFormProps = {
   recipes: RecipeOption[];
+  customers?: CustomerOption[];
 };
 
-export function OrderForm({ recipes }: OrderFormProps) {
+export function OrderForm({ recipes, customers = [] }: OrderFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errors, setErrors] = useState<Record<string, string[]>>({});
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const [cart, setCart] = useState<OrderCartLine[]>([]);
   const [scanMessage, setScanMessage] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
 
   const pricedRecipes = useMemo(
     () => recipes.filter((r) => r.salePrice != null),
     [recipes]
   );
 
-  const addRecipeToCart = useCallback(
-    (recipe: RecipeOption, qty = 1) => {
-      if (recipe.salePrice == null) {
-        setScanMessage(`"${recipe.name}" has no sale price — set it on Recipe pricing first.`);
-        return;
+  const addRecipeToCart = useCallback((recipe: RecipeOption, qty = 1) => {
+    setCart((prev) => {
+      const { cart: next, error } = addToOrderCart(prev, recipe, qty);
+      if (error) {
+        setScanMessage(error);
+        return prev;
       }
-      const unitPrice = Number(recipe.salePrice);
-      setCart((prev) => {
-        const existing = prev.find((l) => l.recipeId === recipe.id);
-        if (existing) {
-          return prev.map((l) =>
-            l.recipeId === recipe.id ? { ...l, quantity: l.quantity + qty } : l
-          );
-        }
-        return [
-          ...prev,
-          {
-            recipeId: recipe.id,
-            name: recipe.name,
-            quantity: qty,
-            unitPrice,
-          },
-        ];
-      });
       setScanMessage(`Added ${recipe.name}`);
-    },
-    []
-  );
+      return next;
+    });
+  }, []);
 
   async function handleScan(barcode: string) {
     const recipe = await getRecipeByBarcode(barcode);
@@ -80,17 +71,8 @@ export function OrderForm({ recipes }: OrderFormProps) {
     addRecipeToCart(recipe as RecipeOption);
   }
 
-  function updateQty(recipeId: string, quantity: number) {
-    if (quantity < 1) {
-      setCart((prev) => prev.filter((l) => l.recipeId !== recipeId));
-      return;
-    }
-    setCart((prev) =>
-      prev.map((l) => (l.recipeId === recipeId ? { ...l, quantity } : l))
-    );
-  }
-
-  const estimatedTotal = cart.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+  const subtotal = cartSubtotal(cart);
+  const estimatedTotal = Math.max(0, subtotal - discountAmount);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -142,36 +124,35 @@ export function OrderForm({ recipes }: OrderFormProps) {
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {pricedRecipes.map((recipe) => (
-              <button
+              <RecipeMenuTile
                 key={recipe.id}
-                type="button"
+                name={recipe.name}
+                price={Number(recipe.salePrice)}
+                imageUrl={recipe.imageUrl}
                 disabled={isPending}
                 onClick={() => addRecipeToCart(recipe)}
-                className="rounded-lg border border-gray-200 bg-white p-3 text-left transition hover:border-servora-yellow hover:bg-yellow-50/40 disabled:opacity-50"
-              >
-                <div className="font-medium text-servora-charcoal">{recipe.name}</div>
-                <div className="text-sm text-gray-600">
-                  {formatCurrency(Number(recipe.salePrice))}
-                </div>
-                <div className="mt-1 font-mono text-xs text-gray-400">
-                  {formatBarcodeDisplay(recipe.barcode)}
-                </div>
-              </button>
+                variant="order"
+                subtitle={
+                  <span className="font-mono text-xs text-gray-400">
+                    {formatBarcodeDisplay(recipe.barcode)}
+                  </span>
+                }
+              />
             ))}
           </div>
         )}
         <p className="mt-2 text-xs text-gray-500">
+          <a href="/recipes/pricing" className="text-servora-yellow hover:underline">
+            Add menu photos on recipe pricing →
+          </a>
+          {" · "}
           <a href="/recipes/barcodes" className="text-servora-yellow hover:underline">
-            View printable recipe barcodes →
+            Printable barcodes
           </a>
         </p>
       </div>
 
-      <Input
-        name="customerName"
-        label="Customer name (optional)"
-        placeholder="Walk-in, table 4, etc."
-      />
+      <OrderCustomerSection customers={customers} />
       <Textarea name="notes" label="Order notes (optional)" rows={2} />
 
       <div>
@@ -187,18 +168,23 @@ export function OrderForm({ recipes }: OrderFormProps) {
                 key={line.recipeId}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-3"
               >
-                <div>
-                  <p className="font-medium text-servora-charcoal">{line.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {formatCurrency(line.unitPrice)} each
-                  </p>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <RecipeThumbnail name={line.name} imageUrl={line.imageUrl} size="sm" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-servora-charcoal">{line.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {formatCurrency(line.unitPrice)} each
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
                     variant="secondary"
                     className="px-2 py-1 text-xs"
-                    onClick={() => updateQty(line.recipeId, line.quantity - 1)}
+                    onClick={() =>
+                      setCart((prev) => updateCartLineQty(prev, line.recipeId, line.quantity - 1))
+                    }
                   >
                     −
                   </Button>
@@ -207,7 +193,9 @@ export function OrderForm({ recipes }: OrderFormProps) {
                     type="button"
                     variant="secondary"
                     className="px-2 py-1 text-xs"
-                    onClick={() => updateQty(line.recipeId, line.quantity + 1)}
+                    onClick={() =>
+                      setCart((prev) => updateCartLineQty(prev, line.recipeId, line.quantity + 1))
+                    }
                   >
                     +
                   </Button>
@@ -215,7 +203,9 @@ export function OrderForm({ recipes }: OrderFormProps) {
                     type="button"
                     variant="danger"
                     className="px-2 py-1 text-xs"
-                    onClick={() => updateQty(line.recipeId, 0)}
+                    onClick={() =>
+                      setCart((prev) => updateCartLineQty(prev, line.recipeId, 0))
+                    }
                   >
                     Remove
                   </Button>
@@ -232,11 +222,30 @@ export function OrderForm({ recipes }: OrderFormProps) {
         )}
       </div>
 
-      <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
-        <span className="text-sm text-gray-600">Total</span>
-        <span className="text-lg font-bold text-servora-charcoal">
-          {formatCurrency(estimatedTotal)}
-        </span>
+      <OrderDiscountSection
+        subtotal={subtotal}
+        onApplied={(payload) => setDiscountAmount(payload?.discountAmount ?? 0)}
+      />
+
+      <div className="rounded-lg bg-gray-50 p-4 space-y-1">
+        {discountAmount > 0 && (
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Subtotal</span>
+            <span>{formatCurrency(subtotal)}</span>
+          </div>
+        )}
+        {discountAmount > 0 && (
+          <div className="flex justify-between text-sm text-green-700">
+            <span>Discount</span>
+            <span>−{formatCurrency(discountAmount)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Total</span>
+          <span className="text-lg font-bold text-servora-charcoal">
+            {formatCurrency(estimatedTotal)}
+          </span>
+        </div>
       </div>
 
       <Button type="submit" disabled={isPending || cart.length === 0}>

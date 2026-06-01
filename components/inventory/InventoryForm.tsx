@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { InventorySupplierFields } from "@/components/inventory/InventorySupplierFields";
 import { UNITS } from "@/lib/units";
 import { Unit } from "@prisma/client";
+
+type SupplierOption = { id: string; name: string };
 
 type IngredientOption = {
   id: string;
@@ -30,6 +33,7 @@ type InventoryFormProps = {
     unit: Unit;
     reorderLevel: number;
     costPerUnit: number;
+    supplierId?: string | null;
     supplier: string | null;
     storageLocation: string | null;
     expiryDate: Date | null;
@@ -37,6 +41,7 @@ type InventoryFormProps = {
     isActive: boolean;
   };
   ingredients?: IngredientOption[];
+  suppliers?: SupplierOption[];
   submitLabel?: string;
 };
 
@@ -44,6 +49,7 @@ export function InventoryForm({
   action,
   initialData,
   ingredients = [],
+  suppliers = [],
   submitLabel = "Save Item",
 }: InventoryFormProps) {
   const router = useRouter();
@@ -190,11 +196,11 @@ export function InventoryForm({
           error={errors.costPerUnit?.[0]}
           required
         />
-        <Input
-          name="supplier"
-          label="Supplier"
-          defaultValue={initialData?.supplier ?? ""}
-          error={errors.supplier?.[0]}
+        <InventorySupplierFields
+          suppliers={suppliers}
+          defaultSupplierId={initialData?.supplierId}
+          defaultSupplierText={initialData?.supplier}
+          errors={errors}
         />
         <Input
           name="storageLocation"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { deleteRecipe } from "@/app/actions/recipes";
+import { RecipeThumbnail } from "@/components/recipes/RecipeThumbnail";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { YieldResult } from "@/lib/yield";
@@ -11,6 +12,7 @@ import { YieldResult } from "@/lib/yield";
 type RecipeWithYield = {
   id: string;
   name: string;
+  imageUrl?: string | null;
   category: string;
   yieldUnit: string;
   ingredients: { id: string }[];
@@ -77,7 +79,12 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
         <tbody className="divide-y divide-gray-200 bg-white">
           {recipes.map((recipe) => (
             <tr key={recipe.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 font-medium text-servora-charcoal">{recipe.name}</td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <RecipeThumbnail name={recipe.name} imageUrl={recipe.imageUrl} size="sm" />
+                  <span className="font-medium text-servora-charcoal">{recipe.name}</span>
+                </div>
+              </td>
               <td className="px-4 py-3 text-sm text-gray-600">{recipe.category}</td>
               <td className="px-4 py-3 text-sm text-gray-600">
                 {recipe.ingredients.length} items
@@ -96,6 +103,11 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="flex justify-end gap-2">
+                  <Link href={`/recipes/${recipe.id}/edit#menu-image`}>
+                    <Button variant="ghost" className="px-2 py-1 text-xs">
+                      Photo
+                    </Button>
+                  </Link>
                   <Link href={`/recipes/${recipe.id}/edit`}>
                     <Button variant="ghost" className="px-2 py-1 text-xs">
                       Edit

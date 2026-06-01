@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { serializeForClient } from "@/lib/serialize";
 import { inventoryPurchaseSchema } from "@/lib/validations";
 import { PurchasePaymentStatus } from "@prisma/client";
 
@@ -65,13 +66,13 @@ export async function getPayablesSummary() {
     0
   );
 
-  return { purchases: open, totalOwed, count: open.length };
+  return serializeForClient({ purchases: open, totalOwed, count: open.length });
 }
 
 export async function getInventoryItemsForPurchase() {
   return db.inventoryItem.findMany({
     where: { isActive: true },
-    select: { id: true, name: true, sku: true, supplier: true },
+    select: { id: true, name: true, sku: true, supplier: true, supplierId: true },
     orderBy: { name: "asc" },
   });
 }
@@ -91,11 +92,21 @@ export async function createInventoryPurchase(formData: FormData) {
   const status = data.paymentStatus as PurchasePaymentStatus;
   const amountPaid = resolveAmountPaid(status, data.totalAmount, data.amountPaid);
 
+  let supplierName = data.supplier || null;
+  if (data.supplierId) {
+    const sup = await db.supplier.findUnique({
+      where: { id: data.supplierId },
+      select: { name: true },
+    });
+    if (sup) supplierName = sup.name;
+  }
+
   await db.inventoryPurchase.create({
     data: {
       inventoryItemId: data.inventoryItemId || null,
+      supplierId: data.supplierId || null,
       description: data.description,
-      supplier: data.supplier || null,
+      supplier: supplierName,
       totalAmount: data.totalAmount,
       amountPaid,
       paymentStatus: status,

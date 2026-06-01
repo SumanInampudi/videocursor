@@ -3,14 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { planInventoryDeductions } from "@/lib/orderFulfillment";
+import { calculateDiscountAmount, isDiscountValid } from "@/lib/discount-calc";
 import { createOrderSchema } from "@/lib/validations";
-import { OrderStatus, Prisma } from "@prisma/client";
+import { posCheckoutSchema } from "@/lib/validations";
+import type { OrdersListQuery } from "@/lib/orders-list";
+import { ORDERS_PAGE_SIZE } from "@/lib/orders-list";
+import { OrderPaymentMethod, OrderStatus, Prisma } from "@prisma/client";
 
 const ORDER_PATHS = [
   "/orders",
   "/orders/new",
+  "/orders/pos",
+  "/orders/pos/settings",
   "/",
   "/reports",
   "/inventory",
@@ -36,6 +43,7 @@ function generateOrderNumber(): string {
 export async function getOrdersByStatus() {
   const orders = await db.order.findMany({
     include: {
+      customer: { select: { id: true, name: true } },
       lineItems: {
         include: {
           recipe: { select: { id: true, name: true, yieldUnit: true, barcode: true } },
@@ -64,6 +72,7 @@ export async function getOrder(id: string) {
   const order = await db.order.findUnique({
     where: { id },
     include: {
+      customer: { select: { id: true, name: true } },
       lineItems: {
         include: {
           recipe: true,
@@ -88,10 +97,58 @@ export async function getRecipesForOrdering() {
       barcode: true,
       yieldUnit: true,
       yieldQuantity: true,
+      imageUrl: true,
     },
     orderBy: { name: "asc" },
   });
   return serializeForClient(recipes);
+}
+
+/** Menu data for full-screen POS (categories, items, frequently sold). */
+export async function getPosMenuData() {
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+
+  const [recipes, frequentGroups] = await Promise.all([
+    db.recipe.findMany({
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        salePrice: true,
+        barcode: true,
+        yieldUnit: true,
+        imageUrl: true,
+      },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    }),
+    db.orderLineItem.groupBy({
+      by: ["recipeId"],
+      where: {
+        recipeId: { not: null },
+        order: {
+          status: OrderStatus.DELIVERED,
+          deliveredAt: { gte: since },
+        },
+      },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: "desc" } },
+      take: 20,
+    }),
+  ]);
+
+  const frequentIds = frequentGroups
+    .map((row) => row.recipeId)
+    .filter((id): id is string => id != null);
+
+  const allCategories = [...new Set(recipes.map((r) => r.category))];
+  const categories = await getOrderedPosCategories(allCategories);
+
+  return serializeForClient({
+    recipes,
+    categories,
+    frequentIds,
+  });
 }
 
 export async function createOrder(formData: FormData) {
@@ -106,9 +163,13 @@ export async function createOrder(formData: FormData) {
     });
   }
 
-  const parsed = createOrderSchema.safeParse({
+  const isPosCheckout = Boolean(raw.paymentMethod);
+  const parsed = (isPosCheckout ? posCheckoutSchema : createOrderSchema).safeParse({
+    customerId: raw.customerId || undefined,
     customerName: raw.customerName,
+    discountCode: raw.discountCode,
     notes: raw.notes,
+    paymentMethod: raw.paymentMethod || undefined,
     lines,
   });
 
@@ -137,30 +198,97 @@ export async function createOrder(formData: FormData) {
     }
   }
 
+  let customerId: string | null = parsed.data.customerId || null;
+  let customerName = parsed.data.customerName?.trim() || null;
+
+  if (customerId) {
+    const customer = await db.customer.findUnique({
+      where: { id: customerId },
+      select: { name: true },
+    });
+    if (customer) customerName = customer.name;
+  }
+
+  const linePayloads = parsed.data.lines.map((line) => {
+    const recipe = recipeMap.get(line.recipeId)!;
+    const unitSalePrice = Number(recipe.salePrice);
+    return {
+      recipeId: line.recipeId,
+      recipeName: recipe.name,
+      quantity: line.quantity,
+      unitSalePrice,
+      revenue: unitSalePrice * line.quantity,
+    };
+  });
+
+  const subtotal = linePayloads.reduce((s, l) => s + l.revenue, 0);
+  let discountId: string | null = null;
+  let discountCode: string | null = null;
+  let discountTotal = 0;
+
+  const code = parsed.data.discountCode?.trim().toUpperCase();
+  if (code) {
+    const discount = await db.discount.findUnique({ where: { code } });
+    if (!discount) {
+      return { error: { discountCode: ["Invalid discount code"] } };
+    }
+    const d = {
+      type: discount.type,
+      value: Number(discount.value),
+      minOrderAmount:
+        discount.minOrderAmount != null ? Number(discount.minOrderAmount) : null,
+      isActive: discount.isActive,
+      validFrom: discount.validFrom,
+      validTo: discount.validTo,
+    };
+    if (!isDiscountValid(d, subtotal)) {
+      return {
+        error: {
+          discountCode: ["Discount not valid for this order"],
+        },
+      };
+    }
+    discountTotal = calculateDiscountAmount(d, subtotal);
+    discountId = discount.id;
+    discountCode = discount.code;
+  }
+
+  if (discountTotal > 0 && subtotal > 0) {
+    const factor = (subtotal - discountTotal) / subtotal;
+    for (const line of linePayloads) {
+      line.revenue = Math.round(line.revenue * factor * 100) / 100;
+    }
+  }
+
+  const paymentMethod = parsed.data.paymentMethod as OrderPaymentMethod | undefined;
+
   const order = await db.order.create({
     data: {
       orderNumber: generateOrderNumber(),
-      customerName: parsed.data.customerName || null,
+      customerId,
+      customerName,
+      discountId,
+      discountCode,
+      subtotal,
+      discountTotal,
+      paymentMethod: paymentMethod ?? null,
+      paidAt: paymentMethod ? new Date() : null,
       notes: parsed.data.notes || null,
       status: OrderStatus.NEW,
-      lineItems: {
-        create: parsed.data.lines.map((line) => {
-          const recipe = recipeMap.get(line.recipeId)!;
-          const unitSalePrice = Number(recipe.salePrice);
-          return {
-            recipeId: line.recipeId,
-            recipeName: recipe.name,
-            quantity: line.quantity,
-            unitSalePrice,
-            revenue: unitSalePrice * line.quantity,
-          };
-        }),
-      },
+      lineItems: { create: linePayloads },
     },
   });
 
   revalidateOrders();
-  return { success: true, orderId: order.id };
+  return { success: true, orderId: order.id, orderNumber: order.orderNumber };
+}
+
+/** POS register: create order only after payment method is selected at checkout. */
+export async function createPosOrder(formData: FormData) {
+  if (!formData.get("paymentMethod")) {
+    return { error: { paymentMethod: ["Select Cash, Card, or PhonePe"] } };
+  }
+  return createOrder(formData);
 }
 
 const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
@@ -353,6 +481,78 @@ async function fulfillOrderInventory(order: OrderForFulfillment) {
   }
 
   return { success: true };
+}
+
+function buildOrdersListWhere(filters: OrdersListQuery): Prisma.OrderWhereInput {
+  const where: Prisma.OrderWhereInput = {};
+
+  if (filters.status) {
+    where.status = filters.status;
+  }
+
+  if (filters.payment === "unpaid") {
+    where.paidAt = null;
+  } else if (filters.payment) {
+    where.paymentMethod = filters.payment;
+  }
+
+  if (filters.todayOnly) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    where.createdAt = { gte: todayStart };
+  }
+
+  const q = filters.search?.trim();
+  if (q) {
+    where.OR = [
+      { orderNumber: { contains: q } },
+      { customerName: { contains: q } },
+      { discountCode: { contains: q } },
+      { customer: { name: { contains: q } } },
+      { lineItems: { some: { recipeName: { contains: q } } } },
+    ];
+  }
+
+  return where;
+}
+
+export async function getOrdersList(filters: OrdersListQuery = {}) {
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = ORDERS_PAGE_SIZE;
+  const skip = (page - 1) * pageSize;
+  const where = buildOrdersListWhere(filters);
+
+  const [orders, total] = await Promise.all([
+    db.order.findMany({
+      where,
+      include: {
+        customer: { select: { id: true, name: true } },
+        lineItems: {
+          select: {
+            id: true,
+            quantity: true,
+            unitSalePrice: true,
+            recipeName: true,
+            recipe: { select: { name: true, yieldUnit: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    db.order.count({ where }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return serializeForClient({
+    orders,
+    total,
+    page,
+    pageSize,
+    totalPages,
+  });
 }
 
 export async function getOrderDashboardStats() {

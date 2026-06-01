@@ -3,7 +3,7 @@
  * auth is wired; pass `null` for userRoles during development to show all items.
  */
 
-export const NAV_ROLES = ["owner", "manager", "kitchen", "viewer"] as const;
+export const NAV_ROLES = ["owner", "manager", "pos", "kitchen", "viewer"] as const;
 
 export type NavRole = (typeof NAV_ROLES)[number];
 
@@ -24,35 +24,43 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     id: "overview",
     label: "Overview",
+    roles: ["owner", "manager", "viewer"],
     items: [
-      { href: "/", label: "Dashboard" },
+      { href: "/", label: "Dashboard", roles: ["owner", "manager", "viewer"] },
       { href: "/reports", label: "P&L Reports", roles: ["owner", "manager", "viewer"] },
     ],
   },
   {
     id: "operations",
     label: "Operations",
+    roles: ["owner", "manager", "pos", "kitchen"],
     items: [
-      { href: "/orders", label: "Orders" },
+      { href: "/orders", label: "Orders", roles: ["owner", "manager"] },
+      { href: "/orders/pos", label: "POS register", roles: ["owner", "manager", "pos"] },
       { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] },
-      { href: "/yield", label: "Yield Calculator" },
+      { href: "/customers", label: "Customers", roles: ["owner", "manager"] },
+      { href: "/discounts", label: "Discounts", roles: ["owner", "manager"] },
+      { href: "/yield", label: "Yield Calculator", roles: ["owner", "manager"] },
     ],
   },
   {
     id: "catalog",
     label: "Catalog",
+    roles: ["owner", "manager"],
     items: [
       { href: "/ingredients", label: "Ingredients" },
       { href: "/recipes", label: "Recipes" },
-      { href: "/recipes/pricing", label: "Recipe pricing", roles: ["owner", "manager"] },
+      { href: "/recipes/pricing", label: "Recipe pricing" },
     ],
   },
   {
     id: "inventory",
     label: "Inventory",
+    roles: ["owner", "manager"],
     items: [
       { href: "/inventory", label: "Stock" },
-      { href: "/inventory/payables", label: "Supplier payables", roles: ["owner", "manager"] },
+      { href: "/suppliers", label: "Suppliers" },
+      { href: "/inventory/payables", label: "Supplier payables" },
     ],
   },
   {
@@ -62,12 +70,16 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/expenses", label: "Expenses" },
       { href: "/admin/audit", label: "Audit log", roles: ["owner"] },
+      { href: "/admin/data", label: "Import / export data", roles: ["owner"] },
+      { href: "/admin/users", label: "Team & roles", roles: ["owner"] },
     ],
   },
 ];
 
 export const DASHBOARD_QUICK_ACTIONS = [
-  { href: "/orders/new", label: "Place order", roles: ["owner", "manager", "kitchen"] as NavRole[] },
+  { href: "/orders/pos", label: "POS register", roles: ["owner", "manager", "pos"] as NavRole[] },
+  { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] as NavRole[] },
+  { href: "/orders/new", label: "Simple order form", roles: ["owner", "manager"] as NavRole[] },
   { href: "/inventory/purchases/new", label: "Record purchase", roles: ["owner", "manager"] as NavRole[] },
   { href: "/expenses/new", label: "Add expense", roles: ["owner", "manager"] as NavRole[] },
   { href: "/ingredients/barcodes", label: "Print barcodes", roles: ["owner", "manager"] as NavRole[] },
