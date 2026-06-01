@@ -34,10 +34,10 @@ function parseBulkText(text: string) {
     .filter(Boolean);
 }
 
-async function nextIngredientSku(name: string) {
+async function nextIngredientSku(name: string, businessId: string) {
   const prefix = ingredientSkuPrefix(name);
   const existing = await db.ingredient.findMany({
-    where: { sku: { startsWith: prefix } },
+    where: { businessId, sku: { startsWith: prefix } },
     select: { sku: true },
   });
 
@@ -57,14 +57,19 @@ async function createIngredientFromName(name: string, category = "General", defa
   const normalizedName = normalizeIngredientName(name);
   if (!normalizedName) return { skipped: name };
 
-  const existing = await db.ingredient.findUnique({ where: { normalizedName } });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const existing = await db.ingredient.findFirst({
+    where: { businessId, normalizedName },
+  });
   if (existing) return { duplicate: existing };
 
   const ingredient = await db.ingredient.create({
     data: {
+      businessId,
       name: name.trim(),
       normalizedName,
-      sku: await nextIngredientSku(name),
+      sku: await nextIngredientSku(name, businessId),
       barcode: generateIngredientBarcode(name),
       category,
       defaultUnit,
@@ -76,7 +81,10 @@ async function createIngredientFromName(name: string, category = "General", defa
 }
 
 export async function getIngredients(filters?: { search?: string; category?: string }) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const ingredients = await db.ingredient.findMany({
+    where: { businessId },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
     include: { inventoryItems: true },
   });
@@ -133,16 +141,22 @@ export async function createIngredient(formData: FormData): Promise<IngredientRe
   const data = parsed.data;
   const normalizedName = normalizeIngredientName(data.name);
 
-  const duplicate = await db.ingredient.findUnique({ where: { normalizedName } });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  const duplicate = await db.ingredient.findFirst({
+    where: { businessId, normalizedName },
+  });
   if (duplicate) {
     return { error: { name: ["Ingredient already exists"] } };
   }
 
-  const sku = data.sku?.trim() || (await nextIngredientSku(data.name));
+  const sku = data.sku?.trim() || (await nextIngredientSku(data.name, businessId));
 
   try {
     const ingredient = await db.ingredient.create({
       data: {
+        businessId,
         name: data.name,
         normalizedName,
         sku,
@@ -193,8 +207,12 @@ export async function updateIngredient(id: string, formData: FormData): Promise<
   const data = parsed.data;
   const normalizedName = normalizeIngredientName(data.name);
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
   const duplicateName = await db.ingredient.findFirst({
     where: {
+      businessId,
       normalizedName,
       NOT: { id },
     },
@@ -211,7 +229,7 @@ export async function updateIngredient(id: string, formData: FormData): Promise<
       data: {
         name: data.name,
         normalizedName,
-        sku: data.sku?.trim() || (await nextIngredientSku(data.name)),
+        sku: data.sku?.trim() || (await nextIngredientSku(data.name, businessId)),
         category: data.category,
         defaultUnit: data.defaultUnit as Unit,
         aliases: data.aliases || null,
@@ -277,8 +295,12 @@ export async function getIngredientByBarcode(barcode: string) {
   const normalized = barcode.replace(/\D/g, "");
   if (normalized.length < 8) return null;
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
   return db.ingredient.findFirst({
     where: {
+      businessId,
       OR: [{ barcode: normalized }, { barcode: normalized.slice(0, 13) }],
     },
     select: {
@@ -294,13 +316,18 @@ export async function getIngredientByBarcode(barcode: string) {
 }
 
 export async function createInventoryFromIngredient(ingredientId: string) {
-  const ingredient = await db.ingredient.findUnique({ where: { id: ingredientId } });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  const ingredient = await db.ingredient.findFirst({
+    where: { id: ingredientId, businessId },
+  });
   if (!ingredient) {
     return { error: "Ingredient not found" };
   }
 
   const existing = await db.inventoryItem.findFirst({
-    where: { ingredientId },
+    where: { businessId, ingredientId },
     select: { id: true },
   });
   if (existing) {
@@ -309,6 +336,7 @@ export async function createInventoryFromIngredient(ingredientId: string) {
 
   const item = await db.inventoryItem.create({
     data: {
+      businessId,
       ingredientId,
       name: ingredient.name,
       sku: `${ingredient.sku}-STK`,

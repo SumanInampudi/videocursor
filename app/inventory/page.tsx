@@ -43,7 +43,10 @@ export default async function InventoryPage({
             Manage stock with granular details — quantities, locations, suppliers, and more
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/inventory/receive">
+            <Button>Stock receive</Button>
+          </Link>
           <Link href="/inventory/purchases/new">
             <Button variant="secondary">Record purchase</Button>
           </Link>

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { sortPosCategories } from "@/lib/pos-categories";
 import { serializeForClient } from "@/lib/serialize";
@@ -13,8 +14,10 @@ function revalidatePos() {
   for (const p of POS_PATHS) revalidatePath(p);
 }
 
-async function readCategoryOrder(): Promise<string[] | null> {
-  const row = await db.appSetting.findUnique({ where: { key: POS_CATEGORY_ORDER_KEY } });
+async function readCategoryOrder(businessId: string): Promise<string[] | null> {
+  const row = await db.appSetting.findUnique({
+    where: { businessId_key: { businessId, key: POS_CATEGORY_ORDER_KEY } },
+  });
   if (!row?.value) return null;
   try {
     const parsed = JSON.parse(row.value) as unknown;
@@ -26,18 +29,21 @@ async function readCategoryOrder(): Promise<string[] | null> {
 }
 
 export async function getOrderedPosCategories(allCategories: string[]) {
-  const saved = await readCategoryOrder();
+  const { businessId } = await requireBusinessContext();
+  const saved = await readCategoryOrder(businessId);
   return sortPosCategories(allCategories, saved);
 }
 
 export async function getPosCategorySettings() {
+  const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
+    where: { businessId },
     select: { category: true },
     distinct: ["category"],
     orderBy: { category: "asc" },
   });
   const allCategories = recipes.map((r) => r.category);
-  const savedOrder = await readCategoryOrder();
+  const savedOrder = await readCategoryOrder(businessId);
   const ordered = sortPosCategories(allCategories, savedOrder);
 
   return serializeForClient({
@@ -48,10 +54,15 @@ export async function getPosCategorySettings() {
 }
 
 export async function savePosCategoryOrder(categories: string[]) {
+  const { businessId } = await requireBusinessContext();
   const unique = [...new Set(categories.map((c) => c.trim()).filter(Boolean))];
   await db.appSetting.upsert({
-    where: { key: POS_CATEGORY_ORDER_KEY },
-    create: { key: POS_CATEGORY_ORDER_KEY, value: JSON.stringify(unique) },
+    where: { businessId_key: { businessId, key: POS_CATEGORY_ORDER_KEY } },
+    create: {
+      businessId,
+      key: POS_CATEGORY_ORDER_KEY,
+      value: JSON.stringify(unique),
+    },
     update: { value: JSON.stringify(unique) },
   });
   revalidatePos();

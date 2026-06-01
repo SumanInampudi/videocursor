@@ -87,12 +87,14 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
   try {
     const data = JSON.parse(base64UrlToText(body)) as SessionPayload;
     if (!data.exp || data.exp < Date.now()) return null;
-    if (!data.userId || !data.email || !data.role) return null;
+    if (!data.userId || !data.email || !data.role || !data.businessId) return null;
     return {
       userId: data.userId,
       email: data.email,
       name: data.name,
       role: data.role,
+      businessId: data.businessId,
+      businessName: data.businessName ?? "",
     };
   } catch {
     return null;

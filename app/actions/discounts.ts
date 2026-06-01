@@ -13,8 +13,13 @@ function revalidate() {
 }
 
 export async function getDiscounts(activeOnly = false) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const rows = await db.discount.findMany({
-    where: activeOnly ? { isActive: true } : undefined,
+    where: {
+      businessId,
+      ...(activeOnly ? { isActive: true } : {}),
+    },
     orderBy: { code: "asc" },
   });
   return serializeForClient(rows);
@@ -36,8 +41,11 @@ export async function createDiscount(formData: FormData) {
 
   const data = parsed.data;
   try {
+    const { requireBusinessContext } = await import("@/lib/business-context");
+    const { businessId } = await requireBusinessContext();
     await db.discount.create({
       data: {
+        businessId,
         code: data.code,
         name: data.name,
         type: data.type,
@@ -98,7 +106,11 @@ export async function validateDiscountForOrder(code: string, subtotal: number) {
   const normalized = code.trim().toUpperCase();
   if (!normalized) return { error: "Enter a discount code" };
 
-  const discount = await db.discount.findUnique({ where: { code: normalized } });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const discount = await db.discount.findUnique({
+    where: { businessId_code: { businessId, code: normalized } },
+  });
   if (!discount) return { error: "Invalid discount code" };
 
   const d = {

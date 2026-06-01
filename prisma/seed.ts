@@ -14,6 +14,8 @@ import { STARTER_INGREDIENTS, ingredientSkuPrefix, normalizeIngredientName } fro
 
 const prisma = new PrismaClient();
 
+const BUSINESS_ID = "default-business";
+
 function daysAgo(n: number) {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -29,13 +31,21 @@ function orderNumber(suffix: string) {
   return `ORD-${y}${m}${day}-${suffix}`;
 }
 
-async function createIngredient(name: string, category: string, defaultUnit: Unit) {
+async function createIngredient(
+  name: string,
+  category: string,
+  defaultUnit: Unit,
+  businessId: string = BUSINESS_ID
+) {
   const normalized = normalizeIngredientName(name);
-  const existing = await prisma.ingredient.findUnique({ where: { normalizedName: normalized } });
+  const existing = await prisma.ingredient.findFirst({
+    where: { businessId, normalizedName: normalized },
+  });
   if (existing) return existing;
 
   return prisma.ingredient.create({
     data: {
+      businessId,
       name,
       normalizedName: normalized,
       sku: `${ingredientSkuPrefix(name)}-001`,
@@ -67,6 +77,7 @@ async function createStock(
 ) {
   const item = await prisma.inventoryItem.create({
     data: {
+      businessId: BUSINESS_ID,
       ingredientId,
       supplierId: input.supplierId,
       name,
@@ -106,6 +117,7 @@ async function createRecipe(
 ) {
   return prisma.recipe.create({
     data: {
+      businessId: BUSINESS_ID,
       name,
       category,
       description,
@@ -144,10 +156,48 @@ async function main() {
   await prisma.customer.deleteMany();
   await prisma.supplier.deleteMany();
   await prisma.ingredient.deleteMany();
+  await prisma.userBusiness.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.diningTable.deleteMany();
+  await prisma.business.deleteMany();
+
+  console.log("Creating business…");
+  await prisma.business.create({
+    data: {
+      id: BUSINESS_ID,
+      name: "Demo Restaurant",
+      slug: "demo",
+      timezone: "Asia/Kolkata",
+      currency: "INR",
+    },
+  });
+
+  for (let i = 1; i <= 12; i++) {
+    await prisma.diningTable.create({
+      data: {
+        businessId: BUSINESS_ID,
+        code: String(i),
+        label: `Table ${i}`,
+        section: i <= 8 ? "Main" : "Patio",
+        sortOrder: i,
+      },
+    });
+  }
+
+  const venueKeys = [
+    ["pos_enable_dine_in", "true"],
+    ["pos_enable_online", "true"],
+    ["pos_require_table_dine_in", "true"],
+    ["pos_default_channel", "DINE_IN"],
+  ] as const;
+  for (const [key, value] of venueKeys) {
+    await prisma.appSetting.create({ data: { businessId: BUSINESS_ID, key, value } });
+  }
 
   console.log("Creating suppliers…");
   const metro = await prisma.supplier.create({
     data: {
+      businessId: BUSINESS_ID,
       name: "Metro Foods Wholesale",
       contactPhone: "+91 98765 43210",
       email: "orders@metrofoods.demo",
@@ -157,6 +207,7 @@ async function main() {
   });
   const dairy = await prisma.supplier.create({
     data: {
+      businessId: BUSINESS_ID,
       name: "Dairy Fresh Co",
       contactPhone: "+91 98765 11122",
       email: "billing@dairyfresh.demo",
@@ -165,6 +216,7 @@ async function main() {
   });
   const greenValley = await prisma.supplier.create({
     data: {
+      businessId: BUSINESS_ID,
       name: "Green Valley Farms",
       contactPhone: "+91 91234 56789",
       notes: "Produce deliveries Mon/Wed/Fri",
@@ -564,6 +616,7 @@ async function main() {
   console.log("Creating customers, discounts, settings…");
   const customerRajesh = await prisma.customer.create({
     data: {
+      businessId: BUSINESS_ID,
       name: "Rajesh Kumar",
       phone: "+91 99887 76655",
       email: "rajesh.k@demo.com",
@@ -573,6 +626,7 @@ async function main() {
 
   const customerPriya = await prisma.customer.create({
     data: {
+      businessId: BUSINESS_ID,
       name: "Priya Sharma",
       phone: "+91 98765 12345",
       email: "priya@demo.com",
@@ -581,6 +635,7 @@ async function main() {
 
   const customerAnil = await prisma.customer.create({
     data: {
+      businessId: BUSINESS_ID,
       name: "Anil Mehta",
       phone: "+91 91234 00099",
       notes: "Has not ordered in 30+ days — win-back candidate",
@@ -588,11 +643,12 @@ async function main() {
   });
 
   await prisma.customer.create({
-    data: { name: "Walk-in Guest", phone: null },
+    data: { businessId: BUSINESS_ID, name: "Walk-in Guest", phone: null },
   });
 
   const discountWelcome = await prisma.discount.create({
     data: {
+      businessId: BUSINESS_ID,
       code: "WELCOME10",
       name: "Welcome 10% off",
       type: DiscountType.PERCENT,
@@ -604,6 +660,7 @@ async function main() {
 
   await prisma.discount.create({
     data: {
+      businessId: BUSINESS_ID,
       code: "FLAT50",
       name: "Flat ₹50 off",
       type: DiscountType.FIXED,
@@ -615,6 +672,7 @@ async function main() {
 
   await prisma.appSetting.create({
     data: {
+      businessId: BUSINESS_ID,
       key: "pos_category_order",
       value: JSON.stringify(["Beverages", "Snacks", "Breads", "Pizza", "Curry", "Rice"]),
     },
@@ -626,24 +684,28 @@ async function main() {
   await prisma.expense.createMany({
     data: [
       {
+        businessId: BUSINESS_ID,
         category: "RENT",
         description: "Shop rent",
         amount: 45000,
         periodMonth,
       },
       {
+        businessId: BUSINESS_ID,
         category: "SALARIES",
         description: "Kitchen & counter staff",
         amount: 85000,
         periodMonth,
       },
       {
+        businessId: BUSINESS_ID,
         category: "UTILITIES",
         description: "Electricity & gas",
         amount: 12000,
         periodMonth,
       },
       {
+        businessId: BUSINESS_ID,
         category: "MARKETING",
         description: "Instagram ads",
         amount: 5000,
@@ -693,10 +755,18 @@ async function main() {
     },
   });
 
+  const table1 = await prisma.diningTable.findFirst({
+    where: { businessId: BUSINESS_ID, code: "4" },
+  });
+
   async function createOrderWithLines(opts: {
     orderNumber: string;
     status: OrderStatus;
     createdAt: Date;
+    channel?: import("@prisma/client").OrderChannel;
+    diningTableId?: string;
+    tableLabel?: string;
+    externalRef?: string;
     customerId?: string;
     customerName?: string;
     discountId?: string;
@@ -715,7 +785,12 @@ async function main() {
 
     return prisma.order.create({
       data: {
+        businessId: BUSINESS_ID,
         orderNumber: opts.orderNumber,
+        channel: opts.channel ?? "DINE_IN",
+        diningTableId: opts.diningTableId,
+        tableLabel: opts.tableLabel,
+        externalRef: opts.externalRef,
         status: opts.status,
         createdAt: opts.createdAt,
         customerId: opts.customerId,

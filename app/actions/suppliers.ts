@@ -12,8 +12,13 @@ function revalidate() {
 }
 
 export async function getSuppliers(activeOnly = false) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const rows = await db.supplier.findMany({
-    where: activeOnly ? { isActive: true } : undefined,
+    where: {
+      businessId,
+      ...(activeOnly ? { isActive: true } : {}),
+    },
     orderBy: { name: "asc" },
   });
   return serializeForClient(rows);
@@ -31,7 +36,9 @@ export async function createSupplier(formData: FormData) {
   });
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
-  await db.supplier.create({ data: parsed.data });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  await db.supplier.create({ data: { ...parsed.data, businessId } });
   revalidate();
   return { success: true };
 }

@@ -13,7 +13,12 @@ function revalidate() {
 }
 
 export async function getCustomers(search?: string) {
-  const rows = await db.customer.findMany({ orderBy: { name: "asc" } });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const rows = await db.customer.findMany({
+    where: { businessId },
+    orderBy: { name: "asc" },
+  });
   if (!search?.trim()) return serializeForClient(rows);
 
   const q = search.toLowerCase();
@@ -121,7 +126,11 @@ export async function createCustomer(formData: FormData) {
   const parsed = customerSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
-  const customer = await db.customer.create({ data: parsed.data });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const customer = await db.customer.create({
+    data: { ...parsed.data, businessId },
+  });
   revalidate();
   return { success: true, customerId: customer.id };
 }

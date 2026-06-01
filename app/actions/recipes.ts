@@ -9,7 +9,10 @@ import { calculateAllYields } from "@/lib/yield";
 import { Unit } from "@prisma/client";
 
 export async function getRecipes() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
+    where: { businessId },
     include: {
       ingredients: {
         include: { ingredient: { include: { inventoryItems: true } } },
@@ -42,8 +45,10 @@ export async function getRecipe(id: string) {
 }
 
 export async function getActiveIngredientsForRecipes() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   return db.ingredient.findMany({
-    where: { isActive: true },
+    where: { businessId, isActive: true },
     select: {
       id: true,
       name: true,
@@ -86,8 +91,11 @@ export async function createRecipe(formData: FormData) {
 
   const data = parsed.data;
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   await db.recipe.create({
     data: {
+      businessId,
       name: data.name,
       description: data.description || null,
       category: data.category,
@@ -212,8 +220,12 @@ export async function getRecipeByBarcode(barcode: string) {
   const normalized = barcode.replace(/\D/g, "");
   if (normalized.length < 8) return null;
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
   const recipe = await db.recipe.findFirst({
     where: {
+      businessId,
       OR: [{ barcode: normalized }, { barcode: normalized.slice(0, 13) }],
     },
     select: {
@@ -231,7 +243,10 @@ export async function getRecipeByBarcode(barcode: string) {
 }
 
 export async function getYieldResults() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
+    where: { businessId },
     include: {
       ingredients: {
         include: { ingredient: { include: { inventoryItems: true } } },

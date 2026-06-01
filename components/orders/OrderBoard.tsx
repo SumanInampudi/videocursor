@@ -1,6 +1,7 @@
 "use client";
 
 import { OrderCard } from "@/components/orders/OrderCard";
+import { sortOrdersByReceived } from "@/lib/orders-sort";
 import { OrderStatus } from "@prisma/client";
 
 type OrderWithLines = {
@@ -45,7 +46,7 @@ export function OrderBoard({ grouped }: OrderBoardProps) {
   return (
     <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4">
       {COLUMNS.map((column) => {
-        const orders = grouped[column.status] ?? [];
+        const orders = sortOrdersByReceived(grouped[column.status] ?? []);
         return (
           <section
             key={column.status}

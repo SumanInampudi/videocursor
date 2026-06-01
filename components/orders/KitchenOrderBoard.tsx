@@ -3,14 +3,22 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { KitchenOrderCard } from "@/components/orders/KitchenOrderCard";
+import type { KdsThresholds } from "@/lib/kds-timers";
+import { sortOrdersByReceived } from "@/lib/orders-sort";
 import { OrderStatus } from "@prisma/client";
 
 type KitchenOrder = {
   id: string;
   orderNumber: string;
   customerName: string | null;
+  channel: import("@prisma/client").OrderChannel;
+  tableLabel: string | null;
+  externalRef: string | null;
   status: OrderStatus;
   createdAt: Date;
+  processedAt?: Date | string | null;
+  readyAt?: Date | string | null;
+  estimatedPrepMinutes?: number | null;
   lineItems: {
     id: string;
     quantity: number;
@@ -25,6 +33,7 @@ type KitchenOrderBoardProps = {
     PROCESSING: KitchenOrder[];
     READY: KitchenOrder[];
   };
+  thresholds: KdsThresholds;
 };
 
 const COLUMNS: {
@@ -61,7 +70,7 @@ const COLUMNS: {
   },
 ];
 
-export function KitchenOrderBoard({ grouped }: KitchenOrderBoardProps) {
+export function KitchenOrderBoard({ grouped, thresholds }: KitchenOrderBoardProps) {
   const router = useRouter();
 
   useEffect(() => {
@@ -75,11 +84,11 @@ export function KitchenOrderBoard({ grouped }: KitchenOrderBoardProps) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-500">
-        {activeTotal} active today · auto-refresh 15s · tap to advance
+        {activeTotal} active today · timers live · refreshes 15s · oldest received first
       </p>
       <div className="grid gap-3 lg:grid-cols-3">
         {COLUMNS.map((column) => {
-          const orders = grouped[column.status] ?? [];
+          const orders = sortOrdersByReceived(grouped[column.status] ?? []);
           return (
             <section
               key={column.status}
@@ -107,6 +116,7 @@ export function KitchenOrderBoard({ grouped }: KitchenOrderBoardProps) {
                       order={order}
                       accent={column.accent}
                       nextAction={column.nextAction}
+                      thresholds={thresholds}
                     />
                   ))
                 )}

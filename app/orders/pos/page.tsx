@@ -1,5 +1,6 @@
 import { getCustomerOptions } from "@/app/actions/customers";
 import { getPosMenuData } from "@/app/actions/orders";
+import { getPosRegisterData } from "@/app/actions/venue";
 import { PosOrderScreen } from "@/components/orders/pos/PosOrderScreen";
 import { getAuthContext } from "@/lib/auth";
 import { isAdminRole } from "@/lib/permissions";
@@ -7,9 +8,10 @@ import { isAdminRole } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 export default async function PosOrderPage() {
-  const [menu, customers, auth] = await Promise.all([
+  const [menu, customers, register, auth] = await Promise.all([
     getPosMenuData(),
     getCustomerOptions(),
+    getPosRegisterData(),
     getAuthContext(),
   ]);
 
@@ -19,6 +21,8 @@ export default async function PosOrderPage() {
       categories={menu.categories}
       frequentIds={menu.frequentIds}
       customers={customers}
+      venue={register.venue}
+      tables={register.tables}
       showExitLink={!auth.user || isAdminRole(auth.user.role)}
     />
   );

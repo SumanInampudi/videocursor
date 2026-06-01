@@ -1,12 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
 import { inventoryPurchaseSchema } from "@/lib/validations";
 import { PurchasePaymentStatus } from "@prisma/client";
 
-const PATHS = ["/inventory", "/inventory/payables", "/inventory/purchases/new", "/"];
+const PATHS = [
+  "/inventory",
+  "/inventory/receive",
+  "/inventory/payables",
+  "/inventory/purchases/new",
+  "/",
+];
 
 function revalidatePurchases() {
   for (const path of PATHS) {
@@ -28,8 +35,10 @@ export async function getInventoryPurchases(filters?: {
   openOnly?: boolean;
   inventoryItemId?: string;
 }) {
+  const { businessId } = await requireBusinessContext();
   return db.inventoryPurchase.findMany({
     where: {
+      inventoryItem: { businessId },
       ...(filters?.openOnly
         ? { paymentStatus: { in: ["CREDIT", "PARTIAL"] } }
         : {}),
@@ -45,8 +54,12 @@ export async function getInventoryPurchases(filters?: {
 }
 
 export async function getPayablesSummary() {
+  const { businessId } = await requireBusinessContext();
   const open = await db.inventoryPurchase.findMany({
-    where: { paymentStatus: { in: ["CREDIT", "PARTIAL"] } },
+    where: {
+      paymentStatus: { in: ["CREDIT", "PARTIAL"] },
+      inventoryItem: { businessId },
+    },
     select: {
       id: true,
       description: true,
@@ -70,8 +83,9 @@ export async function getPayablesSummary() {
 }
 
 export async function getInventoryItemsForPurchase() {
+  const { businessId } = await requireBusinessContext();
   return db.inventoryItem.findMany({
-    where: { isActive: true },
+    where: { businessId, isActive: true },
     select: { id: true, name: true, sku: true, supplier: true, supplierId: true },
     orderBy: { name: "asc" },
   });
@@ -88,17 +102,27 @@ export async function createInventoryPurchase(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
+  const { businessId } = await requireBusinessContext();
   const data = parsed.data;
   const status = data.paymentStatus as PurchasePaymentStatus;
   const amountPaid = resolveAmountPaid(status, data.totalAmount, data.amountPaid);
 
   let supplierName = data.supplier || null;
   if (data.supplierId) {
-    const sup = await db.supplier.findUnique({
-      where: { id: data.supplierId },
+    const sup = await db.supplier.findFirst({
+      where: { id: data.supplierId, businessId },
       select: { name: true },
     });
     if (sup) supplierName = sup.name;
+  }
+
+  if (data.inventoryItemId) {
+    const item = await db.inventoryItem.findFirst({
+      where: { id: data.inventoryItemId, businessId },
+    });
+    if (!item) {
+      return { error: { inventoryItemId: ["Inventory item not found"] } };
+    }
   }
 
   await db.inventoryPurchase.create({

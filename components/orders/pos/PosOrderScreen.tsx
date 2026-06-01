@@ -21,7 +21,12 @@ import {
   type PricedRecipe,
 } from "@/lib/order-cart";
 import { getStayOnPosAfterCheckout } from "@/lib/pos-preferences";
+import { formatFieldErrors } from "@/lib/format-field-errors";
+import { validatePosCheckout } from "@/lib/pos-checkout-validation";
 import { PAYMENT_METHOD_LABELS, type PosPaymentMethod } from "@/lib/pos-payment";
+import type { VenuePosSettings } from "@/lib/venue-settings";
+import type { DiningTableOption } from "@/components/orders/pos/PosChannelTablePicker";
+import type { OrderChannel } from "@prisma/client";
 
 type Recipe = PricedRecipe & { category: string; imageUrl?: string | null };
 
@@ -30,6 +35,10 @@ type CheckoutFields = {
   customerName: string;
   discountCode: string;
   notes: string;
+  channel: OrderChannel;
+  diningTableId: string;
+  externalRef: string;
+  tableLabel?: string;
 };
 
 type PosOrderScreenProps = {
@@ -37,6 +46,8 @@ type PosOrderScreenProps = {
   categories: string[];
   frequentIds: string[];
   customers: { id: string; name: string }[];
+  venue: VenuePosSettings;
+  tables: DiningTableOption[];
   showExitLink?: boolean;
 };
 
@@ -45,6 +56,8 @@ export function PosOrderScreen({
   categories,
   frequentIds,
   customers,
+  venue,
+  tables,
   showExitLink = true,
 }: PosOrderScreenProps) {
   const router = useRouter();
@@ -58,11 +71,17 @@ export function PosOrderScreen({
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [checkoutKey, setCheckoutKey] = useState(0);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [channel, setChannel] = useState<OrderChannel>(venue.defaultChannel);
+  const [diningTableId, setDiningTableId] = useState("");
+  const [externalRef, setExternalRef] = useState("");
   const [checkoutFields, setCheckoutFields] = useState<CheckoutFields>({
     customerId: "",
     customerName: "",
     discountCode: "",
     notes: "",
+    channel: venue.defaultChannel,
+    diningTableId: "",
+    externalRef: "",
   });
   const [lastPlaced, setLastPlaced] = useState<{
     orderId: string;
@@ -95,24 +114,50 @@ export function PosOrderScreen({
   }
 
   function openCheckout(fields: CheckoutFields) {
-    if (cart.length === 0) {
-      setErrors({ lines: ["Add at least one item"] });
+    const preflight = validatePosCheckout({
+      cartLength: cart.length,
+      channel: fields.channel,
+      diningTableId: fields.diningTableId,
+      venue,
+      tables,
+    });
+    if (preflight) {
+      setErrors(preflight);
+      toastError(formatFieldErrors(preflight));
       return;
     }
-    setCheckoutFields(fields);
+    const tableLabel =
+      fields.channel === "DINE_IN" && fields.diningTableId
+        ? tables.find((t) => t.id === fields.diningTableId)?.label
+        : undefined;
+    setCheckoutFields({ ...fields, tableLabel });
     setErrors({});
     setCheckoutOpen(true);
   }
 
   function completeCheckout(paymentMethod: PosPaymentMethod, fields: CheckoutFields) {
+    const preflight = validatePosCheckout({
+      cartLength: cart.length,
+      channel: fields.channel,
+      diningTableId: fields.diningTableId,
+      venue,
+      tables,
+    });
+    if (preflight) {
+      setErrors(preflight);
+      toastError(formatFieldErrors(preflight));
+      return;
+    }
+
     const formData = buildOrderFormData(cart, { ...fields, paymentMethod });
     const stayOnPos = getStayOnPosAfterCheckout();
 
     startTransition(async () => {
       const result = await createPosOrder(formData);
       if (result.error) {
-        setErrors(result.error as Record<string, string[]>);
-        toastError("Payment could not be completed");
+        const fieldErrors = result.error as Record<string, string[]>;
+        setErrors(fieldErrors);
+        toastError(formatFieldErrors(fieldErrors));
         return;
       }
 
@@ -123,6 +168,9 @@ export function PosOrderScreen({
         setCart([]);
         setDiscountAmount(0);
         setErrors({});
+        setDiningTableId("");
+        setExternalRef("");
+        setChannel(venue.defaultChannel);
         setCheckoutKey((k) => k + 1);
         setLastPlaced({
           orderId: result.orderId!,
@@ -226,7 +274,7 @@ export function PosOrderScreen({
           </div>
         </main>
 
-        <aside className="w-full shrink-0 md:flex md:w-80 md:flex-col lg:w-96">
+        <aside className="hidden h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-l border-gray-200 bg-white lg:w-96 md:flex">
           <PosCartPanel
             key={checkoutKey}
             cart={cart}
@@ -243,10 +291,49 @@ export function PosOrderScreen({
               setDiscountAmount(0);
             }}
             onDiscountApplied={(p) => setDiscountAmount(p?.discountAmount ?? 0)}
+            venue={venue}
+            tables={tables}
+            channel={channel}
+            diningTableId={diningTableId}
+            externalRef={externalRef}
+            onChannelChange={setChannel}
+            onTableChange={setDiningTableId}
+            onExternalRefChange={setExternalRef}
             onCheckout={openCheckout}
-            mobileCollapsed
+            recipes={recipes}
           />
         </aside>
+      </div>
+
+      <div className="md:hidden">
+        <PosCartPanel
+          key={`${checkoutKey}-mobile`}
+          cart={cart}
+          subtotal={subtotal}
+          discountAmount={discountAmount}
+          total={total}
+          customers={customers}
+          isPending={isPending}
+          errors={errors}
+          resetKey={checkoutKey}
+          onUpdateQty={(id, qty) => setCart((prev) => updateCartLineQty(prev, id, qty))}
+          onClear={() => {
+            setCart([]);
+            setDiscountAmount(0);
+          }}
+          onDiscountApplied={(p) => setDiscountAmount(p?.discountAmount ?? 0)}
+          venue={venue}
+          tables={tables}
+          channel={channel}
+          diningTableId={diningTableId}
+          externalRef={externalRef}
+          onChannelChange={setChannel}
+          onTableChange={setDiningTableId}
+          onExternalRefChange={setExternalRef}
+          onCheckout={openCheckout}
+          mobileCollapsed
+          recipes={recipes}
+        />
       </div>
 
       <PosCheckoutModal
@@ -262,6 +349,7 @@ export function PosOrderScreen({
           if (!isPending) setCheckoutOpen(false);
         }}
         onConfirm={completeCheckout}
+        recipes={recipes}
       />
     </div>
   );

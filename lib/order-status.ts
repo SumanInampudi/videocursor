@@ -8,6 +8,13 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   CANCELLED: "Cancelled",
 };
 
+/** Customer-facing queue copy (also in lib/public-order-queue.ts). */
+export const CUSTOMER_STATUS_LABELS: Partial<Record<OrderStatus, string>> = {
+  NEW: "Order received",
+  PROCESSING: "Being prepared",
+  READY: "Ready for pickup",
+};
+
 export function orderStatusBadgeVariant(
   status: OrderStatus
 ): "default" | "success" | "warning" | "danger" {

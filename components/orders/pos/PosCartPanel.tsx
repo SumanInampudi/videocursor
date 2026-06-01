@@ -9,8 +9,15 @@ import { OrderDiscountSection } from "@/components/orders/OrderDiscountSection";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { RecipeThumbnail } from "@/components/recipes/RecipeThumbnail";
-import type { OrderCartLine } from "@/lib/order-cart";
+import {
+  PosChannelTablePicker,
+  type DiningTableOption,
+} from "@/components/orders/pos/PosChannelTablePicker";
+import { OrderPrepEstimate } from "@/components/orders/OrderPrepEstimate";
+import type { OrderCartLine, PricedRecipe } from "@/lib/order-cart";
+import type { VenuePosSettings } from "@/lib/venue-settings";
 import { formatCurrency } from "@/lib/units";
+import type { OrderChannel } from "@prisma/client";
 
 type CustomerOption = { id: string; name: string };
 
@@ -25,14 +32,26 @@ type PosCartPanelProps = {
   onUpdateQty: (recipeId: string, qty: number) => void;
   onClear: () => void;
   onDiscountApplied: (payload: { code: string; discountAmount: number } | null) => void;
+  venue: VenuePosSettings;
+  tables: DiningTableOption[];
+  channel: OrderChannel;
+  diningTableId: string;
+  externalRef: string;
+  onChannelChange: (channel: OrderChannel) => void;
+  onTableChange: (tableId: string) => void;
+  onExternalRefChange: (ref: string) => void;
   onCheckout: (fields: {
     customerId: string;
     customerName: string;
     discountCode: string;
     notes: string;
+    channel: OrderChannel;
+    diningTableId: string;
+    externalRef: string;
   }) => void;
   mobileCollapsed?: boolean;
   resetKey?: number;
+  recipes: PricedRecipe[];
 };
 
 export function PosCartPanel({
@@ -46,11 +65,20 @@ export function PosCartPanel({
   onUpdateQty,
   onClear,
   onDiscountApplied,
+  venue,
+  tables,
+  channel,
+  diningTableId,
+  externalRef,
+  onChannelChange,
+  onTableChange,
+  onExternalRefChange,
   onCheckout,
   mobileCollapsed = false,
   resetKey = 0,
+  recipes,
 }: PosCartPanelProps) {
-  const [expanded, setExpanded] = useState(!mobileCollapsed);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [discountCode, setDiscountCode] = useState("");
@@ -69,8 +97,8 @@ export function PosCartPanel({
   }, [resetKey]);
 
   useEffect(() => {
-    if (mobileCollapsed && cart.length > 0) {
-      setExpanded(true);
+    if (cart.length > 0 && mobileCollapsed) {
+      setSheetOpen(true);
     }
   }, [cart.length, mobileCollapsed]);
 
@@ -80,65 +108,34 @@ export function PosCartPanel({
   }
 
   function submitCheckout() {
-    onCheckout({ customerId, customerName, discountCode, notes });
+    onCheckout({
+      customerId,
+      customerName,
+      discountCode,
+      notes,
+      channel,
+      diningTableId,
+      externalRef,
+    });
   }
 
-  const bodyClass = mobileCollapsed
-    ? expanded
-      ? "flex min-h-0 flex-1 flex-col"
-      : "hidden min-h-0 flex-1 flex-col md:flex"
-    : "flex min-h-0 flex-1 flex-col";
-
-  return (
-    <div
-      className={`flex flex-col border-gray-200 bg-white ${
-        mobileCollapsed
-          ? "fixed inset-x-0 bottom-0 z-30 max-h-[85dvh] rounded-t-2xl border-t shadow-2xl md:static md:z-auto md:max-h-none md:rounded-none md:border-l md:shadow-none"
-          : "h-full border-l"
-      }`}
-    >
-      {mobileCollapsed && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-2 md:hidden">
+  const panel = (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
+        <h2 className="font-semibold text-servora-charcoal">Current order</h2>
+        {cart.length > 0 && (
           <button
             type="button"
-            className="touch-target min-w-0 flex-1 text-left"
-            onClick={() => setExpanded((v) => !v)}
+            onClick={onClear}
+            className="text-xs text-gray-500 hover:text-servora-red"
           >
-            <span className="block font-semibold text-servora-charcoal">
-              Cart ({cart.length}) · {formatCurrency(total)}
-            </span>
-            <span className="text-xs text-gray-500">
-              {expanded ? "Hide cart ▼" : "Show cart ▲"}
-            </span>
+            Clear
           </button>
-          {cart.length > 0 && (
-            <Button
-              type="button"
-              className="touch-target shrink-0 px-4 py-3 text-sm font-semibold"
-              disabled={isPending}
-              onClick={submitCheckout}
-            >
-              Checkout
-            </Button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className={bodyClass}>
-        <div className="hidden items-center justify-between border-b border-gray-100 px-4 py-3 md:flex">
-          <h2 className="font-semibold text-servora-charcoal">Current order</h2>
-          {cart.length > 0 && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="text-xs text-gray-500 hover:text-servora-red"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-        <ul className="flex-1 space-y-2 overflow-y-auto p-3 md:p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <ul className="space-y-2 p-3 md:p-4">
           {cart.length === 0 ? (
             <li className="py-8 text-center text-sm text-gray-400">
               Tap menu items to add · then Checkout
@@ -178,7 +175,22 @@ export function PosCartPanel({
           )}
         </ul>
 
-        <div className="space-y-3 border-t border-gray-100 p-3 md:p-4">
+        <div className="space-y-3 border-t border-gray-100 p-3 pb-8 md:p-4 md:pb-8">
+          <PosChannelTablePicker
+            venue={venue}
+            tables={tables}
+            channel={channel}
+            diningTableId={diningTableId}
+            externalRef={externalRef}
+            onChannelChange={onChannelChange}
+            onTableChange={onTableChange}
+            onExternalRefChange={onExternalRefChange}
+          />
+          {(errors.channel || errors.diningTableId) && (
+            <p className="text-sm text-servora-red">
+              {[...(errors.channel ?? []), ...(errors.diningTableId ?? [])].join(" ")}
+            </p>
+          )}
           <Select
             name="posCustomerId"
             label="Customer"
@@ -234,6 +246,13 @@ export function PosCartPanel({
             <p className="text-sm text-servora-red">{errors.lines.join(", ")}</p>
           )}
 
+          {cart.length > 0 && (
+            <OrderPrepEstimate
+              lines={cart.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }))}
+              recipes={recipes}
+            />
+          )}
+
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
             <input
               type="checkbox"
@@ -259,4 +278,50 @@ export function PosCartPanel({
       </div>
     </div>
   );
+
+  if (mobileCollapsed) {
+    return (
+      <>
+        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-gray-200 bg-white p-3 shadow-lg safe-area-bottom">
+          <button
+            type="button"
+            className="touch-target min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-left"
+            onClick={() => setSheetOpen(true)}
+          >
+            <span className="block font-semibold text-servora-charcoal">
+              Cart ({cart.length}) · {formatCurrency(total)}
+            </span>
+            <span className="text-xs text-gray-500">Tap to review order</span>
+          </button>
+          {cart.length > 0 && (
+            <Button
+              type="button"
+              className="touch-target shrink-0 px-4 py-3 text-sm font-semibold"
+              disabled={isPending}
+              onClick={submitCheckout}
+            >
+              Checkout
+            </Button>
+          )}
+        </div>
+        {sheetOpen && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white md:hidden">
+            <div className="flex shrink-0 items-center justify-between border-b px-3 py-2 safe-area-top">
+              <span className="font-semibold text-servora-charcoal">Current order</span>
+              <button
+                type="button"
+                className="touch-target rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                onClick={() => setSheetOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">{panel}</div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return panel;
 }

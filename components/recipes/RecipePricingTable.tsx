@@ -18,6 +18,7 @@ type RecipePricingRow = {
   barcode: string;
   imageUrl: string | null;
   salePrice: { toString(): string } | null;
+  prepTimeMinutes: number | null;
   costEstimate: RecipeCostEstimate;
 };
 
@@ -48,6 +49,9 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
   const [salePrice, setSalePrice] = useState(
     recipe.salePrice != null ? String(recipe.salePrice) : ""
   );
+  const [prepTimeMinutes, setPrepTimeMinutes] = useState(
+    recipe.prepTimeMinutes != null ? String(recipe.prepTimeMinutes) : ""
+  );
   const [message, setMessage] = useState("");
 
   const { costEstimate } = recipe;
@@ -58,6 +62,7 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
     e.preventDefault();
     const formData = new FormData();
     formData.set("salePrice", salePrice);
+    formData.set("prepTimeMinutes", prepTimeMinutes);
 
     startTransition(async () => {
       const result = await updateRecipePricing(recipe.id, formData);
@@ -100,8 +105,19 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
                 onChange={(e) => setSalePrice(e.target.value)}
               />
             </div>
+            <div className="w-36">
+              <Input
+                label="Prep time (min)"
+                type="number"
+                step="1"
+                min={1}
+                value={prepTimeMinutes}
+                onChange={(e) => setPrepTimeMinutes(e.target.value)}
+                placeholder="e.g. 15"
+              />
+            </div>
             <Button type="submit" disabled={isPending} className="text-sm">
-              Save price
+              Save
             </Button>
             {message && <span className="text-xs text-gray-500">{message}</span>}
           </form>

@@ -4,7 +4,7 @@ import { canAccessPath, userRoleToNav } from "@/lib/permissions";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session-token";
 import type { NavRole } from "@/lib/navigation";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/select-business", "/queue"];
 
 async function resolveRoles(request: NextRequest): Promise<NavRole[] | null> {
   const token = request.cookies.get(SESSION_COOKIE)?.value;

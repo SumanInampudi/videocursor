@@ -71,12 +71,18 @@ export default async function OrdersPage({
         <div>
           <h1 className="text-2xl font-bold text-servora-charcoal">Orders</h1>
           <p className="text-sm text-gray-500">
-            Browse and search orders. Kitchen staff use the kitchen display to run the line.
+            Browse and search orders (oldest received first). Kitchen staff use the kitchen display
+            to run the line.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/orders/kitchen">
             <Button className="min-h-[44px]">Open kitchen display</Button>
+          </Link>
+          <Link href="/queue" target="_blank" rel="noopener noreferrer">
+            <Button variant="secondary" className="min-h-[44px]">
+              Customer queue screen
+            </Button>
           </Link>
           <Link href="/orders/pos">
             <Button variant="secondary" className="min-h-[44px]">

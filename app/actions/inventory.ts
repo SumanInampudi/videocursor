@@ -28,7 +28,10 @@ export async function getInventoryItems(filters?: {
   category?: string;
   lowStockOnly?: boolean;
 }) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const items = await db.inventoryItem.findMany({
+    where: { businessId },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -58,7 +61,10 @@ export async function getInventoryItems(filters?: {
 }
 
 export async function getInventoryCategories() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const items = await db.inventoryItem.findMany({
+    where: { businessId },
     select: { category: true },
     distinct: ["category"],
     orderBy: { category: "asc" },
@@ -84,10 +90,14 @@ export async function createInventoryItem(formData: FormData) {
 
   const data = parsed.data;
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
   try {
     await db.$transaction(async (tx) => {
       const item = await tx.inventoryItem.create({
         data: {
+          businessId,
           name: data.name,
           ingredientId: data.ingredientId || null,
           sku: data.sku,
@@ -205,7 +215,9 @@ export async function deleteInventoryItem(id: string) {
 }
 
 export async function getInventorySummary() {
-  const items = await db.inventoryItem.findMany();
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const items = await db.inventoryItem.findMany({ where: { businessId } });
   const activeItems = items.filter((item) => item.isActive);
 
   const lowStockCount = activeItems.filter(
@@ -238,8 +250,10 @@ export async function getInventorySummary() {
 }
 
 export async function getDashboardStats() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const summary = await getInventorySummary();
-  const recipeCount = await db.recipe.count();
+  const recipeCount = await db.recipe.count({ where: { businessId } });
 
   return {
     totalItems: summary.activeItems,

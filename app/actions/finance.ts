@@ -1,5 +1,6 @@
 "use server";
 
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import {
   defaultReportDateRange,
@@ -33,6 +34,7 @@ export async function getProfitLossSummary(
   toParam?: string,
   prorateExpenses = false
 ) {
+  const { businessId } = await requireBusinessContext();
   const { from, to } = resolveReportRange(fromParam, toParam);
   const periodMonths = periodMonthsInRange(from, to);
 
@@ -41,6 +43,7 @@ export async function getProfitLossSummary(
       where: {
         processedAt: { not: null },
         order: {
+          businessId,
           status: OrderStatus.DELIVERED,
           deliveredAt: { gte: from, lte: to },
         },
@@ -53,12 +56,14 @@ export async function getProfitLossSummary(
     }),
     db.expense.findMany({
       where: {
+        businessId,
         periodMonth: { in: periodMonths },
       },
       select: { category: true, amount: true, periodMonth: true },
     }),
     db.order.count({
       where: {
+        businessId,
         status: OrderStatus.DELIVERED,
         deliveredAt: { gte: from, lte: to },
       },
@@ -78,6 +83,7 @@ export async function getProfitLossSummary(
 }
 
 export async function getDailyProfitHistory(fromParam?: string, toParam?: string) {
+  const { businessId } = await requireBusinessContext();
   const { from, to } = resolveReportRange(fromParam, toParam);
 
   const [lineItems, expenses] = await Promise.all([
@@ -85,6 +91,7 @@ export async function getDailyProfitHistory(fromParam?: string, toParam?: string
       where: {
         processedAt: { not: null },
         order: {
+          businessId,
           status: OrderStatus.DELIVERED,
           deliveredAt: { gte: from, lte: to },
         },
@@ -97,7 +104,10 @@ export async function getDailyProfitHistory(fromParam?: string, toParam?: string
       },
     }),
     db.expense.findMany({
-      where: { periodMonth: { in: periodMonthsInRange(from, to) } },
+      where: {
+        businessId,
+        periodMonth: { in: periodMonthsInRange(from, to) },
+      },
       select: { amount: true, periodMonth: true },
     }),
   ]);
@@ -152,6 +162,7 @@ export async function getProfitLossComparison(
   toParam?: string,
   prorateExpenses = false
 ) {
+  const { businessId } = await requireBusinessContext();
   const { from, to } = resolveReportRange(fromParam, toParam);
   const spanMs = to.getTime() - from.getTime();
   const prevTo = endOfDay(new Date(from.getTime() - 86_400_000));
@@ -164,6 +175,7 @@ export async function getProfitLossComparison(
       where: {
         processedAt: { not: null },
         order: {
+          businessId,
           status: OrderStatus.DELIVERED,
           deliveredAt: { gte: prevFrom, lte: prevTo },
         },
@@ -171,11 +183,12 @@ export async function getProfitLossComparison(
       select: { revenue: true, ingredientCost: true, profit: true },
     }),
     db.expense.findMany({
-      where: { periodMonth: { in: periodMonths } },
+      where: { businessId, periodMonth: { in: periodMonths } },
       select: { category: true, amount: true, periodMonth: true },
     }),
     db.order.count({
       where: {
+        businessId,
         status: OrderStatus.DELIVERED,
         deliveredAt: { gte: prevFrom, lte: prevTo },
       },

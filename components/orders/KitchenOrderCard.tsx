@@ -3,17 +3,29 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { getOrderFulfillmentPreview, updateOrderStatus } from "@/app/actions/orders";
+import { CancelOrderButton } from "@/components/orders/CancelOrderButton";
+import { canCancelOrder } from "@/lib/order-cancel";
 import { confirmAction, useToast } from "@/components/ui/Toast";
+import { OrderTimerBadge } from "@/components/kitchen/OrderTimerBadge";
+import { KitchenPrepHint } from "@/components/kitchen/KitchenPrepHint";
 import { formatTimeIST } from "@/lib/format";
-import { OrderStatus } from "@prisma/client";
+import { getStageAnchor, getTotalAnchor, type KdsThresholds } from "@/lib/kds-timers";
+import { orderChannelLabel, orderTicketLabel } from "@/lib/order-channel";
+import { OrderChannel, OrderStatus } from "@prisma/client";
 
 type KitchenOrderCardProps = {
   order: {
     id: string;
     orderNumber: string;
     customerName: string | null;
+    channel: OrderChannel;
+    tableLabel: string | null;
+    externalRef: string | null;
     status: OrderStatus;
     createdAt: Date;
+    processedAt?: Date | string | null;
+    readyAt?: Date | string | null;
+    estimatedPrepMinutes?: number | null;
     lineItems: {
       id: string;
       quantity: number;
@@ -23,6 +35,7 @@ type KitchenOrderCardProps = {
   };
   nextAction?: { label: string; status: OrderStatus };
   accent: "new" | "processing" | "ready";
+  thresholds: KdsThresholds;
 };
 
 const ACCENT_LEFT = {
@@ -31,17 +44,19 @@ const ACCENT_LEFT = {
   ready: "border-l-green-500",
 };
 
-function displayName(order: KitchenOrderCardProps["order"]) {
-  const name = order.customerName?.trim();
-  return name || order.orderNumber;
-}
-
-export function KitchenOrderCard({ order, nextAction, accent }: KitchenOrderCardProps) {
+export function KitchenOrderCard({
+  order,
+  nextAction,
+  accent,
+  thresholds,
+}: KitchenOrderCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { success, error: toastError } = useToast();
 
-  const hasCustomer = Boolean(order.customerName?.trim());
+  const title = orderTicketLabel(order);
+  const stageAnchor = getStageAnchor(order);
+  const totalAnchor = getTotalAnchor(order);
 
   function handleAdvance() {
     if (!nextAction) return;
@@ -78,14 +93,32 @@ export function KitchenOrderCard({ order, nextAction, accent }: KitchenOrderCard
     <article
       className={`flex flex-col rounded-md border border-gray-200 border-l-[3px] bg-white p-2 shadow-sm ${ACCENT_LEFT[accent]}`}
     >
-      <div className="mb-1 min-w-0">
-        <p className="truncate text-sm font-bold leading-tight text-servora-charcoal">
-          {displayName(order)}
-        </p>
-        {hasCustomer && (
-          <p className="truncate text-[10px] font-medium text-gray-500">{order.orderNumber}</p>
-        )}
-        <time className="text-[10px] text-gray-400">{formatTimeIST(order.createdAt)}</time>
+      <div className="mb-1 flex items-start justify-between gap-1 min-w-0">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold leading-tight text-servora-charcoal">{title}</p>
+          <p className="text-[10px] text-gray-500">
+            {orderChannelLabel(order.channel)} · {order.orderNumber} ·{" "}
+            {formatTimeIST(order.createdAt)}
+          </p>
+          <KitchenPrepHint
+            stageSince={stageAnchor}
+            totalSince={totalAnchor}
+            estimatedPrepMinutes={order.estimatedPrepMinutes ?? null}
+            thresholds={thresholds}
+          />
+        </div>
+        <OrderTimerBadge
+          since={stageAnchor}
+          thresholds={thresholds}
+          estimatedPrepMinutes={order.estimatedPrepMinutes}
+          label={
+            order.status === "NEW"
+              ? "Wait"
+              : order.status === "PROCESSING"
+                ? "Cook"
+                : "Ready"
+          }
+        />
       </div>
 
       <ul className="mb-1.5 flex-1 space-y-0.5 border-t border-gray-100 pt-1">
@@ -97,16 +130,29 @@ export function KitchenOrderCard({ order, nextAction, accent }: KitchenOrderCard
         ))}
       </ul>
 
-      {nextAction && (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={handleAdvance}
-          className="mt-auto w-full rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] font-semibold text-servora-charcoal transition-colors hover:border-servora-yellow hover:bg-servora-yellow hover:text-white disabled:opacity-50"
-        >
-          {isPending ? "…" : nextAction.label}
-        </button>
-      )}
+      <div className="mt-auto flex flex-col gap-1">
+        {nextAction && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleAdvance}
+            className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] font-semibold text-servora-charcoal transition-colors hover:border-servora-yellow hover:bg-servora-yellow hover:text-white disabled:opacity-50"
+          >
+            {isPending ? "…" : nextAction.label}
+          </button>
+        )}
+        {canCancelOrder(order.status) &&
+          (order.status === "NEW" || order.status === "PROCESSING") && (
+            <CancelOrderButton
+              orderId={order.id}
+              orderNumber={order.orderNumber}
+              status={order.status}
+              label="Cancel"
+              variant="secondary"
+              className="[&_input]:hidden [&_button]:w-full [&_button]:py-1 [&_button]:text-[10px]"
+            />
+          )}
+      </div>
     </article>
   );
 }

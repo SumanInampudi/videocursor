@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { OrderBoard } from "@/components/orders/OrderBoard";
+import { sortOrdersByReceived } from "@/lib/orders-sort";
 import { Input } from "@/components/ui/Input";
 import { OrderStatus } from "@prisma/client";
 
@@ -57,6 +58,7 @@ export function OrderBoardWithFilters({ grouped }: OrderBoardWithFiltersProps) {
         }
         return true;
       });
+      result[status] = sortOrdersByReceived(result[status]);
     }
 
     return result;

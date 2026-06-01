@@ -38,6 +38,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/orders", label: "Orders", roles: ["owner", "manager"] },
       { href: "/orders/pos", label: "POS register", roles: ["owner", "manager", "pos"] },
       { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] },
+      { href: "/queue", label: "Customer queue display", roles: ["owner", "manager"] },
       { href: "/customers", label: "Customers", roles: ["owner", "manager"] },
       { href: "/discounts", label: "Discounts", roles: ["owner", "manager"] },
       { href: "/yield", label: "Yield Calculator", roles: ["owner", "manager"] },
@@ -59,6 +60,7 @@ export const NAV_SECTIONS: NavSection[] = [
     roles: ["owner", "manager"],
     items: [
       { href: "/inventory", label: "Stock" },
+      { href: "/inventory/receive", label: "Stock receive" },
       { href: "/suppliers", label: "Suppliers" },
       { href: "/inventory/payables", label: "Supplier payables" },
     ],
@@ -69,6 +71,7 @@ export const NAV_SECTIONS: NavSection[] = [
     roles: ["owner", "manager", "viewer"],
     items: [
       { href: "/expenses", label: "Expenses" },
+      { href: "/admin/business", label: "Businesses", roles: ["owner"] },
       { href: "/admin/audit", label: "Audit log", roles: ["owner"] },
       { href: "/admin/data", label: "Import / export data", roles: ["owner"] },
       { href: "/admin/users", label: "Team & roles", roles: ["owner"] },
@@ -80,6 +83,7 @@ export const DASHBOARD_QUICK_ACTIONS = [
   { href: "/orders/pos", label: "POS register", roles: ["owner", "manager", "pos"] as NavRole[] },
   { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] as NavRole[] },
   { href: "/orders/new", label: "Simple order form", roles: ["owner", "manager"] as NavRole[] },
+  { href: "/inventory/receive", label: "Stock receive", roles: ["owner", "manager"] as NavRole[] },
   { href: "/inventory/purchases/new", label: "Record purchase", roles: ["owner", "manager"] as NavRole[] },
   { href: "/expenses/new", label: "Add expense", roles: ["owner", "manager"] as NavRole[] },
   { href: "/ingredients/barcodes", label: "Print barcodes", roles: ["owner", "manager"] as NavRole[] },

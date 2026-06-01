@@ -10,13 +10,22 @@ import {
   PAYMENT_METHOD_LABELS,
   type PosPaymentMethod,
 } from "@/lib/pos-payment";
+import { OrderPrepEstimate } from "@/components/orders/OrderPrepEstimate";
+import { orderChannelLabel } from "@/lib/order-channel";
+import type { PricedRecipe } from "@/lib/order-cart";
+import { formatFieldErrors } from "@/lib/format-field-errors";
 import { formatCurrency } from "@/lib/units";
+import type { OrderChannel } from "@prisma/client";
 
 type CheckoutFields = {
   customerId: string;
   customerName: string;
   discountCode: string;
   notes: string;
+  channel: OrderChannel;
+  diningTableId: string;
+  externalRef: string;
+  tableLabel?: string;
 };
 
 type PosCheckoutModalProps = {
@@ -30,6 +39,7 @@ type PosCheckoutModalProps = {
   onClose: () => void;
   onConfirm: (paymentMethod: PosPaymentMethod, fields: CheckoutFields) => void;
   fields: CheckoutFields;
+  recipes: PricedRecipe[];
 };
 
 export function PosCheckoutModal({
@@ -43,6 +53,7 @@ export function PosCheckoutModal({
   onClose,
   onConfirm,
   fields,
+  recipes,
 }: PosCheckoutModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod | null>(null);
 
@@ -51,6 +62,11 @@ export function PosCheckoutModal({
   }, [open]);
 
   if (!open) return null;
+
+  const checkoutAlert = formatFieldErrors(errors);
+  const hasCheckoutErrors = Object.keys(errors).some(
+    (k) => (errors[k]?.length ?? 0) > 0
+  );
 
   function handleConfirm() {
     if (!paymentMethod) return;
@@ -93,6 +109,22 @@ export function PosCheckoutModal({
             </li>
           ))}
         </ul>
+
+        <div className="space-y-2 border-b border-gray-100 px-4 py-2">
+          <OrderPrepEstimate
+            lines={cart.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }))}
+            recipes={recipes}
+          />
+          <p className="text-sm font-medium text-servora-charcoal">
+            {orderChannelLabel(fields.channel)}
+            {fields.channel === "DINE_IN" && fields.tableLabel
+              ? ` · ${fields.tableLabel}`
+              : ""}
+            {fields.channel === "ONLINE" && fields.externalRef
+              ? ` · ${fields.externalRef}`
+              : ""}
+          </p>
+        </div>
 
         <div className="space-y-1 border-b border-gray-100 px-4 py-3 text-sm">
           {discountAmount > 0 && (
@@ -146,6 +178,11 @@ export function PosCheckoutModal({
         </div>
 
         <div className="border-t border-gray-100 p-4 safe-area-bottom">
+          {hasCheckoutErrors && (
+            <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-servora-red" role="alert">
+              {checkoutAlert}
+            </p>
+          )}
           <Button
             type="button"
             className="touch-target w-full py-4 text-base font-semibold"

@@ -16,7 +16,7 @@ export function PosShell({ children, user }: PosShellProps) {
         <div className="flex shrink-0 items-center justify-end gap-2 border-b border-gray-200 bg-white px-3 py-1.5">
           {user && <UserMenu user={user} compact />}
         </div>
-        {children}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
       </div>
     </ToastProvider>
   );

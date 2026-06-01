@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/app/actions/auth";
+import { requireBusinessContext } from "@/lib/business-context";
 import { parseCsv, rowsToObjects, stringifyCsv } from "@/lib/csv";
 import {
   DATA_EXPORT_TYPES,
@@ -23,10 +24,14 @@ export async function getTemplateCsv(type: DataExportType): Promise<string> {
 
 export async function exportDataCsv(type: DataExportType): Promise<string> {
   await requireAdminSession();
+  const { businessId } = await requireBusinessContext();
 
   switch (type) {
     case "ingredients": {
-      const rows = await db.ingredient.findMany({ orderBy: { name: "asc" } });
+      const rows = await db.ingredient.findMany({
+        where: { businessId },
+        orderBy: { name: "asc" },
+      });
       return stringifyCsv([
         TEMPLATE_HEADERS.ingredients,
         ...rows.map((r) => [
@@ -43,6 +48,7 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
     }
     case "inventory": {
       const rows = await db.inventoryItem.findMany({
+        where: { businessId },
         include: { ingredient: true, supplierRef: true },
         orderBy: { name: "asc" },
       });
@@ -64,7 +70,10 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
       ]);
     }
     case "recipes": {
-      const rows = await db.recipe.findMany({ orderBy: { name: "asc" } });
+      const rows = await db.recipe.findMany({
+        where: { businessId },
+        orderBy: { name: "asc" },
+      });
       return stringifyCsv([
         TEMPLATE_HEADERS.recipes,
         ...rows.map((r) => [
@@ -82,6 +91,7 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
     }
     case "recipe_ingredients": {
       const rows = await db.recipeIngredient.findMany({
+        where: { recipe: { businessId } },
         include: { recipe: true, ingredient: true },
         orderBy: { recipe: { name: "asc" } },
       });
@@ -96,14 +106,20 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
       ]);
     }
     case "customers": {
-      const rows = await db.customer.findMany({ orderBy: { name: "asc" } });
+      const rows = await db.customer.findMany({
+        where: { businessId },
+        orderBy: { name: "asc" },
+      });
       return stringifyCsv([
         TEMPLATE_HEADERS.customers,
         ...rows.map((r) => [r.name, r.phone ?? "", r.email ?? "", r.notes ?? ""]),
       ]);
     }
     case "suppliers": {
-      const rows = await db.supplier.findMany({ orderBy: { name: "asc" } });
+      const rows = await db.supplier.findMany({
+        where: { businessId },
+        orderBy: { name: "asc" },
+      });
       return stringifyCsv([
         TEMPLATE_HEADERS.suppliers,
         ...rows.map((r) => [
@@ -117,7 +133,10 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
       ]);
     }
     case "discounts": {
-      const rows = await db.discount.findMany({ orderBy: { code: "asc" } });
+      const rows = await db.discount.findMany({
+        where: { businessId },
+        orderBy: { code: "asc" },
+      });
       return stringifyCsv([
         TEMPLATE_HEADERS.discounts,
         ...rows.map((r) => [
@@ -154,6 +173,7 @@ export async function importDataCsv(
   csvText: string
 ): Promise<{ success: boolean; imported: number; errors: string[] }> {
   await requireAdminSession();
+  const { businessId } = await requireBusinessContext();
 
   const rows = parseCsv(csvText);
   const errors: string[] = [];
@@ -178,8 +198,11 @@ export async function importDataCsv(
             const barcode =
               row.barcode?.trim() || generateIngredientBarcode(name);
             await db.ingredient.upsert({
-              where: { normalizedName: normalized },
+              where: {
+                businessId_normalizedName: { businessId, normalizedName: normalized },
+              },
               create: {
+                businessId,
                 name,
                 normalizedName: normalized,
                 sku,
@@ -220,6 +243,7 @@ export async function importDataCsv(
             if (row.ingredient_name?.trim()) {
               const ing = await db.ingredient.findFirst({
                 where: {
+                  businessId,
                   normalizedName: normalizeIngredientName(row.ingredient_name),
                 },
               });
@@ -228,19 +252,20 @@ export async function importDataCsv(
             let supplierId: string | undefined;
             if (row.supplier_name?.trim()) {
               const existing = await db.supplier.findFirst({
-                where: { name: row.supplier_name.trim() },
+                where: { businessId, name: row.supplier_name.trim() },
               });
               if (existing) supplierId = existing.id;
               else {
                 const created = await db.supplier.create({
-                  data: { name: row.supplier_name.trim() },
+                  data: { businessId, name: row.supplier_name.trim() },
                 });
                 supplierId = created.id;
               }
             }
             await db.inventoryItem.upsert({
-              where: { sku: row.sku.trim() },
+              where: { businessId_sku: { businessId, sku: row.sku.trim() } },
               create: {
+                businessId,
                 name: row.name,
                 sku: row.sku.trim(),
                 category: row.category || "General",
@@ -281,7 +306,9 @@ export async function importDataCsv(
         for (const row of data) {
           try {
             const barcode = row.barcode?.trim() || generateRecipeBarcode(row.name);
-            const existing = await db.recipe.findFirst({ where: { barcode } });
+            const existing = await db.recipe.findFirst({
+              where: { businessId, barcode },
+            });
             if (existing && existing.name !== row.name) {
               errors.push(`${row.name}: barcode conflict`);
               continue;
@@ -303,6 +330,7 @@ export async function importDataCsv(
             } else {
               await db.recipe.create({
                 data: {
+                  businessId,
                   name: row.name,
                   category: row.category || "General",
                   description: row.description || null,
@@ -332,9 +360,14 @@ export async function importDataCsv(
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
-            const recipe = await db.recipe.findFirst({ where: { name: row.recipe_name } });
+            const recipe = await db.recipe.findFirst({
+              where: { businessId, name: row.recipe_name },
+            });
             const ingredient = await db.ingredient.findFirst({
-              where: { normalizedName: normalizeIngredientName(row.ingredient_name) },
+              where: {
+                businessId,
+                normalizedName: normalizeIngredientName(row.ingredient_name),
+              },
             });
             if (!recipe || !ingredient) {
               errors.push(
@@ -377,7 +410,9 @@ export async function importDataCsv(
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
-            const existing = await db.customer.findFirst({ where: { name: row.name } });
+            const existing = await db.customer.findFirst({
+              where: { businessId, name: row.name },
+            });
             if (existing) {
               await db.customer.update({
                 where: { id: existing.id },
@@ -390,6 +425,7 @@ export async function importDataCsv(
             } else {
               await db.customer.create({
                 data: {
+                  businessId,
                   name: row.name,
                   phone: row.phone || null,
                   email: row.email || null,
@@ -409,7 +445,9 @@ export async function importDataCsv(
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
-            const existing = await db.supplier.findFirst({ where: { name: row.name } });
+            const existing = await db.supplier.findFirst({
+              where: { businessId, name: row.name },
+            });
             if (existing) {
               await db.supplier.update({
                 where: { id: existing.id },
@@ -424,6 +462,7 @@ export async function importDataCsv(
             } else {
               await db.supplier.create({
                 data: {
+                  businessId,
                   name: row.name,
                   contactPhone: row.contact_phone || null,
                   email: row.email || null,
@@ -453,8 +492,14 @@ export async function importDataCsv(
             const type =
               row.type.toUpperCase() === "FIXED" ? DiscountType.FIXED : DiscountType.PERCENT;
             await db.discount.upsert({
-              where: { code: row.code.trim().toUpperCase() },
+              where: {
+                businessId_code: {
+                  businessId,
+                  code: row.code.trim().toUpperCase(),
+                },
+              },
               create: {
+                businessId,
                 code: row.code.trim().toUpperCase(),
                 name: row.name,
                 type,

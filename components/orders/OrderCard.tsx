@@ -8,6 +8,8 @@ import {
   getOrderFulfillmentPreview,
   updateOrderStatus,
 } from "@/app/actions/orders";
+import { CancelOrderButton } from "@/components/orders/CancelOrderButton";
+import { canCancelOrder } from "@/lib/order-cancel";
 import { Button } from "@/components/ui/Button";
 import { confirmAction, useToast } from "@/components/ui/Toast";
 import {
@@ -137,14 +139,25 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
             Details
           </Button>
         </Link>
-        <Button
-          variant="danger"
-          className="text-xs"
-          disabled={isPending}
-          onClick={handleDelete}
-        >
-          Delete
-        </Button>
+        {canCancelOrder(order.status) ? (
+          <CancelOrderButton
+            orderId={order.id}
+            orderNumber={order.orderNumber}
+            status={order.status}
+            label="Cancel"
+            variant="secondary"
+            className="[&_input]:hidden [&_button]:text-xs"
+          />
+        ) : (
+          <Button
+            variant="danger"
+            className="text-xs"
+            disabled={isPending}
+            onClick={handleDelete}
+          >
+            Delete
+          </Button>
+        )}
         {nextAction && (
           <Button
             className="flex-1 min-w-[80px] text-xs"

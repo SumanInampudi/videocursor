@@ -16,7 +16,15 @@ type ShellSwitcherProps = {
 export function ShellSwitcher({ children, userRoles, user }: ShellSwitcherProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
-  const isPos = pathname === "/orders/pos" || pathname?.startsWith("/orders/pos/");
+  const isPublicQueue = pathname === "/queue" || pathname?.startsWith("/queue/");
+
+  if (isPublicQueue) {
+    return <>{children}</>;
+  }
+  const isPos =
+    pathname === "/orders/pos" ||
+    pathname?.startsWith("/orders/pos/") ||
+    pathname === "/inventory/receive";
   const isKitchen = pathname === "/orders/kitchen";
 
   if (isLogin) {

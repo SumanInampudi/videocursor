@@ -24,7 +24,10 @@ export function Header({ user }: HeaderProps) {
         Smart POS · Better Service · Growing Together
       </p>
       {user ? (
-        <UserMenu user={user} />
+        <div className="flex flex-col items-end gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+          <span className="hidden text-xs text-gray-500 sm:inline">{user.businessName}</span>
+          <UserMenu user={user} />
+        </div>
       ) : (
         <Link
           href="/login"

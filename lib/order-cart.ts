@@ -11,6 +11,7 @@ export type PricedRecipe = {
   name: string;
   category?: string;
   salePrice: { toString(): string } | number | null;
+  prepTimeMinutes?: number | null;
   barcode?: string;
   imageUrl?: string | null;
 };
@@ -70,6 +71,9 @@ export function buildOrderFormData(
     discountCode?: string;
     notes?: string;
     paymentMethod?: string;
+    channel?: string;
+    diningTableId?: string;
+    externalRef?: string;
   }
 ): FormData {
   const formData = new FormData();
@@ -78,6 +82,9 @@ export function buildOrderFormData(
   if (fields.discountCode) formData.set("discountCode", fields.discountCode);
   if (fields.notes) formData.set("notes", fields.notes);
   if (fields.paymentMethod) formData.set("paymentMethod", fields.paymentMethod);
+  if (fields.channel) formData.set("channel", fields.channel);
+  if (fields.diningTableId) formData.set("diningTableId", fields.diningTableId);
+  if (fields.externalRef) formData.set("externalRef", fields.externalRef);
   formData.set("lineCount", String(cart.length));
   cart.forEach((line, i) => {
     formData.set(`line_${i}_recipeId`, line.recipeId);

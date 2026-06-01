@@ -1,3 +1,4 @@
+import { getKdsThresholds } from "@/app/actions/kds";
 import { getOrdersByStatus } from "@/app/actions/orders";
 import { KitchenOrderBoard } from "@/components/orders/KitchenOrderBoard";
 import { OrderStatus } from "@prisma/client";
@@ -5,7 +6,7 @@ import { OrderStatus } from "@prisma/client";
 export const dynamic = "force-dynamic";
 
 export default async function KitchenPage() {
-  const grouped = await getOrdersByStatus();
+  const [grouped, thresholds] = await Promise.all([getOrdersByStatus(), getKdsThresholds()]);
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -17,6 +18,7 @@ export default async function KitchenPage() {
 
   return (
     <KitchenOrderBoard
+      thresholds={thresholds}
       grouped={{
         NEW: filterActive(grouped[OrderStatus.NEW] ?? []),
         PROCESSING: filterActive(grouped[OrderStatus.PROCESSING] ?? []),

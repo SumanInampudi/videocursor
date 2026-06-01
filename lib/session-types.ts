@@ -5,4 +5,6 @@ export type SessionUser = {
   email: string;
   name: string;
   role: UserRole;
+  businessId: string;
+  businessName: string;
 };

@@ -70,6 +70,13 @@ export const recipePricingSchema = z.object({
     (val) => (val === "" || val === null || val === undefined ? null : val),
     z.union([z.null(), z.coerce.number().min(0, "Price must be 0 or greater")])
   ),
+  prepTimeMinutes: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? null : val),
+    z.union([
+      z.null(),
+      z.coerce.number().int().min(1, "Prep time must be at least 1 minute"),
+    ])
+  ),
 });
 
 export const orderLineSchema = z.object({
@@ -157,15 +164,62 @@ export const discountSchema = z.object({
 
 const orderPaymentMethods = ["CASH", "CARD", "PHONEPE"] as const;
 
+const orderChannels = ["DINE_IN", "ONLINE"] as const;
+
 export const createOrderSchema = z.object({
   customerId: z.string().optional(),
   customerName: z.string().optional(),
   discountCode: z.string().optional(),
   notes: z.string().optional(),
   paymentMethod: z.enum(orderPaymentMethods).optional(),
+  channel: z.enum(orderChannels).default("DINE_IN"),
+  diningTableId: z.string().optional(),
+  externalRef: z.string().optional(),
   lines: z.array(orderLineSchema).min(1, "Add at least one item"),
 });
 
 export const posCheckoutSchema = createOrderSchema.extend({
   paymentMethod: z.enum(orderPaymentMethods, { message: "Select a payment method" }),
 });
+
+export const stockReceiveLineSchema = z.object({
+  ingredientId: z.string().min(1, "Item is required"),
+  quantity: z.coerce.number().positive("Quantity must be greater than 0"),
+  unitCost: z.coerce.number().min(0, "Unit cost cannot be negative"),
+  unit: z.enum(UNITS),
+});
+
+export const stockReceiveSchema = z
+  .object({
+    supplierId: z.string().optional(),
+    paymentStatus: z.enum(purchasePaymentStatuses),
+    amountPaid: z.coerce.number().min(0).optional(),
+    purchaseDate: z.string().min(1, "Purchase date is required"),
+    dueDate: z.string().optional(),
+    notes: z.string().optional(),
+    invoiceRef: z.string().optional(),
+    lines: z.array(stockReceiveLineSchema).min(1, "Add at least one item"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.paymentStatus === "PARTIAL") {
+      const total = data.lines.reduce((s, l) => s + l.quantity * l.unitCost, 0);
+      const paid = data.amountPaid ?? 0;
+      if (paid <= 0 || paid >= total) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Partial payment must be more than 0 and less than total",
+          path: ["amountPaid"],
+        });
+      }
+    }
+    for (const line of data.lines) {
+      if (line.unitCost <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Enter unit cost for each line",
+          path: ["lines"],
+        });
+        break;
+      }
+    }
+  });

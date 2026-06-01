@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
 import { estimateRecipeIngredientCost } from "@/lib/costing";
@@ -10,8 +11,11 @@ export async function updateRecipePricing(recipeId: string, formData: FormData) 
   const raw = Object.fromEntries(formData.entries());
   const salePriceRaw = String(raw.salePrice ?? "").trim();
 
+  const prepRaw = String(raw.prepTimeMinutes ?? "").trim();
+
   const parsed = recipePricingSchema.safeParse({
     salePrice: salePriceRaw === "" ? null : salePriceRaw,
+    prepTimeMinutes: prepRaw === "" ? null : prepRaw,
   });
 
   if (!parsed.success) {
@@ -22,6 +26,7 @@ export async function updateRecipePricing(recipeId: string, formData: FormData) 
     where: { id: recipeId },
     data: {
       salePrice: parsed.data.salePrice,
+      prepTimeMinutes: parsed.data.prepTimeMinutes,
     },
   });
 
@@ -30,6 +35,7 @@ export async function updateRecipePricing(recipeId: string, formData: FormData) 
   revalidatePath("/orders");
   revalidatePath("/orders/new");
   revalidatePath("/orders/pos");
+  revalidatePath("/orders/kitchen");
   return { success: true };
 }
 
@@ -53,7 +59,9 @@ export async function getRecipePricingDetail(recipeId: string) {
 }
 
 export async function getRecipesWithPricing() {
+  const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
+    where: { businessId },
     include: {
       ingredients: {
         include: {

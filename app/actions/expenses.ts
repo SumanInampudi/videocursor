@@ -45,8 +45,11 @@ export async function getExpenses(filters?: {
     where.category = filters.category as ExpenseCategory;
   }
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
   return db.expense.findMany({
-    where,
+    where: { ...where, businessId },
     orderBy: [{ periodMonth: "desc" }, { createdAt: "desc" }],
   });
 }
@@ -78,8 +81,11 @@ export async function createExpense(formData: FormData) {
       ? new Date(data.expenseDate)
       : null;
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   await db.expense.create({
     data: {
+      businessId,
       category: data.category as ExpenseCategory,
       description: data.description,
       amount: data.amount,
@@ -141,7 +147,12 @@ export async function duplicateExpensesFromPreviousMonth(targetPeriodMonth: stri
   const prevDate = new Date(year!, month! - 2, 1);
   const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
-  const source = await db.expense.findMany({ where: { periodMonth: prevMonth } });
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  const source = await db.expense.findMany({
+    where: { businessId, periodMonth: prevMonth },
+  });
   if (source.length === 0) {
     return { error: `No expenses found for ${prevMonth}` };
   }
@@ -150,6 +161,7 @@ export async function duplicateExpensesFromPreviousMonth(targetPeriodMonth: stri
   for (const e of source) {
     const exists = await db.expense.findFirst({
       where: {
+        businessId,
         periodMonth: parsed,
         category: e.category,
         description: e.description,
@@ -159,6 +171,7 @@ export async function duplicateExpensesFromPreviousMonth(targetPeriodMonth: stri
 
     await db.expense.create({
       data: {
+        businessId,
         category: e.category,
         description: e.description,
         amount: e.amount,

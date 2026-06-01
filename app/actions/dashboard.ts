@@ -4,8 +4,10 @@ import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
 
 export async function getLowStockItems(limit = 8) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   const items = await db.inventoryItem.findMany({
-    where: { isActive: true },
+    where: { businessId, isActive: true },
     orderBy: { quantity: "asc" },
     take: 50,
   });

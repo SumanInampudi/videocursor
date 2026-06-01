@@ -1,19 +1,26 @@
 import Link from "next/link";
 import { getPosCategorySettings } from "@/app/actions/pos-settings";
+import { getDiningTablesForAdmin, getVenuePosSettings } from "@/app/actions/venue";
 import { PosExitLink } from "@/components/layout/PosShell";
+import { DiningTablesManager } from "@/components/orders/pos/DiningTablesManager";
 import { PosCategoryOrderEditor } from "@/components/orders/pos/PosCategoryOrderEditor";
+import { VenueSettingsForm } from "@/components/orders/pos/VenueSettingsForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function PosSettingsPage() {
-  const { allCategories, ordered, savedOrder } = await getPosCategorySettings();
+  const [{ allCategories, ordered, savedOrder }, venue, tables] = await Promise.all([
+    getPosCategorySettings(),
+    getVenuePosSettings(),
+    getDiningTablesForAdmin(),
+  ]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 safe-area-top">
         <PosExitLink />
         <div className="flex-1">
-          <h1 className="text-lg font-bold text-servora-charcoal">POS settings</h1>
+          <h1 className="text-lg font-bold text-servora-charcoal">POS & venue settings</h1>
         </div>
         <Link
           href="/orders/pos"
@@ -22,13 +29,20 @@ export default async function PosSettingsPage() {
           Back to register
         </Link>
       </header>
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <PosCategoryOrderEditor initialOrder={ordered} allCategories={allCategories} />
-        {savedOrder.length === 0 && allCategories.length > 0 && (
-          <p className="mt-4 text-xs text-gray-500">
-            No custom order saved yet — using alphabetical until you save.
-          </p>
-        )}
+      <div className="flex-1 space-y-6 overflow-y-auto p-4 md:p-6">
+        <VenueSettingsForm initial={venue} />
+        <DiningTablesManager tables={tables} />
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <h2 className="font-semibold text-servora-charcoal">Menu category order</h2>
+          <div className="mt-4">
+            <PosCategoryOrderEditor initialOrder={ordered} allCategories={allCategories} />
+          </div>
+          {savedOrder.length === 0 && allCategories.length > 0 && (
+            <p className="mt-4 text-xs text-gray-500">
+              No custom order saved yet — using alphabetical until you save.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

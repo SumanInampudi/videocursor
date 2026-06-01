@@ -1,23 +1,28 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getVenuePosSettings } from "@/app/actions/venue";
 import { logAudit } from "@/lib/audit";
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { planInventoryDeductions } from "@/lib/orderFulfillment";
+import { estimateOrderPrepMinutes } from "@/lib/order-prep-time";
 import { calculateDiscountAmount, isDiscountValid } from "@/lib/discount-calc";
 import { createOrderSchema } from "@/lib/validations";
 import { posCheckoutSchema } from "@/lib/validations";
 import type { OrdersListQuery } from "@/lib/orders-list";
 import { ORDERS_PAGE_SIZE } from "@/lib/orders-list";
-import { OrderPaymentMethod, OrderStatus, Prisma } from "@prisma/client";
+import { sortOrdersByReceived } from "@/lib/orders-sort";
+import { OrderChannel, OrderPaymentMethod, OrderStatus, Prisma } from "@prisma/client";
 
 const ORDER_PATHS = [
   "/orders",
   "/orders/new",
   "/orders/pos",
   "/orders/pos/settings",
+  "/orders/kitchen",
   "/",
   "/reports",
   "/inventory",
@@ -25,35 +30,58 @@ const ORDER_PATHS = [
   "/recipes",
 ];
 
+const PUBLIC_QUEUE_PATHS = ["/queue"];
+
 function revalidateOrders() {
-  for (const path of ORDER_PATHS) {
+  for (const path of [...ORDER_PATHS, ...PUBLIC_QUEUE_PATHS]) {
     revalidatePath(path);
   }
 }
 
-function generateOrderNumber(): string {
+function generateOrderNumber(channel: OrderChannel): string {
   const date = new Date();
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
+  const prefix = channel === "ONLINE" ? "O" : "D";
   const suffix = Date.now().toString().slice(-6);
-  return `ORD-${y}${m}${d}-${suffix}`;
+  return `${prefix}-${y}${m}${d}-${suffix}`;
 }
 
 export async function getOrdersByStatus() {
+  const { businessId } = await requireBusinessContext();
   const orders = await db.order.findMany({
+    where: { businessId },
     include: {
       customer: { select: { id: true, name: true } },
       lineItems: {
         include: {
-          recipe: { select: { id: true, name: true, yieldUnit: true, barcode: true } },
+          recipe: {
+            select: {
+              id: true,
+              name: true,
+              yieldUnit: true,
+              barcode: true,
+              prepTimeMinutes: true,
+            },
+          },
         },
       },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
   });
 
-  const grouped: Record<OrderStatus, typeof orders> = {
+  const enriched = orders.map((order) => ({
+    ...order,
+    estimatedPrepMinutes: estimateOrderPrepMinutes(
+      order.lineItems.map((line) => ({
+        quantity: line.quantity,
+        prepTimeMinutes: line.recipe?.prepTimeMinutes ?? null,
+      }))
+    ),
+  }));
+
+  const grouped: Record<OrderStatus, (typeof enriched)[number][]> = {
     NEW: [],
     PROCESSING: [],
     READY: [],
@@ -61,16 +89,21 @@ export async function getOrdersByStatus() {
     CANCELLED: [],
   };
 
-  for (const order of orders) {
+  for (const order of enriched) {
     grouped[order.status].push(order);
+  }
+
+  for (const status of Object.keys(grouped) as OrderStatus[]) {
+    grouped[status] = sortOrdersByReceived(grouped[status]);
   }
 
   return serializeForClient(grouped);
 }
 
 export async function getOrder(id: string) {
-  const order = await db.order.findUnique({
-    where: { id },
+  const { businessId } = await requireBusinessContext();
+  const order = await db.order.findFirst({
+    where: { id, businessId },
     include: {
       customer: { select: { id: true, name: true } },
       lineItems: {
@@ -88,7 +121,9 @@ export async function getOrder(id: string) {
 }
 
 export async function getRecipesForOrdering() {
+  const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
+    where: { businessId },
     select: {
       id: true,
       name: true,
@@ -106,16 +141,19 @@ export async function getRecipesForOrdering() {
 
 /** Menu data for full-screen POS (categories, items, frequently sold). */
 export async function getPosMenuData() {
+  const { businessId } = await requireBusinessContext();
   const since = new Date();
   since.setDate(since.getDate() - 90);
 
   const [recipes, frequentGroups] = await Promise.all([
     db.recipe.findMany({
+      where: { businessId },
       select: {
         id: true,
         name: true,
         category: true,
         salePrice: true,
+        prepTimeMinutes: true,
         barcode: true,
         yieldUnit: true,
         imageUrl: true,
@@ -127,6 +165,7 @@ export async function getPosMenuData() {
       where: {
         recipeId: { not: null },
         order: {
+          businessId,
           status: OrderStatus.DELIVERED,
           deliveredAt: { gte: since },
         },
@@ -170,6 +209,9 @@ export async function createOrder(formData: FormData) {
     discountCode: raw.discountCode,
     notes: raw.notes,
     paymentMethod: raw.paymentMethod || undefined,
+    channel: raw.channel || "DINE_IN",
+    diningTableId: raw.diningTableId || undefined,
+    externalRef: raw.externalRef || undefined,
     lines,
   });
 
@@ -177,9 +219,53 @@ export async function createOrder(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
+  const { businessId } = await requireBusinessContext();
+  const venue = await getVenuePosSettings();
+
+  const channel = parsed.data.channel as OrderChannel;
+  if (channel === "DINE_IN" && !venue.enableDineIn) {
+    return { error: { channel: ["Dine-in is disabled for this venue"] } };
+  }
+  if (channel === "ONLINE" && !venue.enableOnline) {
+    return { error: { channel: ["Online orders are disabled for this venue"] } };
+  }
+
+  let diningTableId: string | null = null;
+  let tableLabel: string | null = null;
+  if (channel === "DINE_IN") {
+    if (venue.requireTableDineIn && !parsed.data.diningTableId) {
+      const activeTableCount = await db.diningTable.count({
+        where: { businessId, isActive: true },
+      });
+      if (activeTableCount === 0) {
+        return {
+          error: {
+            diningTableId: [
+              "No tables configured. Add tables under Register → Settings, or turn off “Require table for dine-in”.",
+            ],
+          },
+        };
+      }
+      return { error: { diningTableId: ["Select a table for dine-in"] } };
+    }
+    if (parsed.data.diningTableId) {
+      const table = await db.diningTable.findFirst({
+        where: { id: parsed.data.diningTableId, businessId, isActive: true },
+      });
+      if (!table) {
+        return { error: { diningTableId: ["Invalid table"] } };
+      }
+      diningTableId = table.id;
+      tableLabel = table.label;
+    }
+  }
+
+  const externalRef =
+    channel === "ONLINE" ? parsed.data.externalRef?.trim() || null : null;
+
   const recipeIds = parsed.data.lines.map((l) => l.recipeId);
   const recipes = await db.recipe.findMany({
-    where: { id: { in: recipeIds } },
+    where: { id: { in: recipeIds }, businessId },
     select: { id: true, salePrice: true, name: true },
   });
   const recipeMap = new Map(recipes.map((r) => [r.id, r]));
@@ -202,8 +288,8 @@ export async function createOrder(formData: FormData) {
   let customerName = parsed.data.customerName?.trim() || null;
 
   if (customerId) {
-    const customer = await db.customer.findUnique({
-      where: { id: customerId },
+    const customer = await db.customer.findFirst({
+      where: { id: customerId, businessId },
       select: { name: true },
     });
     if (customer) customerName = customer.name;
@@ -228,7 +314,7 @@ export async function createOrder(formData: FormData) {
 
   const code = parsed.data.discountCode?.trim().toUpperCase();
   if (code) {
-    const discount = await db.discount.findUnique({ where: { code } });
+    const discount = await db.discount.findFirst({ where: { code, businessId } });
     if (!discount) {
       return { error: { discountCode: ["Invalid discount code"] } };
     }
@@ -264,7 +350,12 @@ export async function createOrder(formData: FormData) {
 
   const order = await db.order.create({
     data: {
-      orderNumber: generateOrderNumber(),
+      businessId,
+      orderNumber: generateOrderNumber(channel),
+      channel,
+      diningTableId,
+      tableLabel,
+      externalRef,
       customerId,
       customerName,
       discountId,
@@ -400,6 +491,119 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
   return { success: true };
 }
 
+/** Cancel an open order; restores inventory if stock was deducted at Ready. */
+export async function cancelOrder(orderId: string, reason?: string) {
+  const { businessId } = await requireBusinessContext();
+  const { getAuthContext } = await import("@/lib/auth");
+  const { isAdminRole } = await import("@/lib/permissions");
+  const auth = await getAuthContext();
+  if (!auth.user) {
+    return { error: "Sign in required" };
+  }
+
+  const order = await db.order.findFirst({
+    where: { id: orderId, businessId },
+    include: {
+      lineItems: {
+        include: {
+          consumptions: true,
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    return { error: "Order not found" };
+  }
+
+  if (order.status === OrderStatus.CANCELLED) {
+    return { error: "Order is already cancelled" };
+  }
+  if (order.status === OrderStatus.DELIVERED) {
+    return { error: "Delivered orders cannot be cancelled" };
+  }
+  if (![OrderStatus.NEW, OrderStatus.PROCESSING, OrderStatus.READY].includes(order.status)) {
+    return { error: "This order cannot be cancelled" };
+  }
+
+  if (order.status === OrderStatus.READY && !isAdminRole(auth.user.role)) {
+    return {
+      error:
+        "Only a manager can cancel a ready order (ingredient stock will be restored).",
+    };
+  }
+  if (
+    !isAdminRole(auth.user.role) &&
+    auth.user.role !== "KITCHEN"
+  ) {
+    return { error: "You do not have permission to cancel orders" };
+  }
+
+  const trimmedReason = reason?.trim() || null;
+
+  try {
+    await db.$transaction(async (tx) => {
+      if (order.status === OrderStatus.READY) {
+        for (const line of order.lineItems) {
+          for (const c of line.consumptions) {
+            const item = await tx.inventoryItem.findUniqueOrThrow({
+              where: { id: c.inventoryItemId },
+            });
+            await tx.inventoryItem.update({
+              where: { id: item.id },
+              data: {
+                quantity:
+                  Number(item.quantity) + Number(c.quantityDeducted),
+              },
+            });
+            await tx.inventoryCostHistory.create({
+              data: {
+                inventoryItemId: item.id,
+                costPerUnit: Number(item.costPerUnit),
+                previousCost: Number(item.costPerUnit),
+                note: `Restored — order ${order.orderNumber} cancelled`,
+              },
+            });
+          }
+        }
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelReason: trimmedReason,
+        },
+      });
+    });
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Could not cancel order",
+    };
+  }
+
+  await logAudit("order.cancelled", "order", orderId, {
+    orderNumber: order.orderNumber,
+    from: order.status,
+    reason: trimmedReason,
+    stockRestored: order.status === OrderStatus.READY,
+  });
+
+  const business = await db.business.findUnique({
+    where: { id: businessId },
+    select: { slug: true },
+  });
+  if (business?.slug) {
+    revalidatePath(`/queue/${business.slug}`);
+  }
+
+  revalidateOrders();
+  revalidatePath("/queue", "layout");
+  revalidatePath(`/orders/${orderId}`);
+  return { success: true };
+}
+
 type OrderForFulfillment = {
   lineItems: {
     id: string;
@@ -483,8 +687,11 @@ async function fulfillOrderInventory(order: OrderForFulfillment) {
   return { success: true };
 }
 
-function buildOrdersListWhere(filters: OrdersListQuery): Prisma.OrderWhereInput {
-  const where: Prisma.OrderWhereInput = {};
+function buildOrdersListWhere(
+  businessId: string,
+  filters: OrdersListQuery
+): Prisma.OrderWhereInput {
+  const where: Prisma.OrderWhereInput = { businessId };
 
   if (filters.status) {
     where.status = filters.status;
@@ -517,10 +724,11 @@ function buildOrdersListWhere(filters: OrdersListQuery): Prisma.OrderWhereInput 
 }
 
 export async function getOrdersList(filters: OrdersListQuery = {}) {
+  const { businessId } = await requireBusinessContext();
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = ORDERS_PAGE_SIZE;
   const skip = (page - 1) * pageSize;
-  const where = buildOrdersListWhere(filters);
+  const where = buildOrdersListWhere(businessId, filters);
 
   const [orders, total] = await Promise.all([
     db.order.findMany({
@@ -537,7 +745,7 @@ export async function getOrdersList(filters: OrdersListQuery = {}) {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
       skip,
       take: pageSize,
     }),
@@ -547,7 +755,7 @@ export async function getOrdersList(filters: OrdersListQuery = {}) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return serializeForClient({
-    orders,
+    orders: sortOrdersByReceived(orders),
     total,
     page,
     pageSize,
@@ -556,12 +764,14 @@ export async function getOrdersList(filters: OrdersListQuery = {}) {
 }
 
 export async function getOrderDashboardStats() {
+  const { businessId } = await requireBusinessContext();
   const [newCount, processingCount, readyCount, deliveredToday] = await Promise.all([
-    db.order.count({ where: { status: OrderStatus.NEW } }),
-    db.order.count({ where: { status: OrderStatus.PROCESSING } }),
-    db.order.count({ where: { status: OrderStatus.READY } }),
+    db.order.count({ where: { businessId, status: OrderStatus.NEW } }),
+    db.order.count({ where: { businessId, status: OrderStatus.PROCESSING } }),
+    db.order.count({ where: { businessId, status: OrderStatus.READY } }),
     db.order.count({
       where: {
+        businessId,
         status: OrderStatus.DELIVERED,
         deliveredAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
       },
@@ -573,10 +783,27 @@ export async function getOrderDashboardStats() {
 
 export async function deleteOrder(orderId: string) {
   try {
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-      select: { orderNumber: true },
+    const { businessId } = await requireBusinessContext();
+    const order = await db.order.findFirst({
+      where: { id: orderId, businessId },
+      select: {
+        orderNumber: true,
+        status: true,
+        lineItems: {
+          select: { consumptions: { select: { id: true }, take: 1 } },
+        },
+      },
     });
+    if (!order) {
+      return { success: false, message: "Order not found." };
+    }
+    const hasConsumptions = order.lineItems.some((l) => l.consumptions.length > 0);
+    if (hasConsumptions || order.status === OrderStatus.READY) {
+      return {
+        success: false,
+        message: "Cancel this order instead — stock was already deducted.",
+      };
+    }
     await db.order.delete({
       where: { id: orderId },
     });
