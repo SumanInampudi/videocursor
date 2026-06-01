@@ -12,17 +12,19 @@ type PublicQueueBoardProps = {
   initialUpdatedAt: string;
 };
 
-const STEP_LABELS = ["Received", "Preparing", "Ready"] as const;
+const STEP_LABELS = ["Received", "Preparing", "Packing", "Ready"] as const;
 
 const STEP_BAR_COLORS = [
   "bg-amber-500",
   "bg-sky-500",
+  "bg-violet-500",
   "bg-emerald-500",
 ] as const;
 
 const STEP_BAR_MUTED = [
   "bg-amber-100",
   "bg-sky-100",
+  "bg-violet-100",
   "bg-emerald-100",
 ] as const;
 
@@ -37,6 +39,10 @@ const STATUS_BADGE: Record<
   PROCESSING: {
     label: "Preparing",
     className: "bg-sky-50 text-sky-800 ring-1 ring-sky-200",
+  },
+  PACKING: {
+    label: "Packing",
+    className: "bg-violet-50 text-violet-800 ring-1 ring-violet-200",
   },
   READY: {
     label: "Ready",
@@ -127,7 +133,11 @@ function QueueOrderCell({ ticket }: { ticket: PublicQueueTicket }) {
 
 function splitByChannel(tickets: PublicQueueTicket[]) {
   const active = tickets.filter(
-    (t) => t.status === "NEW" || t.status === "PROCESSING" || t.status === "READY"
+    (t) =>
+      t.status === "NEW" ||
+      t.status === "PROCESSING" ||
+      t.status === "PACKING" ||
+      t.status === "READY"
   );
   const sorted = sortPublicQueueTickets(active);
   return {

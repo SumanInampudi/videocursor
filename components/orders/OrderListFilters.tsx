@@ -11,6 +11,7 @@ const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
   { value: OrderStatus.NEW, label: "New" },
   { value: OrderStatus.PROCESSING, label: "Processing" },
+  { value: OrderStatus.PACKING, label: "Packing" },
   { value: OrderStatus.READY, label: "Ready" },
   { value: OrderStatus.DELIVERED, label: "Delivered" },
   { value: OrderStatus.CANCELLED, label: "Cancelled" },

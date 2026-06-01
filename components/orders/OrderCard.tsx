@@ -58,7 +58,8 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
     if (!nextAction) return;
 
     const needsStockCheck =
-      nextAction.status === OrderStatus.READY && order.status === OrderStatus.PROCESSING;
+      nextAction.status === OrderStatus.PACKING &&
+      order.status === OrderStatus.PROCESSING;
 
     startTransition(async () => {
       if (needsStockCheck) {

@@ -182,6 +182,34 @@ export const posCheckoutSchema = createOrderSchema.extend({
   paymentMethod: z.enum(orderPaymentMethods, { message: "Select a payment method" }),
 });
 
+/** Send to kitchen without payment (dine-in pay at close). */
+export const posSendToKitchenSchema = createOrderSchema.extend({
+  paymentMethod: z.undefined().optional(),
+  covers: z.coerce.number().int().min(1).max(99).optional(),
+});
+
+export const settleOrderSchema = z.object({
+  orderId: z.string().min(1),
+  paymentMethod: z.enum(orderPaymentMethods, { message: "Select a payment method" }),
+  discountCode: z.string().optional(),
+});
+
+export const addOrderLinesSchema = z.object({
+  orderId: z.string().min(1),
+  lines: z.array(orderLineSchema).min(1, "Add at least one item"),
+});
+
+export const reservationSchema = z.object({
+  id: z.string().optional(),
+  diningTableId: z.string().optional(),
+  guestName: z.string().min(1, "Guest name is required"),
+  phone: z.string().optional(),
+  partySize: z.coerce.number().int().min(1).max(99).default(2),
+  reservedAt: z.string().min(1, "Date and time are required"),
+  durationMinutes: z.coerce.number().int().min(15).max(480).default(90),
+  notes: z.string().optional(),
+});
+
 export const stockReceiveLineSchema = z.object({
   ingredientId: z.string().min(1, "Item is required"),
   quantity: z.coerce.number().positive("Quantity must be greater than 0"),

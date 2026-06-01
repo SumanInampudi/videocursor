@@ -56,6 +56,9 @@ export function OrderMetaBadges({ order }: { order: OrderMeta }) {
           </Badge>
         </span>
       )}
+      {!order.paymentMethod && order.paidAt == null && (
+        <Badge variant="warning">Unpaid tab</Badge>
+      )}
       {order.paymentMethod && (
         <span title={order.paidAt ? "Paid at register" : undefined}>
           <Badge variant="success">Paid · {formatPaymentMethod(order.paymentMethod)}</Badge>

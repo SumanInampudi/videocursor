@@ -775,6 +775,7 @@ async function main() {
     paymentMethod?: OrderPaymentMethod;
     paidAt?: Date;
     processedAt?: Date;
+    packingAt?: Date;
     readyAt?: Date;
     deliveredAt?: Date;
     notes?: string;
@@ -803,6 +804,7 @@ async function main() {
         paidAt: opts.paidAt,
         notes: opts.notes,
         processedAt: opts.processedAt,
+        packingAt: opts.packingAt,
         readyAt: opts.readyAt,
         deliveredAt: opts.deliveredAt,
         lineItems: {
@@ -811,8 +813,10 @@ async function main() {
             const cost = line.cost ?? line.revenue * 0.35;
             const profit = line.revenue - cost;
             const processed =
-              opts.status === OrderStatus.READY || opts.status === OrderStatus.DELIVERED
-                ? opts.readyAt ?? opts.processedAt ?? opts.createdAt
+              opts.status === OrderStatus.PACKING ||
+              opts.status === OrderStatus.READY ||
+              opts.status === OrderStatus.DELIVERED
+                ? opts.packingAt ?? opts.readyAt ?? opts.processedAt ?? opts.createdAt
                 : null;
 
             return {
@@ -965,10 +969,23 @@ async function main() {
   });
 
   await createOrderWithLines({
+    orderNumber: orderNumber("200002b"),
+    status: OrderStatus.PACKING,
+    createdAt: daysAgo(0),
+    processedAt: daysAgo(0),
+    packingAt: new Date(),
+    customerName: "Takeaway #42",
+    paymentMethod: OrderPaymentMethod.PHONEPE,
+    paidAt: daysAgo(0),
+    lines: [{ recipeName: "Veggie Supreme Pizza", qty: 1, unitPrice: 329, revenue: 329 }],
+  });
+
+  await createOrderWithLines({
     orderNumber: orderNumber("200003"),
     status: OrderStatus.READY,
     createdAt: daysAgo(0),
     processedAt: daysAgo(0),
+    packingAt: daysAgo(0),
     readyAt: new Date(),
     lines: [
       { recipeName: "Paneer Tikka Pizza", qty: 1, unitPrice: 349, revenue: 349, cost: 95 },

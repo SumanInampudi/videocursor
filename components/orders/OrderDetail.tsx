@@ -4,7 +4,12 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { updateOrderStatus } from "@/app/actions/orders";
 import { CancelOrderButton } from "@/components/orders/CancelOrderButton";
+import { OrderSettlePanel } from "@/components/orders/OrderSettlePanel";
+import { OrderStageTimeline } from "@/components/orders/OrderStageTimeline";
+import { ADVANCE_ACTION_LABEL, NEXT_STATUS } from "@/lib/order-pipeline";
 import { canCancelOrder } from "@/lib/order-cancel";
+import { isOpenTableOrder } from "@/lib/table-tabs";
+import { orderChannelLabel } from "@/lib/order-channel";
 import { formatDateTimeIST } from "@/lib/format";
 import { formatPaymentMethod } from "@/lib/pos-payment";
 import { RecipeBarcode } from "@/components/recipes/RecipeBarcode";
@@ -22,6 +27,9 @@ type OrderDetailProps = {
   order: {
     id: string;
     orderNumber: string;
+    channel?: import("@prisma/client").OrderChannel;
+    tableLabel?: string | null;
+    diningTableId?: string | null;
     customerId?: string | null;
     customerName: string | null;
     customer?: { id: string; name: string } | null;
@@ -34,8 +42,10 @@ type OrderDetailProps = {
     status: OrderStatus;
     createdAt: Date;
     processedAt: Date | null;
+    packingAt?: Date | null;
     readyAt: Date | null;
     deliveredAt: Date | null;
+    cancelledAt?: Date | null;
     lineItems: {
       id: string;
       quantity: number;
@@ -63,12 +73,6 @@ type OrderDetailProps = {
   };
 };
 
-const NEXT: Partial<Record<OrderStatus, { label: string; status: OrderStatus }>> = {
-  NEW: { label: "Start processing", status: OrderStatus.PROCESSING },
-  PROCESSING: { label: "Mark ready (deduct stock)", status: OrderStatus.READY },
-  READY: { label: "Mark delivered", status: OrderStatus.DELIVERED },
-};
-
 export function OrderDetail({ order }: OrderDetailProps) {
   const router = useRouter();
   const { error: toastError } = useToast();
@@ -86,7 +90,21 @@ export function OrderDetail({ order }: OrderDetailProps) {
   );
   const allProcessed = order.lineItems.every((l) => l.processedAt != null);
 
-  const next = NEXT[order.status];
+  const nextStatus = NEXT_STATUS[order.status];
+  const next =
+    nextStatus != null
+      ? {
+          status: nextStatus,
+          label: ADVANCE_ACTION_LABEL[nextStatus] ?? nextStatus,
+        }
+      : undefined;
+  const openTab =
+    order.channel != null &&
+    isOpenTableOrder({
+      channel: order.channel,
+      paidAt: order.paidAt ?? null,
+      status: order.status,
+    });
 
   function advance() {
     if (!next) return;
@@ -128,6 +146,27 @@ export function OrderDetail({ order }: OrderDetailProps) {
         </div>
       </div>
 
+      {openTab && (
+        <div className="space-y-4 no-print">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <strong>Open table bill</strong>
+            {order.channel && ` · ${orderChannelLabel(order.channel)}`}
+            {order.tableLabel ? ` · ${order.tableLabel}` : ""}
+            {" · "}
+            <a href={`/orders/pos`} className="font-medium underline">
+              Add items on register
+            </a>
+          </p>
+          <OrderSettlePanel
+            orderId={order.id}
+            orderNumber={order.orderNumber}
+            subtotal={subtotal}
+            total={orderTotal}
+            discountCode={order.discountCode}
+          />
+        </div>
+      )}
+
       {order.paymentMethod && (
         <p className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
           <strong>Payment:</strong> {formatPaymentMethod(order.paymentMethod)}
@@ -149,6 +188,8 @@ export function OrderDetail({ order }: OrderDetailProps) {
           Subtotal {formatCurrency(subtotal)} · Discount −{formatCurrency(discount)}
         </p>
       )}
+
+      <OrderStageTimeline order={order} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <SummaryCard label="Revenue" value={formatCurrency(displayRevenue)} />
@@ -236,6 +277,9 @@ export function OrderDetail({ order }: OrderDetailProps) {
         {order.processedAt && (
           <div>Processing started: {new Date(order.processedAt).toLocaleString()}</div>
         )}
+        {order.packingAt && (
+          <div>Packing started: {new Date(order.packingAt).toLocaleString()}</div>
+        )}
         {order.readyAt && (
           <div>Ready: {new Date(order.readyAt).toLocaleString()}</div>
         )}
@@ -275,6 +319,8 @@ function statusVariant(status: OrderStatus): "default" | "success" | "warning" |
     case OrderStatus.NEW:
       return "warning";
     case OrderStatus.PROCESSING:
+      return "default";
+    case OrderStatus.PACKING:
       return "default";
     case OrderStatus.READY:
       return "success";

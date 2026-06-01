@@ -74,6 +74,10 @@ export function buildOrderFormData(
     channel?: string;
     diningTableId?: string;
     externalRef?: string;
+    sendToKitchen?: boolean;
+    existingOrderId?: string;
+    posFlow?: boolean;
+    covers?: number;
   }
 ): FormData {
   const formData = new FormData();
@@ -85,6 +89,10 @@ export function buildOrderFormData(
   if (fields.channel) formData.set("channel", fields.channel);
   if (fields.diningTableId) formData.set("diningTableId", fields.diningTableId);
   if (fields.externalRef) formData.set("externalRef", fields.externalRef);
+  if (fields.sendToKitchen) formData.set("sendToKitchen", "true");
+  if (fields.existingOrderId) formData.set("existingOrderId", fields.existingOrderId);
+  if (fields.posFlow) formData.set("posFlow", "true");
+  if (fields.covers != null) formData.set("covers", String(fields.covers));
   formData.set("lineCount", String(cart.length));
   cart.forEach((line, i) => {
     formData.set(`line_${i}_recipeId`, line.recipeId);

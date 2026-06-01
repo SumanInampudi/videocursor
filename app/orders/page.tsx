@@ -95,6 +95,7 @@ export default async function OrdersPage({
       <OrderStatusSummary
         newCount={stats.newCount}
         processingCount={stats.processingCount}
+        packingCount={stats.packingCount}
         readyCount={stats.readyCount}
         deliveredToday={stats.deliveredToday}
       />

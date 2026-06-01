@@ -38,6 +38,9 @@ type PosCheckoutModalProps = {
   errors: Record<string, string[]>;
   onClose: () => void;
   onConfirm: (paymentMethod: PosPaymentMethod, fields: CheckoutFields) => void;
+  onConfirmSend?: (fields: CheckoutFields) => void;
+  sendToKitchen?: boolean;
+  addingToOrder?: string | null;
   fields: CheckoutFields;
   recipes: PricedRecipe[];
 };
@@ -52,6 +55,9 @@ export function PosCheckoutModal({
   errors,
   onClose,
   onConfirm,
+  onConfirmSend,
+  sendToKitchen = false,
+  addingToOrder = null,
   fields,
   recipes,
 }: PosCheckoutModalProps) {
@@ -69,6 +75,10 @@ export function PosCheckoutModal({
   );
 
   function handleConfirm() {
+    if (sendToKitchen) {
+      onConfirmSend?.(fields);
+      return;
+    }
     if (!paymentMethod) return;
     onConfirm(paymentMethod, fields);
   }
@@ -85,9 +95,15 @@ export function PosCheckoutModal({
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 id="pos-checkout-title" className="text-xl font-bold text-servora-charcoal">
-                Checkout
+                {sendToKitchen ? "Send to kitchen" : "Checkout"}
               </h2>
-              <p className="text-sm text-gray-500">Select payment, then confirm to create the order</p>
+              <p className="text-sm text-gray-500">
+                {sendToKitchen
+                  ? addingToOrder
+                    ? `Add items to ${addingToOrder} · pay when guests leave`
+                    : "Open table bill · payment at close"
+                  : "Select payment, then confirm to create the order"}
+              </p>
             </div>
             <button
               type="button"
@@ -145,37 +161,39 @@ export function PosCheckoutModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          <p className="mb-3 text-sm font-medium text-servora-charcoal">Payment method</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {ORDER_PAYMENT_METHODS.map((method) => {
-              const selected = paymentMethod === method;
-              return (
-                <button
-                  key={method}
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => setPaymentMethod(method)}
-                  className={`touch-target rounded-xl border-2 p-4 text-left transition ${
-                    selected
-                      ? "border-servora-yellow bg-yellow-50 ring-2 ring-servora-yellow/30"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <span className="block text-base font-bold text-servora-charcoal">
-                    {PAYMENT_METHOD_LABELS[method]}
-                  </span>
-                  <span className="mt-1 block text-xs text-gray-500">
-                    {PAYMENT_METHOD_HINTS[method]}
-                  </span>
-                </button>
-              );
-            })}
+        {!sendToKitchen && (
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <p className="mb-3 text-sm font-medium text-servora-charcoal">Payment method</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {ORDER_PAYMENT_METHODS.map((method) => {
+                const selected = paymentMethod === method;
+                return (
+                  <button
+                    key={method}
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => setPaymentMethod(method)}
+                    className={`touch-target rounded-xl border-2 p-4 text-left transition ${
+                      selected
+                        ? "border-servora-yellow bg-yellow-50 ring-2 ring-servora-yellow/30"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <span className="block text-base font-bold text-servora-charcoal">
+                      {PAYMENT_METHOD_LABELS[method]}
+                    </span>
+                    <span className="mt-1 block text-xs text-gray-500">
+                      {PAYMENT_METHOD_HINTS[method]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {errors.paymentMethod && (
+              <p className="mt-2 text-sm text-servora-red">{errors.paymentMethod.join(", ")}</p>
+            )}
           </div>
-          {errors.paymentMethod && (
-            <p className="mt-2 text-sm text-servora-red">{errors.paymentMethod.join(", ")}</p>
-          )}
-        </div>
+        )}
 
         <div className="border-t border-gray-100 p-4 safe-area-bottom">
           {hasCheckoutErrors && (
@@ -186,17 +204,25 @@ export function PosCheckoutModal({
           <Button
             type="button"
             className="touch-target w-full py-4 text-base font-semibold"
-            disabled={isPending || !paymentMethod || cart.length === 0}
+            disabled={
+              isPending ||
+              cart.length === 0 ||
+              (!sendToKitchen && !paymentMethod)
+            }
             onClick={handleConfirm}
           >
             {isPending
-              ? "Creating order…"
-              : paymentMethod
-                ? `Paid · ${PAYMENT_METHOD_LABELS[paymentMethod]} · ${formatCurrency(total)}`
-                : "Select payment method"}
+              ? "Saving…"
+              : sendToKitchen
+                ? `Send to kitchen · ${formatCurrency(total)}`
+                : paymentMethod
+                  ? `Paid · ${PAYMENT_METHOD_LABELS[paymentMethod]} · ${formatCurrency(total)}`
+                  : "Select payment method"}
           </Button>
           <p className="mt-2 text-center text-xs text-gray-400">
-            Order is created only after you confirm payment
+            {sendToKitchen
+              ? "Bill stays open until you settle from Tables or the order page"
+              : "Order is created only after you confirm payment"}
           </p>
         </div>
       </div>

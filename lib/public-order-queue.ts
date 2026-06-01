@@ -8,6 +8,7 @@ export const PUBLIC_QUEUE_STATUS_LABELS: Record<
 > = {
   NEW: "Order received",
   PROCESSING: "Being prepared",
+  PACKING: "Being packed",
   READY: "Ready for pickup",
 };
 
@@ -19,6 +20,7 @@ export type PublicQueueOrderInput = {
   tableLabel?: string | null;
   createdAt: Date | string;
   processedAt?: Date | string | null;
+  packingAt?: Date | string | null;
   readyAt?: Date | string | null;
   estimatedPrepMinutes?: number | null;
 };
@@ -44,6 +46,23 @@ export function formatPublicTicketNumber(orderNumber: string): string {
   return tail && tail.length <= 8 ? `#${tail}` : orderNumber;
 }
 
+function queueStepIndex(status: OrderStatus): number {
+  switch (status) {
+    case "NEW":
+      return 1;
+    case "PROCESSING":
+      return 2;
+    case "PACKING":
+      return 3;
+    case "READY":
+      return 4;
+    default:
+      return 1;
+  }
+}
+
+export const PUBLIC_QUEUE_STEP_COUNT = 4;
+
 export function buildPublicQueueTicket(order: PublicQueueOrderInput): PublicQueueTicket | null {
   if (order.status === "DELIVERED" || order.status === "CANCELLED") {
     return null;
@@ -58,6 +77,8 @@ export function buildPublicQueueTicket(order: PublicQueueOrderInput): PublicQueu
   let waitLabel: string;
   if (order.status === "READY") {
     waitLabel = "Ready now — please collect your order";
+  } else if (order.status === "PACKING") {
+    waitLabel = "Packing your order";
   } else if (est != null && est > 0) {
     const remaining = Math.ceil(est - elapsedMin);
     if (remaining <= 0) {
@@ -68,9 +89,6 @@ export function buildPublicQueueTicket(order: PublicQueueOrderInput): PublicQueu
   } else {
     waitLabel = "Preparation in progress";
   }
-
-  const stepIndex =
-    order.status === "NEW" ? 1 : order.status === "PROCESSING" ? 2 : 3;
 
   const customerName = order.customerName?.trim() || null;
 
@@ -88,8 +106,8 @@ export function buildPublicQueueTicket(order: PublicQueueOrderInput): PublicQueu
         : null,
     estimatedPrepMinutes: est,
     waitLabel,
-    stepIndex,
-    stepCount: 3,
+    stepIndex: queueStepIndex(order.status),
+    stepCount: PUBLIC_QUEUE_STEP_COUNT,
   };
 }
 

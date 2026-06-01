@@ -15,6 +15,7 @@ import {
 } from "@/components/orders/pos/PosChannelTablePicker";
 import { OrderPrepEstimate } from "@/components/orders/OrderPrepEstimate";
 import type { OrderCartLine, PricedRecipe } from "@/lib/order-cart";
+import { isPayAtClose } from "@/lib/venue-settings";
 import type { VenuePosSettings } from "@/lib/venue-settings";
 import { formatCurrency } from "@/lib/units";
 import type { OrderChannel } from "@prisma/client";
@@ -52,6 +53,8 @@ type PosCartPanelProps = {
   mobileCollapsed?: boolean;
   resetKey?: number;
   recipes: PricedRecipe[];
+  activeOrderNumber?: string | null;
+  onSettleTab?: () => void;
 };
 
 export function PosCartPanel({
@@ -77,7 +80,11 @@ export function PosCartPanel({
   mobileCollapsed = false,
   resetKey = 0,
   recipes,
+  activeOrderNumber = null,
+  onSettleTab,
 }: PosCartPanelProps) {
+  const sendToKitchen =
+    channel === "DINE_IN" && isPayAtClose(venue, "DINE_IN");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -122,7 +129,12 @@ export function PosCartPanel({
   const panel = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
       <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
-        <h2 className="font-semibold text-servora-charcoal">Current order</h2>
+        <div>
+          <h2 className="font-semibold text-servora-charcoal">Current order</h2>
+          {activeOrderNumber && (
+            <p className="text-xs text-amber-800">Adding to {activeOrderNumber}</p>
+          )}
+        </div>
         {cart.length > 0 && (
           <button
             type="button"
@@ -263,16 +275,29 @@ export function PosCartPanel({
             Stay on register after checkout
           </label>
 
+          {activeOrderNumber && onSettleTab && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="touch-target mb-2 w-full"
+              disabled={isPending}
+              onClick={onSettleTab}
+            >
+              Settle table bill
+            </Button>
+          )}
           <Button
             type="button"
             className="touch-target w-full py-4 text-base font-semibold"
             disabled={isPending || cart.length === 0}
             onClick={submitCheckout}
           >
-            Checkout · {formatCurrency(total)}
+            {sendToKitchen ? "Send to kitchen" : "Checkout"} · {formatCurrency(total)}
           </Button>
           <p className="text-center text-xs text-gray-500">
-            Next: choose Cash, Card, or PhonePe and confirm payment
+            {sendToKitchen
+              ? "Payment when guests leave · use Tables to settle"
+              : "Next: choose Cash, Card, or PhonePe and confirm payment"}
           </p>
         </div>
       </div>
@@ -300,7 +325,7 @@ export function PosCartPanel({
               disabled={isPending}
               onClick={submitCheckout}
             >
-              Checkout
+              {sendToKitchen ? "Send" : "Checkout"}
             </Button>
           )}
         </div>

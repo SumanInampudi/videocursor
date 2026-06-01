@@ -8,7 +8,7 @@ import {
   sortPublicQueueTickets,
   type PublicQueueTicket,
 } from "@/lib/public-order-queue";
-import { OrderStatus } from "@prisma/client";
+import { ACTIVE_ORDER_STATUSES } from "@/lib/order-pipeline";
 
 export async function getBusinessBySlug(slug: string) {
   const business = await db.business.findFirst({
@@ -34,7 +34,7 @@ export async function getPublicOrderQueue(businessSlug: string) {
   const orders = await db.order.findMany({
     where: {
       businessId: business.id,
-      status: { in: [OrderStatus.NEW, OrderStatus.PROCESSING, OrderStatus.READY] },
+      status: { in: ACTIVE_ORDER_STATUSES },
       createdAt: { gte: todayStart },
     },
     select: {
@@ -45,6 +45,7 @@ export async function getPublicOrderQueue(businessSlug: string) {
       tableLabel: true,
       createdAt: true,
       processedAt: true,
+      packingAt: true,
       readyAt: true,
       lineItems: {
         select: {

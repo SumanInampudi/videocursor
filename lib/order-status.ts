@@ -3,6 +3,7 @@ import { OrderStatus } from "@prisma/client";
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   NEW: "New",
   PROCESSING: "Processing",
+  PACKING: "Packing",
   READY: "Ready",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
@@ -12,6 +13,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export const CUSTOMER_STATUS_LABELS: Partial<Record<OrderStatus, string>> = {
   NEW: "Order received",
   PROCESSING: "Being prepared",
+  PACKING: "Being packed",
   READY: "Ready for pickup",
 };
 
@@ -22,6 +24,8 @@ export function orderStatusBadgeVariant(
     case OrderStatus.NEW:
       return "warning";
     case OrderStatus.PROCESSING:
+      return "default";
+    case OrderStatus.PACKING:
       return "default";
     case OrderStatus.READY:
     case OrderStatus.DELIVERED:

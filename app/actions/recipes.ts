@@ -191,7 +191,11 @@ export async function deleteRecipe(id: string) {
   const activeOrders = await db.orderLineItem.count({
     where: {
       recipeId: id,
-      order: { status: { in: ["NEW", "PROCESSING", "READY"] } },
+      order: {
+        status: {
+          in: ["NEW", "PROCESSING", "PACKING", "READY"],
+        },
+      },
     },
   });
 

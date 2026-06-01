@@ -51,6 +51,26 @@ export function VenueSettingsForm({ initial }: { initial: VenuePosSettings }) {
           Require table for dine-in
         </label>
         <div>
+          <label className="text-sm font-medium">Dine-in payment</label>
+          <select
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            value={settings.dineInPaymentTiming}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                dineInPaymentTiming: e.target.value as "upfront" | "at_close",
+              }))
+            }
+          >
+            <option value="at_close">Pay at close (table tabs)</option>
+            <option value="upfront">Pay upfront at register</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Pay at close lets staff send orders to the kitchen and settle the bill when guests
+            leave. Online orders always pay upfront.
+          </p>
+        </div>
+        <div>
           <label className="text-sm font-medium">Default order type</label>
           <select
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"

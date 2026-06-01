@@ -9,12 +9,24 @@ import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { planInventoryDeductions } from "@/lib/orderFulfillment";
 import { estimateOrderPrepMinutes } from "@/lib/order-prep-time";
-import { calculateDiscountAmount, isDiscountValid } from "@/lib/discount-calc";
-import { createOrderSchema } from "@/lib/validations";
-import { posCheckoutSchema } from "@/lib/validations";
+import {
+  assertNoOpenOrderOnTable,
+  addLinesToOpenOrder,
+} from "@/app/actions/table-service";
+import {
+  applyDiscountToLines,
+  buildLinePayloadsForBusiness,
+} from "@/lib/order-line-build";
+import { isPayAtClose } from "@/lib/venue-settings";
+import {
+  createOrderSchema,
+  posCheckoutSchema,
+  posSendToKitchenSchema,
+} from "@/lib/validations";
 import type { OrdersListQuery } from "@/lib/orders-list";
 import { ORDERS_PAGE_SIZE } from "@/lib/orders-list";
 import { sortOrdersByReceived } from "@/lib/orders-sort";
+import { ORDER_STATUS, STATUS_FLOW } from "@/lib/order-pipeline";
 import { OrderChannel, OrderPaymentMethod, OrderStatus, Prisma } from "@prisma/client";
 
 const ORDER_PATHS = [
@@ -73,6 +85,12 @@ export async function getOrdersByStatus() {
 
   const enriched = orders.map((order) => ({
     ...order,
+    lineItems: [...order.lineItems].sort((a, b) => {
+      const ta = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+      const tb = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+      if (ta !== tb) return ta - tb;
+      return a.id.localeCompare(b.id);
+    }),
     estimatedPrepMinutes: estimateOrderPrepMinutes(
       order.lineItems.map((line) => ({
         quantity: line.quantity,
@@ -84,6 +102,7 @@ export async function getOrdersByStatus() {
   const grouped: Record<OrderStatus, (typeof enriched)[number][]> = {
     NEW: [],
     PROCESSING: [],
+    PACKING: [],
     READY: [],
     DELIVERED: [],
     CANCELLED: [],
@@ -106,6 +125,7 @@ export async function getOrder(id: string) {
     where: { id, businessId },
     include: {
       customer: { select: { id: true, name: true } },
+      diningTable: { select: { id: true, code: true, label: true } },
       lineItems: {
         include: {
           recipe: true,
@@ -192,6 +212,11 @@ export async function getPosMenuData() {
 
 export async function createOrder(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
+  const existingOrderId = String(raw.existingOrderId || "").trim();
+  if (existingOrderId) {
+    return addLinesToOpenOrder(formData);
+  }
+
   const lineCount = parseInt(String(raw.lineCount || "0"), 10);
   const lines = [];
 
@@ -202,16 +227,31 @@ export async function createOrder(formData: FormData) {
     });
   }
 
-  const isPosCheckout = Boolean(raw.paymentMethod);
-  const parsed = (isPosCheckout ? posCheckoutSchema : createOrderSchema).safeParse({
+  const sendToKitchen = raw.sendToKitchen === "true";
+  const isPosFlow = raw.posFlow === "true" || Boolean(raw.paymentMethod) || sendToKitchen;
+  const channelRaw = (raw.channel as OrderChannel) || "DINE_IN";
+
+  const venueEarly = isPosFlow ? await getVenuePosSettings() : null;
+  const payAtClose =
+    venueEarly != null && isPayAtClose(venueEarly, channelRaw);
+
+  const schema =
+    isPosFlow && sendToKitchen && payAtClose
+      ? posSendToKitchenSchema
+      : isPosFlow
+        ? posCheckoutSchema
+        : createOrderSchema;
+
+  const parsed = schema.safeParse({
     customerId: raw.customerId || undefined,
     customerName: raw.customerName,
     discountCode: raw.discountCode,
     notes: raw.notes,
     paymentMethod: raw.paymentMethod || undefined,
-    channel: raw.channel || "DINE_IN",
+    channel: channelRaw,
     diningTableId: raw.diningTableId || undefined,
     externalRef: raw.externalRef || undefined,
+    covers: raw.covers || undefined,
     lines,
   });
 
@@ -258,31 +298,18 @@ export async function createOrder(formData: FormData) {
       diningTableId = table.id;
       tableLabel = table.label;
     }
+
+    if (diningTableId && isPayAtClose(venue, "DINE_IN")) {
+      const conflict = await assertNoOpenOrderOnTable(businessId, diningTableId);
+      if (conflict) return conflict;
+    }
   }
 
   const externalRef =
     channel === "ONLINE" ? parsed.data.externalRef?.trim() || null : null;
 
-  const recipeIds = parsed.data.lines.map((l) => l.recipeId);
-  const recipes = await db.recipe.findMany({
-    where: { id: { in: recipeIds }, businessId },
-    select: { id: true, salePrice: true, name: true },
-  });
-  const recipeMap = new Map(recipes.map((r) => [r.id, r]));
-
-  for (const line of parsed.data.lines) {
-    const recipe = recipeMap.get(line.recipeId);
-    if (!recipe) {
-      return { error: { lines: ["One or more recipes were not found"] } };
-    }
-    if (recipe.salePrice == null) {
-      return {
-        error: {
-          lines: [`Set a sale price for "${recipe.name}" before ordering`],
-        },
-      };
-    }
-  }
+  const built = await buildLinePayloadsForBusiness(businessId, parsed.data.lines);
+  if ("error" in built) return { error: built.error };
 
   let customerId: string | null = parsed.data.customerId || null;
   let customerName = parsed.data.customerName?.trim() || null;
@@ -295,58 +322,25 @@ export async function createOrder(formData: FormData) {
     if (customer) customerName = customer.name;
   }
 
-  const linePayloads = parsed.data.lines.map((line) => {
-    const recipe = recipeMap.get(line.recipeId)!;
-    const unitSalePrice = Number(recipe.salePrice);
-    return {
-      recipeId: line.recipeId,
-      recipeName: recipe.name,
-      quantity: line.quantity,
-      unitSalePrice,
-      revenue: unitSalePrice * line.quantity,
-    };
-  });
+  let linePayloads = built.payloads;
+  const subtotal = built.subtotal;
 
-  const subtotal = linePayloads.reduce((s, l) => s + l.revenue, 0);
-  let discountId: string | null = null;
-  let discountCode: string | null = null;
-  let discountTotal = 0;
+  const discountApplied = await applyDiscountToLines(
+    businessId,
+    parsed.data.discountCode,
+    subtotal,
+    linePayloads
+  );
+  if ("error" in discountApplied) return { error: discountApplied.error };
 
-  const code = parsed.data.discountCode?.trim().toUpperCase();
-  if (code) {
-    const discount = await db.discount.findFirst({ where: { code, businessId } });
-    if (!discount) {
-      return { error: { discountCode: ["Invalid discount code"] } };
-    }
-    const d = {
-      type: discount.type,
-      value: Number(discount.value),
-      minOrderAmount:
-        discount.minOrderAmount != null ? Number(discount.minOrderAmount) : null,
-      isActive: discount.isActive,
-      validFrom: discount.validFrom,
-      validTo: discount.validTo,
-    };
-    if (!isDiscountValid(d, subtotal)) {
-      return {
-        error: {
-          discountCode: ["Discount not valid for this order"],
-        },
-      };
-    }
-    discountTotal = calculateDiscountAmount(d, subtotal);
-    discountId = discount.id;
-    discountCode = discount.code;
-  }
-
-  if (discountTotal > 0 && subtotal > 0) {
-    const factor = (subtotal - discountTotal) / subtotal;
-    for (const line of linePayloads) {
-      line.revenue = Math.round(line.revenue * factor * 100) / 100;
-    }
-  }
+  linePayloads = discountApplied.linePayloads;
+  const { discountId, discountCode, discountTotal } = discountApplied;
 
   const paymentMethod = parsed.data.paymentMethod as OrderPaymentMethod | undefined;
+  const covers =
+    "covers" in parsed.data && typeof parsed.data.covers === "number"
+      ? parsed.data.covers
+      : null;
 
   const order = await db.order.create({
     data: {
@@ -358,6 +352,7 @@ export async function createOrder(formData: FormData) {
       externalRef,
       customerId,
       customerName,
+      covers,
       discountId,
       discountCode,
       subtotal,
@@ -374,23 +369,29 @@ export async function createOrder(formData: FormData) {
   return { success: true, orderId: order.id, orderNumber: order.orderNumber };
 }
 
-/** POS register: create order only after payment method is selected at checkout. */
+/** POS register: pay upfront, or send to kitchen for dine-in pay-at-close tabs. */
 export async function createPosOrder(formData: FormData) {
+  formData.set("posFlow", "true");
+
+  if (formData.get("existingOrderId")) {
+    return addLinesToOpenOrder(formData);
+  }
+
+  const venue = await getVenuePosSettings();
+  const channel = String(formData.get("channel") || "DINE_IN") as OrderChannel;
+  const sendToKitchen = formData.get("sendToKitchen") === "true";
+
+  if (channel === "DINE_IN" && isPayAtClose(venue, "DINE_IN") && sendToKitchen) {
+    return createOrder(formData);
+  }
+
   if (!formData.get("paymentMethod")) {
     return { error: { paymentMethod: ["Select Cash, Card, or PhonePe"] } };
   }
   return createOrder(formData);
 }
 
-const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
-  NEW: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
-  PROCESSING: [OrderStatus.READY, OrderStatus.CANCELLED],
-  READY: [OrderStatus.DELIVERED],
-  DELIVERED: [],
-  CANCELLED: [],
-};
-
-/** Preview stock impact before marking processing → ready. */
+/** Preview stock impact before marking processing → packing. */
 export async function getOrderFulfillmentPreview(orderId: string) {
   const order = await db.order.findUnique({
     where: { id: orderId },
@@ -458,7 +459,10 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
     return { error: `Cannot move from ${order.status} to ${nextStatus}` };
   }
 
-  if (nextStatus === OrderStatus.READY && order.status === OrderStatus.PROCESSING) {
+  if (
+    nextStatus === ORDER_STATUS.PACKING &&
+    order.status === ORDER_STATUS.PROCESSING
+  ) {
     const fulfillResult = await fulfillOrderInventory(order);
     if ("error" in fulfillResult) {
       return fulfillResult;
@@ -467,13 +471,16 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
 
   const timestamps: Prisma.OrderUpdateInput = { status: nextStatus };
 
-  if (nextStatus === OrderStatus.PROCESSING) {
+  if (nextStatus === ORDER_STATUS.PROCESSING) {
     timestamps.processedAt = new Date();
   }
-  if (nextStatus === OrderStatus.READY) {
+  if (nextStatus === ORDER_STATUS.PACKING) {
+    timestamps.packingAt = new Date();
+  }
+  if (nextStatus === ORDER_STATUS.READY) {
     timestamps.readyAt = new Date();
   }
-  if (nextStatus === OrderStatus.DELIVERED) {
+  if (nextStatus === ORDER_STATUS.DELIVERED) {
     timestamps.deliveredAt = new Date();
   }
 
@@ -522,14 +529,21 @@ export async function cancelOrder(orderId: string, reason?: string) {
   if (order.status === OrderStatus.DELIVERED) {
     return { error: "Delivered orders cannot be cancelled" };
   }
-  if (![OrderStatus.NEW, OrderStatus.PROCESSING, OrderStatus.READY].includes(order.status)) {
+  if (
+    ![OrderStatus.NEW, OrderStatus.PROCESSING, OrderStatus.PACKING, OrderStatus.READY].includes(
+      order.status
+    )
+  ) {
     return { error: "This order cannot be cancelled" };
   }
 
-  if (order.status === OrderStatus.READY && !isAdminRole(auth.user.role)) {
+  if (
+    (order.status === OrderStatus.PACKING || order.status === OrderStatus.READY) &&
+    !isAdminRole(auth.user.role)
+  ) {
     return {
       error:
-        "Only a manager can cancel a ready order (ingredient stock will be restored).",
+        "Only a manager can cancel an order after packing started (stock will be restored).",
     };
   }
   if (
@@ -543,7 +557,10 @@ export async function cancelOrder(orderId: string, reason?: string) {
 
   try {
     await db.$transaction(async (tx) => {
-      if (order.status === OrderStatus.READY) {
+      if (
+        order.status === OrderStatus.PACKING ||
+        order.status === OrderStatus.READY
+      ) {
         for (const line of order.lineItems) {
           for (const c of line.consumptions) {
             const item = await tx.inventoryItem.findUniqueOrThrow({
@@ -587,7 +604,8 @@ export async function cancelOrder(orderId: string, reason?: string) {
     orderNumber: order.orderNumber,
     from: order.status,
     reason: trimmedReason,
-    stockRestored: order.status === OrderStatus.READY,
+    stockRestored:
+      order.status === OrderStatus.PACKING || order.status === OrderStatus.READY,
   });
 
   const business = await db.business.findUnique({
@@ -765,9 +783,11 @@ export async function getOrdersList(filters: OrdersListQuery = {}) {
 
 export async function getOrderDashboardStats() {
   const { businessId } = await requireBusinessContext();
-  const [newCount, processingCount, readyCount, deliveredToday] = await Promise.all([
+  const [newCount, processingCount, packingCount, readyCount, deliveredToday] =
+    await Promise.all([
     db.order.count({ where: { businessId, status: OrderStatus.NEW } }),
     db.order.count({ where: { businessId, status: OrderStatus.PROCESSING } }),
+    db.order.count({ where: { businessId, status: OrderStatus.PACKING } }),
     db.order.count({ where: { businessId, status: OrderStatus.READY } }),
     db.order.count({
       where: {
@@ -778,7 +798,7 @@ export async function getOrderDashboardStats() {
     }),
   ]);
 
-  return { newCount, processingCount, readyCount, deliveredToday };
+  return { newCount, processingCount, packingCount, readyCount, deliveredToday };
 }
 
 export async function deleteOrder(orderId: string) {
@@ -798,7 +818,11 @@ export async function deleteOrder(orderId: string) {
       return { success: false, message: "Order not found." };
     }
     const hasConsumptions = order.lineItems.some((l) => l.consumptions.length > 0);
-    if (hasConsumptions || order.status === OrderStatus.READY) {
+    if (
+      hasConsumptions ||
+      order.status === OrderStatus.PACKING ||
+      order.status === OrderStatus.READY
+    ) {
       return {
         success: false,
         message: "Cancel this order instead — stock was already deducted.",

@@ -16,6 +16,7 @@ type OrderTimestamps = {
   status: OrderStatus;
   createdAt: Date | string;
   processedAt?: Date | string | null;
+  packingAt?: Date | string | null;
   readyAt?: Date | string | null;
 };
 
@@ -23,6 +24,9 @@ export function getStageAnchor(order: OrderTimestamps): Date {
   const created = new Date(order.createdAt);
   if (order.status === "PROCESSING" && order.processedAt) {
     return new Date(order.processedAt);
+  }
+  if (order.status === "PACKING" && order.packingAt) {
+    return new Date(order.packingAt);
   }
   if (order.status === "READY" && order.readyAt) {
     return new Date(order.readyAt);

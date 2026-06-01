@@ -3,6 +3,7 @@ import { getPosCategorySettings } from "@/app/actions/pos-settings";
 import { getDiningTablesForAdmin, getVenuePosSettings } from "@/app/actions/venue";
 import { PosExitLink } from "@/components/layout/PosShell";
 import { DiningTablesManager } from "@/components/orders/pos/DiningTablesManager";
+import { ReservationsPanel } from "@/components/orders/pos/ReservationsPanel";
 import { PosCategoryOrderEditor } from "@/components/orders/pos/PosCategoryOrderEditor";
 import { VenueSettingsForm } from "@/components/orders/pos/VenueSettingsForm";
 
@@ -32,6 +33,7 @@ export default async function PosSettingsPage() {
       <div className="flex-1 space-y-6 overflow-y-auto p-4 md:p-6">
         <VenueSettingsForm initial={venue} />
         <DiningTablesManager tables={tables} />
+        <ReservationsPanel tables={tables} />
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <h2 className="font-semibold text-servora-charcoal">Menu category order</h2>
           <div className="mt-4">

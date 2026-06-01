@@ -22,6 +22,7 @@ export default async function KitchenPage() {
       grouped={{
         NEW: filterActive(grouped[OrderStatus.NEW] ?? []),
         PROCESSING: filterActive(grouped[OrderStatus.PROCESSING] ?? []),
+        PACKING: filterActive(grouped[OrderStatus.PACKING] ?? []),
         READY: filterActive(grouped[OrderStatus.READY] ?? []),
       }}
     />

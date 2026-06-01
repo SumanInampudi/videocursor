@@ -62,6 +62,11 @@ export async function saveVenuePosSettings(settings: VenuePosSettings) {
     VENUE_SETTING_KEYS.defaultChannel,
     settings.defaultChannel
   );
+  await upsertSetting(
+    businessId,
+    VENUE_SETTING_KEYS.dineInPaymentTiming,
+    settings.dineInPaymentTiming
+  );
 
   revalidateVenue();
   return { success: true };

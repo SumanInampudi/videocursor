@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { KitchenOrderCard } from "@/components/orders/KitchenOrderCard";
+import { useKitchenChime } from "@/components/kitchen/useKitchenChime";
 import type { KdsThresholds } from "@/lib/kds-timers";
-import { sortOrdersByReceived } from "@/lib/orders-sort";
+import { sortKitchenBoardOrders } from "@/lib/kitchen-kds";
 import { OrderStatus } from "@prisma/client";
 
 type KitchenOrder = {
@@ -16,13 +17,18 @@ type KitchenOrder = {
   externalRef: string | null;
   status: OrderStatus;
   createdAt: Date;
+  kitchenAcknowledgedAt?: Date | string | null;
+  kitchenBumpedAt?: Date | string | null;
   processedAt?: Date | string | null;
+  packingAt?: Date | string | null;
   readyAt?: Date | string | null;
   estimatedPrepMinutes?: number | null;
   lineItems: {
     id: string;
     quantity: number;
     recipeName: string;
+    addedAt: Date | string;
+    kitchenDoneAt?: Date | string | null;
     recipe: { name: string; yieldUnit: string } | null;
   }[];
 };
@@ -31,6 +37,7 @@ type KitchenOrderBoardProps = {
   grouped: {
     NEW: KitchenOrder[];
     PROCESSING: KitchenOrder[];
+    PACKING: KitchenOrder[];
     READY: KitchenOrder[];
   };
   thresholds: KdsThresholds;
@@ -39,7 +46,7 @@ type KitchenOrderBoardProps = {
 const COLUMNS: {
   status: keyof KitchenOrderBoardProps["grouped"];
   title: string;
-  accent: "new" | "processing" | "ready";
+  accent: "new" | "processing" | "packing" | "ready";
   sectionClass: string;
   countClass: string;
   nextAction?: { label: string; status: OrderStatus };
@@ -58,6 +65,14 @@ const COLUMNS: {
     accent: "processing",
     sectionClass: "border-blue-200 bg-blue-50",
     countClass: "bg-blue-100 text-blue-900",
+    nextAction: { label: "Pack", status: OrderStatus.PACKING },
+  },
+  {
+    status: "PACKING",
+    title: "Packing",
+    accent: "packing",
+    sectionClass: "border-violet-200 bg-violet-50",
+    countClass: "bg-violet-100 text-violet-900",
     nextAction: { label: "Ready", status: OrderStatus.READY },
   },
   {
@@ -70,25 +85,39 @@ const COLUMNS: {
   },
 ];
 
+const REFRESH_MS = 5_000;
+
 export function KitchenOrderBoard({ grouped, thresholds }: KitchenOrderBoardProps) {
   const router = useRouter();
 
+  const activeOrders = useMemo(
+    () => [
+      ...grouped.NEW,
+      ...grouped.PROCESSING,
+      ...grouped.PACKING,
+      ...grouped.READY,
+    ],
+    [grouped]
+  );
+
+  useKitchenChime(activeOrders);
+
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), 15_000);
+    const id = setInterval(() => router.refresh(), REFRESH_MS);
     return () => clearInterval(id);
   }, [router]);
 
-  const activeTotal =
-    grouped.NEW.length + grouped.PROCESSING.length + grouped.READY.length;
+  const activeTotal = activeOrders.length;
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-500">
-        {activeTotal} active today · timers live · refreshes 15s · oldest received first
+        {activeTotal} active today · tap lines when done · updated orders bump to top · refreshes
+        every {REFRESH_MS / 1000}s
       </p>
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {COLUMNS.map((column) => {
-          const orders = sortOrdersByReceived(grouped[column.status] ?? []);
+          const orders = sortKitchenBoardOrders(grouped[column.status] ?? []);
           return (
             <section
               key={column.status}
@@ -104,7 +133,7 @@ export function KitchenOrderBoard({ grouped, thresholds }: KitchenOrderBoardProp
                   {orders.length}
                 </span>
               </div>
-              <div className="grid flex-1 grid-cols-2 gap-2 xl:grid-cols-3">
+              <div className="grid flex-1 grid-cols-1 gap-2">
                 {orders.length === 0 ? (
                   <p className="col-span-full py-6 text-center text-xs text-gray-500">
                     No orders

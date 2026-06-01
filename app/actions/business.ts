@@ -66,6 +66,7 @@ export async function createBusiness(formData: FormData) {
     ["pos_enable_online", "true"],
     ["pos_require_table_dine_in", "true"],
     ["pos_default_channel", "DINE_IN"],
+    ["pos_dine_in_payment_timing", "at_close"],
   ] as const;
   for (const [key, value] of keys) {
     await db.appSetting.create({
