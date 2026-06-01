@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function Header() {
   return (
-    <header className="flex h-16 items-center border-b border-gray-200 bg-white px-6">
+    <header className="flex h-16 items-center border-b border-gray-200 bg-white text-gray-900 px-6 fixed top-0 w-full shadow-md">
       <Link href="/" className="flex items-center gap-4">
         <Image
           src="/servora-logo.png"
