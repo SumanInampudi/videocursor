@@ -8,8 +8,14 @@ import { getIngredientByBarcode } from "@/app/actions/ingredients";
 import { PosCategoryNav } from "@/components/orders/pos/PosCategoryNav";
 import { ReceiveCartPanel } from "@/components/inventory/receive/ReceiveCartPanel";
 import { ReceiveItemGrid } from "@/components/inventory/receive/ReceiveItemGrid";
+import {
+  ReceiveReviewModal,
+  type ReceivePostFields,
+} from "@/components/inventory/receive/ReceiveReviewModal";
+import { ReceiveReceiptModal } from "@/components/inventory/receive/ReceiveReceiptModal";
 import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
 import { useToast } from "@/components/ui/Toast";
+import type { StockReceiveReceipt } from "@/lib/stock-receive-summary";
 import { formatCurrency } from "@/lib/units";
 import {
   addToReceiveCart,
@@ -42,6 +48,10 @@ export function StockReceiveScreen({
   const [search, setSearch] = useState("");
   const [scanHint, setScanHint] = useState("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewFields, setReviewFields] = useState<ReceivePostFields | null>(null);
+  const [receipt, setReceipt] = useState<StockReceiveReceipt | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const catalogMap = useMemo(
     () => new Map(catalog.map((i) => [i.id, i])),
@@ -70,39 +80,48 @@ export function StockReceiveScreen({
     addItem(item);
   }
 
-  function handlePost(fields: {
-    supplierId: string;
-    paymentStatus: string;
-    amountPaid?: number;
-    purchaseDate: string;
-    dueDate?: string;
-    notes: string;
-    invoiceRef: string;
-  }) {
+  const supplierNameForReview = useMemo(() => {
+    if (!reviewFields?.supplierId) return null;
+    return suppliers.find((s) => s.id === reviewFields.supplierId)?.name ?? null;
+  }, [reviewFields, suppliers]);
+
+  function handleRequestPost(fields: ReceivePostFields) {
     if (cart.length === 0) {
       setErrors({ lines: ["Add at least one item"] });
       return;
     }
+    const hasZeroCost = cart.some((l) => l.unitCost <= 0);
+    if (hasZeroCost) {
+      setErrors({ lines: ["Enter unit cost for each line"] });
+      return;
+    }
+    setReviewFields(fields);
+    setReviewOpen(true);
+    setErrors({});
+  }
 
-    const formData = buildReceiveFormData(cart, fields);
+  function handleConfirmPost() {
+    if (!reviewFields || cart.length === 0) return;
+
+    const formData = buildReceiveFormData(cart, reviewFields);
 
     startTransition(async () => {
       const result = await postStockReceive(formData);
-      if (result.error) {
+      if ("error" in result) {
         setErrors(result.error as Record<string, string[]>);
+        setReviewOpen(false);
         toastError("Could not post receive");
         return;
       }
       setCart([]);
       setErrors({});
-      const parts = [
-        `Received ${result.lineCount} line(s)`,
-        result.expenseRecorded ? "expense recorded for cash paid" : null,
-        result.creditOwed && result.creditOwed > 0
-          ? `${formatCurrency(result.creditOwed)} on supplier credit`
-          : null,
-      ].filter(Boolean);
-      success(parts.join(" · "));
+      setReviewOpen(false);
+      setReviewFields(null);
+      if (result.receipt) {
+        setReceipt(result.receipt as StockReceiveReceipt);
+        setReceiptOpen(true);
+      }
+      success(`Received ${result.lineCount} line(s) — see summary`);
       router.refresh();
     });
   }
@@ -122,6 +141,12 @@ export function StockReceiveScreen({
             Tap items · enter qty & unit cost · post (updates on-hand + purchase record)
           </p>
         </div>
+        <Link
+          href="/inventory/receive/history"
+          className="touch-target rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+        >
+          History
+        </Link>
         <Link
           href="/inventory/purchases/new"
           className="touch-target rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
@@ -196,7 +221,7 @@ export function StockReceiveScreen({
               setCart([]);
               setErrors({});
             }}
-            onPost={handlePost}
+            onPost={handleRequestPost}
           />
         </aside>
       </div>
@@ -218,10 +243,36 @@ export function StockReceiveScreen({
             setCart([]);
             setErrors({});
           }}
-          onPost={handlePost}
+          onPost={handleRequestPost}
           mobileCollapsed
         />
       </div>
+
+      <ReceiveReviewModal
+        open={reviewOpen}
+        cart={cart}
+        fields={reviewFields ?? {
+          supplierId: "",
+          paymentStatus: "PAID",
+          purchaseDate: "",
+          notes: "",
+          invoiceRef: "",
+        }}
+        supplierName={supplierNameForReview}
+        total={total}
+        isPending={isPending}
+        onClose={() => setReviewOpen(false)}
+        onConfirm={handleConfirmPost}
+      />
+
+      <ReceiveReceiptModal
+        receipt={receipt}
+        open={receiptOpen}
+        onClose={() => {
+          setReceiptOpen(false);
+          setReceipt(null);
+        }}
+      />
     </div>
   );
 }

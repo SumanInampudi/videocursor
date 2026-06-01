@@ -1,12 +1,24 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import {
+  endOfDay,
+  parseDateInputValue,
+  startOfDay,
+  toDateInputValue,
+} from "@/lib/dates";
 import { STARTER_INGREDIENTS, normalizeIngredientName } from "@/lib/ingredients";
 import { serializeForClient } from "@/lib/serialize";
 import type { ReceiveCatalogItem } from "@/lib/stock-receive-cart";
 import { recordStockReceiveExpense } from "@/lib/stock-receive-finance";
+import {
+  groupPurchasesIntoBatches,
+  type StockReceiveBatchSummary,
+  type StockReceiveReceipt,
+} from "@/lib/stock-receive-summary";
 import { stockReceiveSchema } from "@/lib/validations";
 import { Prisma, PurchasePaymentStatus, Unit } from "@prisma/client";
 
@@ -14,6 +26,7 @@ const REVALIDATE_PATHS = [
   "/",
   "/inventory",
   "/inventory/receive",
+  "/inventory/receive/history",
   "/inventory/payables",
   "/inventory/purchases/new",
   "/ingredients",
@@ -162,6 +175,63 @@ export async function getReceiveCatalog() {
   return serializeForClient({ catalog, categories, frequentIds });
 }
 
+export async function getStockReceiveHistory(filters?: {
+  from?: string;
+  to?: string;
+}) {
+  const { businessId } = await requireBusinessContext();
+  const today = new Date();
+  const from = filters?.from
+    ? startOfDay(parseDateInputValue(filters.from, today))
+    : startOfDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30));
+  const to = filters?.to
+    ? endOfDay(parseDateInputValue(filters.to, today))
+    : endOfDay(today);
+
+  const purchases = await db.inventoryPurchase.findMany({
+    where: {
+      inventoryItem: { businessId },
+      OR: [
+        { description: { startsWith: "Receive:" } },
+        { description: { startsWith: "Manual:" } },
+      ],
+      purchaseDate: { gte: from, lte: to },
+    },
+    include: {
+      inventoryItem: { select: { name: true } },
+    },
+    orderBy: [{ purchaseDate: "desc" }, { createdAt: "desc" }],
+  });
+
+  const batches = groupPurchasesIntoBatches(purchases);
+  return serializeForClient({ batches, from: toDateInputValue(from), to: toDateInputValue(to) });
+}
+
+export async function getStockReceiveBatch(receiveBatchId: string) {
+  const { businessId } = await requireBusinessContext();
+  const purchases = await db.inventoryPurchase.findMany({
+    where: {
+      receiveBatchId,
+      inventoryItem: { businessId },
+    },
+    include: {
+      inventoryItem: { select: { name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (purchases.length === 0) {
+    return { error: "Receive not found" as const };
+  }
+
+  const [batch] = groupPurchasesIntoBatches(purchases);
+  if (!batch) {
+    return { error: "Receive not found" as const };
+  }
+
+  return serializeForClient({ batch: batch as StockReceiveBatchSummary });
+}
+
 export async function postStockReceive(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
   const lineCount = parseInt(String(raw.lineCount || "0"), 10);
@@ -219,6 +289,9 @@ export async function postStockReceive(formData: FormData) {
     .filter(Boolean)
     .join(" · ");
 
+  const receiveBatchId = randomUUID();
+  const receiptLines: StockReceiveReceipt["lines"] = [];
+
   try {
     await db.$transaction(async (tx) => {
       for (const line of data.lines) {
@@ -267,10 +340,19 @@ export async function postStockReceive(formData: FormData) {
                 ? (amountPaid / grandTotal) * lineTotal
                 : 0;
 
+        receiptLines.push({
+          name: ingredient.name,
+          quantity: line.quantity,
+          unit: receiveUnit,
+          unitCost: line.unitCost,
+          lineTotal,
+        });
+
         await tx.inventoryPurchase.create({
           data: {
             inventoryItemId: item.id,
             supplierId,
+            receiveBatchId,
             description,
             supplier: supplierName,
             totalAmount: lineTotal,
@@ -303,14 +385,31 @@ export async function postStockReceive(formData: FormData) {
   }
 
   const creditOwed = Math.max(0, grandTotal - amountPaid);
+  const postedAt = new Date().toISOString();
+
+  const receipt: StockReceiveReceipt = {
+    receiveBatchId,
+    purchaseDate: data.purchaseDate,
+    supplierName,
+    invoiceRef: data.invoiceRef?.trim() || null,
+    notes: data.notes?.trim() || null,
+    paymentStatus: status,
+    lines: receiptLines,
+    grandTotal,
+    amountPaid,
+    creditOwed,
+    expenseRecorded: amountPaid > 0,
+    postedAt,
+  };
 
   revalidateStock();
-  return {
+  return serializeForClient({
     success: true,
     lineCount: data.lines.length,
     total: grandTotal,
     amountPaid,
     creditOwed,
     expenseRecorded: amountPaid > 0,
-  };
+    receipt,
+  });
 }

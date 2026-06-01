@@ -75,10 +75,13 @@ body {
     visibility: hidden;
   }
   #order-receipt-print,
-  #order-receipt-print * {
+  #order-receipt-print *,
+  #stock-receive-receipt-print,
+  #stock-receive-receipt-print * {
     visibility: visible;
   }
-  #order-receipt-print {
+  #order-receipt-print,
+  #stock-receive-receipt-print {
     position: absolute;
     left: 0;
     top: 0;

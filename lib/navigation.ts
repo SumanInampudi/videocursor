@@ -61,6 +61,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/inventory", label: "Stock" },
       { href: "/inventory/receive", label: "Stock receive" },
+      { href: "/inventory/receive/history", label: "Receive history" },
       { href: "/suppliers", label: "Suppliers" },
       { href: "/inventory/payables", label: "Supplier payables" },
     ],

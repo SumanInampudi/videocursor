@@ -215,7 +215,7 @@ export function ReceiveCartPanel({
             disabled={isPending || cart.length === 0}
             onClick={handlePost}
           >
-            {isPending ? "Posting…" : "Post receive"}
+            {isPending ? "Posting…" : "Review & post"}
           </Button>
         </div>
       </div>
@@ -243,7 +243,7 @@ export function ReceiveCartPanel({
               disabled={isPending}
               onClick={handlePost}
             >
-              Post
+              Review
             </Button>
           )}
         </div>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { recordManualInventoryAdjustment } from "@/lib/inventory-adjustment-log";
 import { serializeForClient } from "@/lib/serialize";
 import { inventoryItemSchema } from "@/lib/validations";
 import { Prisma, Unit } from "@prisma/client";
@@ -149,7 +150,9 @@ export async function updateInventoryItem(id: string, formData: FormData) {
     }
 
     const previousCost = Number(existing.costPerUnit);
-    const costChanged = previousCost !== data.costPerUnit;
+    const previousQty = Number(existing.quantity);
+    const costChanged = Math.abs(previousCost - data.costPerUnit) > 0.0001;
+    const qtyChanged = Math.abs(previousQty - data.quantity) > 0.0001;
 
     await db.$transaction(async (tx) => {
       await tx.inventoryItem.update({
@@ -183,6 +186,20 @@ export async function updateInventoryItem(id: string, formData: FormData) {
           "Updated from inventory form"
         );
       }
+
+      if (qtyChanged || costChanged) {
+        await recordManualInventoryAdjustment(tx, {
+          inventoryItemId: id,
+          itemName: data.name,
+          unit: data.unit as Unit,
+          previousQty,
+          newQty: data.quantity,
+          previousCost,
+          newCost: data.costPerUnit,
+          supplierId: data.supplierId || null,
+          supplierName: data.supplier || null,
+        });
+      }
     });
   } catch {
     return { error: { sku: ["SKU already exists"] } };
@@ -190,6 +207,7 @@ export async function updateInventoryItem(id: string, formData: FormData) {
 
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}/edit`);
+  revalidatePath("/inventory/receive/history");
   revalidatePath("/");
   revalidatePath("/yield");
   revalidatePath("/recipes");
