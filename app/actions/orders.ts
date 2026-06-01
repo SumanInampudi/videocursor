@@ -321,3 +321,16 @@ export async function getOrderDashboardStats() {
 
   return { newCount, processingCount, readyCount, deliveredToday };
 }
+
+export async function deleteOrder(orderId: string) {
+  try {
+    await db.order.delete({
+      where: { id: orderId },
+    });
+    revalidateOrders();
+    return { success: true, message: "Order deleted successfully." };
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    return { success: false, message: "Failed to delete order." };
+  }
+}

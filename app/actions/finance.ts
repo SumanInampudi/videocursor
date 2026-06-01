@@ -2,19 +2,33 @@
 
 import { db } from "@/lib/db";
 import {
+  defaultReportDateRange,
   endOfDay,
-  parseDateParam,
+  parseDateInputValue,
+  periodMonthToDateRange,
   periodMonthsInRange,
-  startOfDay,
+  toLocalDayKey,
 } from "@/lib/dates";
 import { aggregateProfitLoss } from "@/lib/finance";
 import { OrderStatus } from "@prisma/client";
 
-export async function getProfitLossSummary(fromParam?: string, toParam?: string) {
-  const today = new Date();
-  const from = startOfDay(parseDateParam(fromParam, today));
-  const to = endOfDay(parseDateParam(toParam, parseDateParam(fromParam, today)));
+function resolveReportRange(fromParam?: string, toParam?: string) {
+  const defaults = defaultReportDateRange();
+  const fallbackFrom = parseDateInputValue(defaults.from, new Date());
+  const fallbackTo = parseDateInputValue(defaults.to, new Date());
 
+  const from = parseDateInputValue(fromParam, fallbackFrom);
+  const to = endOfDay(parseDateInputValue(toParam ?? fromParam, fallbackTo));
+
+  if (from.getTime() > to.getTime()) {
+    return { from: parseDateInputValue(toParam, fallbackTo), to: endOfDay(from) };
+  }
+
+  return { from, to };
+}
+
+export async function getProfitLossSummary(fromParam?: string, toParam?: string) {
+  const { from, to } = resolveReportRange(fromParam, toParam);
   const periodMonths = periodMonthsInRange(from, to);
 
   const [lineItems, expenses, orderCount] = await Promise.all([
@@ -57,10 +71,8 @@ export async function getProfitLossSummary(fromParam?: string, toParam?: string)
   return { ...summary, periodMonths };
 }
 
-export async function getDailyProfitHistory(days = 30) {
-  const end = endOfDay(new Date());
-  const start = startOfDay(new Date());
-  start.setDate(start.getDate() - (days - 1));
+export async function getDailyProfitHistory(fromParam?: string, toParam?: string) {
+  const { from, to } = resolveReportRange(fromParam, toParam);
 
   const [lineItems, expenses] = await Promise.all([
     db.orderLineItem.findMany({
@@ -68,7 +80,7 @@ export async function getDailyProfitHistory(days = 30) {
         processedAt: { not: null },
         order: {
           status: OrderStatus.DELIVERED,
-          deliveredAt: { gte: start, lte: end },
+          deliveredAt: { gte: from, lte: to },
         },
       },
       select: {
@@ -79,7 +91,7 @@ export async function getDailyProfitHistory(days = 30) {
       },
     }),
     db.expense.findMany({
-      where: { periodMonth: { in: periodMonthsInRange(start, end) } },
+      where: { periodMonth: { in: periodMonthsInRange(from, to) } },
       select: { amount: true, periodMonth: true },
     }),
   ]);
@@ -89,26 +101,29 @@ export async function getDailyProfitHistory(days = 30) {
     { revenue: number; grossProfit: number; expenses: number }
   >();
 
-  function dayKey(date: Date) {
-    return date.toISOString().slice(0, 10);
-  }
-
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    dayMap.set(dayKey(d), { revenue: 0, grossProfit: 0, expenses: 0 });
+  for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+    dayMap.set(toLocalDayKey(d), { revenue: 0, grossProfit: 0, expenses: 0 });
   }
 
   for (const line of lineItems) {
     const deliveredAt = line.order.deliveredAt;
     if (!deliveredAt) continue;
-    const key = dayKey(deliveredAt);
+    const key = toLocalDayKey(deliveredAt);
     const bucket = dayMap.get(key);
     if (!bucket) continue;
     bucket.revenue += Number(line.revenue ?? 0);
-    bucket.grossProfit += Number(line.profit ?? 0);
+    const lineProfit =
+      line.profit != null
+        ? Number(line.profit)
+        : line.revenue != null && line.ingredientCost != null
+          ? Number(line.revenue) - Number(line.ingredientCost)
+          : 0;
+    bucket.grossProfit += lineProfit;
   }
 
   for (const expense of expenses) {
-    const key = `${expense.periodMonth}-01`;
+    const { from: monthStart } = periodMonthToDateRange(expense.periodMonth);
+    const key = toLocalDayKey(monthStart);
     const bucket = dayMap.get(key);
     if (!bucket) continue;
     bucket.expenses += Number(expense.amount);

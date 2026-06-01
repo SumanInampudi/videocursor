@@ -10,8 +10,9 @@ export function formatQuantity(quantity: number | string, unit: string): string 
 
 export function formatCurrency(amount: number | string): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
+    minimumFractionDigits: 2,
   }).format(num);
 }

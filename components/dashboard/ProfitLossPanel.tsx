@@ -115,9 +115,10 @@ export function ProfitLossPanel({
       )}
 
       <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-900">
-        <strong>COGS is not duplicated in Expenses.</strong> Ingredient cost from sales appears
-        only as COGS. Expenses are for overhead (rent, payroll). Supplier credit for stock
-        purchases is tracked under{" "}
+        <strong>Net profit</strong> = gross profit from delivered orders in this date range
+        minus <strong>full</strong> operating expenses for each accounting month that overlaps
+        the range (not prorated by day). <strong>COGS is not duplicated in Expenses.</strong>{" "}
+        Supplier credit for stock is tracked under{" "}
         <Link href="/inventory/payables" className="font-medium underline">
           Inventory → Payables
         </Link>

@@ -4,47 +4,28 @@ import { getDailyProfitHistory, getProfitLossSummary } from "@/app/actions/finan
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { ProfitHistoryTable } from "@/components/dashboard/ProfitHistoryTable";
 import { ProfitLossPanel } from "@/components/dashboard/ProfitLossPanel";
-import { endOfDay, parseDateParam, startOfDay, toDateInputValue } from "@/lib/dates";
+import { defaultReportDateRange } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = {
+type SearchParams = Promise<{
   from?: string;
   to?: string;
-};
+}>;
 
 export default async function ReportsPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  const today = new Date();
-  const defaultStart = new Date(today.getFullYear(), today.getMonth() - 2, 1);
-
-  const from = toDateInputValue(
-    startOfDay(
-      parseDateParam(
-        searchParams.from,
-        searchParams.to ? new Date(searchParams.from!) : defaultStart
-      )
-    )
-  );
-  const to = toDateInputValue(
-    endOfDay(parseDateParam(searchParams.to, today))
-  );
-
-  const days =
-    Math.max(
-      1,
-      Math.ceil(
-        (endOfDay(new Date(to)).getTime() - startOfDay(new Date(from)).getTime()) /
-          (1000 * 60 * 60 * 24)
-      ) + 1
-    ) || 30;
+  const params = await searchParams;
+  const defaults = defaultReportDateRange();
+  const from = params.from ?? defaults.from;
+  const to = params.to ?? defaults.to;
 
   const [summary, history] = await Promise.all([
     getProfitLossSummary(from, to),
-    getDailyProfitHistory(Math.min(days, 90)),
+    getDailyProfitHistory(from, to),
   ]);
 
   return (
@@ -77,7 +58,8 @@ export default async function ReportsPage({
       <section className="mt-10">
         <h2 className="mb-4 text-lg font-semibold text-servora-charcoal">Day by day</h2>
         <p className="mb-3 text-xs text-gray-500">
-          Monthly expenses are shown on the 1st of their accounting month.
+          Same date range as above. Monthly operating expenses appear on the 1st of their
+          accounting month; net profit on that day includes the full month&apos;s overhead.
         </p>
         <ProfitHistoryTable rows={history} />
       </section>

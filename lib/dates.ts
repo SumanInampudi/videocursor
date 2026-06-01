@@ -1,4 +1,16 @@
 /** Start of calendar day in local server time. */
+export function toIST(date: Date): string {
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 export function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -12,10 +24,35 @@ export function endOfDay(date: Date): Date {
   return d;
 }
 
+const DATE_INPUT_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Parse YYYY-MM-DD as a local calendar date (avoids UTC shift from `new Date("YYYY-MM-DD")`). */
+export function parseDateInputValue(value: string | undefined, fallback: Date): Date {
+  if (!value) return startOfDay(fallback);
+  const match = DATE_INPUT_RE.exec(value.trim());
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const d = new Date(year, month, day);
+    return Number.isNaN(d.getTime()) ? startOfDay(fallback) : startOfDay(d);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? startOfDay(fallback) : startOfDay(parsed);
+}
+
 export function parseDateParam(value: string | undefined, fallback: Date): Date {
   if (!value) return fallback;
+  if (DATE_INPUT_RE.test(value.trim())) {
+    return parseDateInputValue(value, fallback);
+  }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+/** Local calendar date key YYYY-MM-DD for grouping delivered orders. */
+export function toLocalDayKey(date: Date): string {
+  return toDateInputValue(date);
 }
 
 export function toDateInputValue(date: Date): string {

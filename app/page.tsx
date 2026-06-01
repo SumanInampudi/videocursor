@@ -5,42 +5,32 @@ import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { ProfitHistoryTable } from "@/components/dashboard/ProfitHistoryTable";
 import { ProfitLossPanel } from "@/components/dashboard/ProfitLossPanel";
 import { Button } from "@/components/ui/Button";
-import {
-  defaultReportDateRange,
-  endOfDay,
-  parseDateParam,
-  startOfDay,
-  toDateInputValue,
-} from "@/lib/dates";
+import { defaultReportDateRange } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = {
+type SearchParams = Promise<{
   from?: string;
   to?: string;
-};
+}>;
 
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
+  const params = await searchParams;
   const defaults = defaultReportDateRange();
-  const today = new Date();
-  const from = toDateInputValue(
-    startOfDay(parseDateParam(searchParams.from, new Date(defaults.from)))
-  );
-  const to = toDateInputValue(
-    endOfDay(parseDateParam(searchParams.to, parseDateParam(searchParams.from, today)))
-  );
+  const from = params.from ?? defaults.from;
+  const to = params.to ?? defaults.to;
 
   const [summary, history] = await Promise.all([
     getProfitLossSummary(from, to),
-    getDailyProfitHistory(30),
+    getDailyProfitHistory(from, to),
   ]);
 
   const isCurrentMonth =
-    from === defaults.from && to === defaults.to && !searchParams.from && !searchParams.to;
+    from === defaults.from && to === defaults.to && !params.from && !params.to;
 
   return (
     <div>
@@ -79,7 +69,8 @@ export default async function DashboardPage({
           </Link>
         </div>
         <p className="mb-3 text-xs text-gray-500">
-          Monthly expenses appear on the first day of their accounting month in this table.
+          Uses the same date range as the summary above. Monthly operating expenses appear on
+          the 1st of their accounting month.
         </p>
         <ProfitHistoryTable rows={history} />
       </section>

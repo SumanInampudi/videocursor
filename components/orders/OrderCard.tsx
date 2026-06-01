@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { updateOrderStatus } from "@/app/actions/orders";
+import { deleteOrder, updateOrderStatus } from "@/app/actions/orders";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/units";
 import { OrderStatus } from "@prisma/client";
@@ -86,6 +86,20 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
             Details
           </Button>
         </Link>
+        <Button
+          variant="danger"
+          className="text-xs"
+          onClick={async () => {
+            const result = await deleteOrder(order.id);
+            if (result.success) {
+              router.refresh();
+            } else {
+              alert(result.message);
+            }
+          }}
+        >
+          Delete
+        </Button>
         {nextAction && (
           <Button
             className="flex-1 text-xs"

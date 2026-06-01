@@ -23,7 +23,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} antialiased pt-16 pb-10`}>
-        <AppShell>{children}</AppShell>\n<Footer />
+        <AppShell>{children}</AppShell>
+        <Footer />
       </body>
     </html>
   );

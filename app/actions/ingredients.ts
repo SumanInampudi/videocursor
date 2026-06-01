@@ -11,6 +11,20 @@ import {
 import { ingredientSchema } from "@/lib/validations";
 import { Unit } from "@prisma/client";
 
+/** Prisma Decimal values cannot cross the Server → Client boundary. */
+function serializeForClient<T>(value: T): T {
+  return JSON.parse(
+    JSON.stringify(value, (_key, v) =>
+      typeof v === "object" &&
+      v !== null &&
+      "toNumber" in v &&
+      typeof (v as { toNumber: () => number }).toNumber === "function"
+        ? (v as { toNumber: () => number }).toNumber()
+        : v
+    )
+  ) as T;
+}
+
 type IngredientResult = {
   error?: Record<string, string[]>;
   success?: boolean;
@@ -98,7 +112,7 @@ export async function getIngredients(filters?: { search?: string; category?: str
     filtered = filtered.filter((ingredient) => ingredient.category === filters.category);
   }
 
-  return filtered;
+  return filtered.map(serializeForClient);
 }
 
 export async function getIngredientCategories() {
