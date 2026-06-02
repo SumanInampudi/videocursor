@@ -2,11 +2,19 @@ import Link from "next/link";
 import { getRecipesWithPricing } from "@/app/actions/pricing";
 import { RecipePricingTable } from "@/components/recipes/RecipePricingTable";
 import { Button } from "@/components/ui/Button";
+import { LiveSearchBar } from "@/components/ui/LiveSearchBar";
 
 export const dynamic = "force-dynamic";
 
-export default async function RecipePricingPage() {
-  const recipes = await getRecipesWithPricing();
+type SearchParams = Promise<{ q?: string }>;
+
+export default async function RecipePricingPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const recipes = await getRecipesWithPricing(params.q);
 
   return (
     <div>
@@ -21,6 +29,9 @@ export default async function RecipePricingPage() {
         <Link href="/recipes">
           <Button variant="secondary">Back to recipes</Button>
         </Link>
+      </div>
+      <div className="mb-4 max-w-md">
+        <LiveSearchBar placeholder="Search recipe pricing by name, category, barcode..." />
       </div>
 
       <RecipePricingTable recipes={recipes} />

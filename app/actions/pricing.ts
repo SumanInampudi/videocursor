@@ -5,6 +5,7 @@ import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
 import { estimateRecipeIngredientCost } from "@/lib/costing";
+import { smartMatches } from "@/lib/smart-search";
 import { recipePricingSchema } from "@/lib/validations";
 
 export async function updateRecipePricing(recipeId: string, formData: FormData) {
@@ -79,7 +80,7 @@ export async function getRecipePricingDetail(recipeId: string) {
   return serializeForClient({ recipe, costEstimate });
 }
 
-export async function getRecipesWithPricing() {
+export async function getRecipesWithPricing(search?: string) {
   const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
     where: { businessId },
@@ -114,11 +115,22 @@ export async function getRecipesWithPricing() {
     orderBy: { name: "asc" },
   });
 
+  const rows = recipes.map((recipe) => ({
+    ...recipe,
+    costEstimate: estimateRecipeIngredientCost(recipe, 1),
+  }));
+
+  if (!search?.trim()) {
+    return serializeForClient(rows);
+  }
+
   return serializeForClient(
-    recipes.map((recipe) => ({
-      ...recipe,
-      costEstimate: estimateRecipeIngredientCost(recipe, 1),
-    }))
+    rows.filter((recipe) =>
+      smartMatches(
+        [recipe.name, recipe.category, recipe.barcode, recipe.recipeType, recipe.description],
+        search
+      )
+    )
   );
 }
 

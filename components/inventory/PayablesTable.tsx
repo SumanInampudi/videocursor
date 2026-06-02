@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { deleteInventoryPurchase, recordPurchasePayment } from "@/app/actions/purchases";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
+import { smartMatches } from "@/lib/smart-search";
 import { formatCurrency } from "@/lib/units";
 import { PurchasePaymentStatus } from "@prisma/client";
 
@@ -25,6 +27,7 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   function balance(p: PurchaseRow) {
     return Math.max(0, Number(p.totalAmount) - Number(p.amountPaid));
@@ -50,19 +53,56 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
     });
   }
 
+  const filteredPurchases = useMemo(() => {
+    if (!query.trim()) return purchases;
+    return purchases.filter((p) =>
+      smartMatches(
+        [p.description, p.supplier, p.inventoryItem?.name, p.paymentStatus, p.purchaseDate.toString()],
+        query
+      )
+    );
+  }, [purchases, query]);
+
   if (purchases.length === 0) {
     return (
       <div className="empty-state text-sm text-gray-500">
         No open supplier balances.{" "}
-        <Link href="/inventory/purchases/new" className="link-brand">
-          Record a credit purchase
+        <Link href="/inventory/receive" className="link-brand">
+          Receive stock on credit
         </Link>
       </div>
     );
   }
 
+  if (filteredPurchases.length === 0) {
+    return (
+      <div className="space-y-3">
+        <SmartSearchInput
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search purchase, supplier, item, or status..."
+          className="max-w-md"
+        />
+        <p className="text-xs text-gray-500">0 results</p>
+        <div className="empty-state text-sm text-gray-500">
+          No matching payables found for this search.
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="table-panel">
+    <div className="space-y-3">
+      <SmartSearchInput
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search purchase, supplier, item, or status..."
+        className="max-w-md"
+      />
+      <p className="text-xs text-gray-500">
+        {filteredPurchases.length} result{filteredPurchases.length === 1 ? "" : "s"}
+      </p>
+      <div className="table-panel">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
         <thead className="bg-gray-50">
           <tr>
@@ -84,7 +124,7 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 bg-white">
-          {purchases.map((p) => {
+          {filteredPurchases.map((p) => {
             const owed = balance(p);
             return (
               <tr key={p.id} className="align-top hover:bg-gray-50">
@@ -162,6 +202,7 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

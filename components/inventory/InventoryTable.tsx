@@ -40,8 +40,8 @@ export function InventoryTable({ items }: InventoryTableProps) {
     return (
       <div className="empty-state">
         <p className="empty-state-text">No inventory items found.</p>
-        <Link href="/inventory/new" className="mt-4 inline-block">
-          <Button>Add your first item</Button>
+        <Link href="/inventory/receive" className="mt-4 inline-block">
+          <Button>Receive your first stock</Button>
         </Link>
       </div>
     );

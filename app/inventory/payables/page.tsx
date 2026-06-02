@@ -25,8 +25,8 @@ export default async function PayablesPage() {
             balance; it is separate from COGS on sold orders.
           </p>
         </div>
-        <Link href="/inventory/purchases/new">
-          <Button>Record purchase</Button>
+        <Link href="/inventory/receive">
+          <Button>Receive stock</Button>
         </Link>
       </div>
 

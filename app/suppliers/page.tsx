@@ -2,11 +2,15 @@ import Link from "next/link";
 import { getSuppliers } from "@/app/actions/suppliers";
 import { SupplierTable } from "@/components/suppliers/SupplierTable";
 import { Button } from "@/components/ui/Button";
+import { LiveSearchBar } from "@/components/ui/LiveSearchBar";
 
 export const dynamic = "force-dynamic";
 
-export default async function SuppliersPage() {
-  const suppliers = await getSuppliers();
+type SearchParams = Promise<{ q?: string }>;
+
+export default async function SuppliersPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const suppliers = await getSuppliers({ search: params.q });
 
   return (
     <div>
@@ -20,6 +24,9 @@ export default async function SuppliersPage() {
         <Link href="/suppliers/new">
           <Button>Add supplier</Button>
         </Link>
+      </div>
+      <div className="mb-4 max-w-md">
+        <LiveSearchBar placeholder="Search supplier name, contact, email…" />
       </div>
       <SupplierTable suppliers={suppliers} />
     </div>

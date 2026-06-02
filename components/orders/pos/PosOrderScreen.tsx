@@ -15,6 +15,7 @@ import { OrderReceiptModal } from "@/components/orders/OrderReceiptModal";
 import { PosSettleModal } from "@/components/orders/pos/PosSettleModal";
 import { PosTableFloor } from "@/components/orders/pos/PosTableFloor";
 import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
+import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
 import { useToast } from "@/components/ui/Toast";
 import {
   addToOrderCart,
@@ -387,17 +388,6 @@ export function PosOrderScreen({
         >
           Settings
         </Link>
-        {view === "menu" && (
-          <div className="w-full sm:w-auto sm:min-w-[200px] md:min-w-[240px]">
-            <input
-              type="search"
-              placeholder="Search menu…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
-            />
-          </div>
-        )}
       </header>
 
       {lastPlaced && (
@@ -466,6 +456,11 @@ export function PosOrderScreen({
                   />
                 </div>
                 <BarcodeScanInput onScan={handleScan} disabled={isPending} />
+                <SmartSearchInput
+                  placeholder="Search menu by name, category, barcode..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
                 {scanHint && (
                   <p className="text-xs text-gray-600" role="status">
                     {scanHint}

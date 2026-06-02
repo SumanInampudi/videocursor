@@ -9,6 +9,7 @@ import {
   ingredientSkuPrefix,
   normalizeIngredientName,
 } from "@/lib/ingredients";
+import { smartMatches } from "@/lib/smart-search";
 import { ingredientSchema } from "@/lib/validations";
 import { Unit } from "@prisma/client";
 
@@ -92,14 +93,20 @@ export async function getIngredients(filters?: { search?: string; category?: str
   let filtered = ingredients;
 
   if (filters?.search) {
-    const search = filters.search.toLowerCase();
+    const search = filters.search;
     filtered = filtered.filter(
       (ingredient) =>
-        ingredient.name.toLowerCase().includes(search) ||
-        ingredient.sku.toLowerCase().includes(search) ||
-        ingredient.barcode.includes(search.replace(/\D/g, "")) ||
-        ingredient.category.toLowerCase().includes(search) ||
-        ingredient.aliases?.toLowerCase().includes(search)
+        smartMatches(
+          [
+            ingredient.name,
+            ingredient.sku,
+            ingredient.barcode,
+            ingredient.category,
+            ingredient.aliases,
+            ingredient.defaultUnit,
+          ],
+          search
+        )
     );
   }
 

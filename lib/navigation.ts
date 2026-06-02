@@ -85,7 +85,6 @@ export const DASHBOARD_QUICK_ACTIONS = [
   { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] as NavRole[] },
   { href: "/orders/new", label: "Simple order form", roles: ["owner", "manager"] as NavRole[] },
   { href: "/inventory/receive", label: "Stock receive", roles: ["owner", "manager"] as NavRole[] },
-  { href: "/inventory/purchases/new", label: "Record purchase", roles: ["owner", "manager"] as NavRole[] },
   { href: "/expenses/new", label: "Add expense", roles: ["owner", "manager"] as NavRole[] },
   { href: "/ingredients/barcodes", label: "Print barcodes", roles: ["owner", "manager"] as NavRole[] },
 ];

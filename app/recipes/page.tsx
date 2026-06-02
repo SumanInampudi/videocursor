@@ -2,12 +2,16 @@ import Link from "next/link";
 import { getRecipes } from "@/app/actions/recipes";
 import { RecipeTable } from "@/components/recipes/RecipeTable";
 import { Button } from "@/components/ui/Button";
+import { LiveSearchBar } from "@/components/ui/LiveSearchBar";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
-export default async function RecipesPage() {
-  const recipes = await getRecipes();
+type SearchParams = Promise<{ q?: string }>;
+
+export default async function RecipesPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const recipes = await getRecipes(params.q);
 
   return (
     <div>
@@ -37,6 +41,9 @@ export default async function RecipesPage() {
           </>
         }
       />
+      <div className="mb-4 max-w-md">
+        <LiveSearchBar placeholder="Search recipe name, category, barcode..." />
+      </div>
 
       <RecipeTable recipes={recipes} />
     </div>

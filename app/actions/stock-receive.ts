@@ -28,7 +28,6 @@ const REVALIDATE_PATHS = [
   "/inventory/receive",
   "/inventory/receive/history",
   "/inventory/payables",
-  "/inventory/purchases/new",
   "/ingredients",
   "/yield",
   "/recipes",
@@ -163,7 +162,10 @@ export async function getReceiveCatalog() {
     return {
       id: ing.id,
       name: ing.name,
+      sku: ing.sku,
+      barcode: ing.barcode,
       category: ing.category,
+      aliases: ing.aliases,
       defaultUnit: ing.defaultUnit,
       inventoryItemId: stock?.id ?? null,
       lastUnitCost: stock ? Number(stock.costPerUnit) : 0,

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { ReceiveItemTile } from "@/components/inventory/receive/ReceiveItemTile";
+import { smartMatches } from "@/lib/smart-search";
 import type { ReceiveCatalogItem } from "@/lib/stock-receive-cart";
 
 type ReceiveItemGridProps = {
@@ -23,9 +24,11 @@ export function ReceiveItemGrid({
 }: ReceiveItemGridProps) {
   const filtered = useMemo(() => {
     let list = items;
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
     if (q) {
-      list = list.filter((i) => i.name.toLowerCase().includes(q));
+      list = list.filter((i) =>
+        smartMatches([i.name, i.sku, i.barcode, i.category, i.defaultUnit, i.aliases], q)
+      );
     } else if (selectedCategory === "frequent") {
       const idSet = new Set(frequentIds);
       list = items.filter((i) => idSet.has(i.id));

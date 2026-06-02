@@ -18,7 +18,6 @@ const PATHS = [
   "/inventory",
   "/inventory/receive",
   "/inventory/payables",
-  "/inventory/purchases/new",
   "/",
 ];
 
@@ -136,18 +135,58 @@ export async function createInventoryPurchase(formData: FormData) {
     if (sup) supplierName = sup.name;
   }
 
-  if (data.inventoryItemId) {
+  let inventoryItemId = data.inventoryItemId || null;
+  if (inventoryItemId) {
     const item = await db.inventoryItem.findFirst({
-      where: { id: data.inventoryItemId, businessId },
+      where: { id: inventoryItemId, businessId },
     });
     if (!item) {
       return { error: { inventoryItemId: ["Inventory item not found"] } };
+    }
+  } else if (data.createNewItem) {
+    const sku = data.newItemSku?.trim();
+    const name = data.newItemName?.trim();
+    const category = data.newItemCategory?.trim();
+    const unit = data.newItemUnit;
+
+    if (!sku || !name || !category || !unit) {
+      return {
+        error: {
+          newItemName: ["Fill all new SKU fields to create inline"],
+        },
+      };
+    }
+
+    const existingSku = await db.inventoryItem.findFirst({
+      where: { businessId, sku },
+      select: { id: true },
+    });
+
+    if (existingSku) {
+      inventoryItemId = existingSku.id;
+    } else {
+      const created = await db.inventoryItem.create({
+        data: {
+          businessId,
+          name,
+          sku,
+          category,
+          quantity: 0,
+          unit,
+          reorderLevel: 0,
+          costPerUnit: 0,
+          supplierId: data.supplierId || null,
+          supplier: supplierName,
+          isActive: true,
+        },
+      });
+      inventoryItemId = created.id;
     }
   }
 
   await db.inventoryPurchase.create({
     data: {
-      inventoryItemId: data.inventoryItemId || null,
+      inventoryItemId,
       supplierId: data.supplierId || null,
       description: data.description,
       supplier: supplierName,

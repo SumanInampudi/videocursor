@@ -3,7 +3,10 @@ import type { Unit } from "@prisma/client";
 export type ReceiveCatalogItem = {
   id: string;
   name: string;
+  sku: string;
+  barcode: string;
   category: string;
+  aliases?: string | null;
   defaultUnit: Unit;
   inventoryItemId: string | null;
   lastUnitCost: number;

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { generateRecipeBarcode } from "@/lib/barcode";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
+import { smartMatches } from "@/lib/smart-search";
 import { recipeSchema } from "@/lib/validations";
 import { calculateAllYields } from "@/lib/yield";
 import { RecipeType, Unit } from "@prisma/client";
@@ -71,7 +72,7 @@ const recipeStockInclude = {
   },
 } as const;
 
-export async function getRecipes() {
+export async function getRecipes(search?: string) {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
@@ -81,12 +82,29 @@ export async function getRecipes() {
   });
 
   const yields = calculateAllYields(recipes);
+  const rows = recipes.map((recipe) => ({
+    ...recipe,
+    yieldResult: yields.find((y) => y.recipeId === recipe.id)!,
+  }));
+
+  if (!search?.trim()) {
+    return serializeForClient(rows);
+  }
 
   return serializeForClient(
-    recipes.map((recipe) => ({
-      ...recipe,
-      yieldResult: yields.find((y) => y.recipeId === recipe.id)!,
-    }))
+    rows.filter((recipe) =>
+      smartMatches(
+        [
+          recipe.name,
+          recipe.category,
+          recipe.description,
+          recipe.barcode,
+          recipe.recipeType,
+          recipe.requiresKitchen ? "kitchen" : "no kitchen",
+        ],
+        search
+      )
+    )
   );
 }
 

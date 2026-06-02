@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
+import { smartMatches } from "@/lib/smart-search";
 import { customerSchema } from "@/lib/validations";
 import { OrderStatus } from "@prisma/client";
 
@@ -21,13 +22,11 @@ export async function getCustomers(search?: string) {
   });
   if (!search?.trim()) return serializeForClient(rows);
 
-  const q = search.toLowerCase();
+  const q = search;
   return serializeForClient(
     rows.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.phone?.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q)
+        smartMatches([c.name, c.phone, c.email], q)
     )
   );
 }

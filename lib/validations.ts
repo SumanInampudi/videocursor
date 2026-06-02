@@ -149,6 +149,14 @@ const purchasePaymentStatuses = ["PAID", "CREDIT", "PARTIAL"] as const;
 export const inventoryPurchaseSchema = z
   .object({
     inventoryItemId: z.string().optional(),
+    createNewItem: z
+      .union([z.boolean(), z.literal("true"), z.literal("false"), z.literal("on")])
+      .optional()
+      .transform((v) => v === true || v === "true" || v === "on"),
+    newItemName: z.string().optional(),
+    newItemSku: z.string().optional(),
+    newItemCategory: z.string().optional(),
+    newItemUnit: z.enum(UNITS).optional(),
     description: z.string().min(1, "Description is required"),
     supplierId: z.string().optional(),
     supplier: z.string().optional(),
@@ -160,6 +168,45 @@ export const inventoryPurchaseSchema = z
     notes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    if (!data.inventoryItemId && !data.createNewItem) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Select an item or create a new SKU",
+        path: ["inventoryItemId"],
+      });
+    }
+
+    if (data.createNewItem && !data.inventoryItemId) {
+      if (!data.newItemName?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "New item name is required",
+          path: ["newItemName"],
+        });
+      }
+      if (!data.newItemSku?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "New item SKU is required",
+          path: ["newItemSku"],
+        });
+      }
+      if (!data.newItemCategory?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "New item category is required",
+          path: ["newItemCategory"],
+        });
+      }
+      if (!data.newItemUnit) {
+        ctx.addIssue({
+          code: "custom",
+          message: "New item unit is required",
+          path: ["newItemUnit"],
+        });
+      }
+    }
+
     if (data.paymentStatus === "PARTIAL") {
       const paid = data.amountPaid ?? 0;
       if (paid <= 0 || paid >= data.totalAmount) {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCustomers } from "@/app/actions/customers";
 import { CustomerTable } from "@/components/customers/CustomerTable";
 import { Button } from "@/components/ui/Button";
+import { LiveSearchBar } from "@/components/ui/LiveSearchBar";
 
 export const dynamic = "force-dynamic";
 
@@ -29,18 +30,9 @@ export default async function CustomersPage({
         </Link>
       </div>
 
-      <form method="get" className="mb-4 flex gap-2">
-        <input
-          name="q"
-          type="search"
-          defaultValue={params.q ?? ""}
-          placeholder="Search name, phone, email…"
-          className="flex-1 max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm"
-        />
-        <Button type="submit" variant="secondary">
-          Search
-        </Button>
-      </form>
+      <div className="mb-4 max-w-md">
+        <LiveSearchBar placeholder="Search name, phone, email…" />
+      </div>
 
       <CustomerTable customers={customers} />
     </div>

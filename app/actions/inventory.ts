@@ -10,6 +10,7 @@ import {
 } from "@/lib/inventory-fifo";
 import { recordManualInventoryAdjustment } from "@/lib/inventory-adjustment-log";
 import { serializeForClient } from "@/lib/serialize";
+import { smartMatches } from "@/lib/smart-search";
 import { inventoryItemSchema } from "@/lib/validations";
 import { Prisma, Unit } from "@prisma/client";
 
@@ -48,12 +49,13 @@ export async function getInventoryItems(filters?: {
   let filtered = items;
 
   if (filters?.search) {
-    const search = filters.search.toLowerCase();
+    const searchTerm = filters.search;
     filtered = filtered.filter(
       (item) =>
-        item.name.toLowerCase().includes(search) ||
-        item.sku.toLowerCase().includes(search) ||
-        item.category.toLowerCase().includes(search)
+        smartMatches(
+          [item.name, item.sku, item.category, item.description, item.supplier],
+          searchTerm
+        )
     );
   }
 

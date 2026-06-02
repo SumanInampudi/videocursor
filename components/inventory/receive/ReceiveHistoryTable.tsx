@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
+import { smartMatches } from "@/lib/smart-search";
 import type { StockReceiveBatchSummary } from "@/lib/stock-receive-summary";
 import { PAYMENT_STATUS_LABELS } from "@/lib/stock-receive-summary";
 import { formatCurrency } from "@/lib/units";
@@ -12,6 +14,24 @@ type ReceiveHistoryTableProps = {
 
 export function ReceiveHistoryTable({ batches }: ReceiveHistoryTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  const filteredBatches = useMemo(() => {
+    if (!query.trim()) return batches;
+    return batches.filter((batch) =>
+      smartMatches(
+        [
+          batch.purchaseDate,
+          batch.supplierName,
+          batch.invoiceRef,
+          batch.paymentStatus,
+          batch.kind,
+          ...batch.lines.map((line) => line.name),
+        ],
+        query
+      )
+    );
+  }, [batches, query]);
 
   if (batches.length === 0) {
     return (
@@ -21,9 +41,35 @@ export function ReceiveHistoryTable({ batches }: ReceiveHistoryTableProps) {
     );
   }
 
+  if (filteredBatches.length === 0) {
+    return (
+      <div className="space-y-2">
+        <SmartSearchInput
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search supplier, invoice ref, ingredient, payment..."
+          className="max-w-md"
+        />
+        <p className="text-xs text-gray-500">0 results</p>
+        <div className="empty-state text-sm text-gray-500">
+          No matching receive records found for this search.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      {batches.map((batch) => {
+      <SmartSearchInput
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search supplier, invoice ref, ingredient, payment..."
+        className="max-w-md"
+      />
+      <p className="text-xs text-gray-500">
+        {filteredBatches.length} result{filteredBatches.length === 1 ? "" : "s"}
+      </p>
+      {filteredBatches.map((batch) => {
         const expanded = expandedId === batch.receiveBatchId;
         return (
           <article

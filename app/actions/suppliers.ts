@@ -3,15 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
+import { smartMatches } from "@/lib/smart-search";
 import { supplierSchema } from "@/lib/validations";
 
-const PATHS = ["/suppliers", "/inventory", "/inventory/purchases/new", "/"];
+const PATHS = ["/suppliers", "/inventory", "/inventory/receive", "/"];
 
 function revalidate() {
   for (const p of PATHS) revalidatePath(p);
 }
 
-export async function getSuppliers(activeOnly = false) {
+export async function getSuppliers(
+  options: boolean | { activeOnly?: boolean; search?: string } = false
+) {
+  const activeOnly = typeof options === "boolean" ? options : options.activeOnly ?? false;
+  const search = typeof options === "boolean" ? undefined : options.search;
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
   const rows = await db.supplier.findMany({
@@ -21,7 +26,10 @@ export async function getSuppliers(activeOnly = false) {
     },
     orderBy: { name: "asc" },
   });
-  return serializeForClient(rows);
+  if (!search?.trim()) return serializeForClient(rows);
+  return serializeForClient(
+    rows.filter((row) => smartMatches([row.name, row.contactPhone, row.email, row.address], search))
+  );
 }
 
 export async function getSupplier(id: string) {
@@ -56,5 +64,5 @@ export async function updateSupplier(id: string, formData: FormData) {
 }
 
 export async function getSupplierOptions() {
-  return getSuppliers(true);
+  return getSuppliers({ activeOnly: true });
 }

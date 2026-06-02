@@ -14,6 +14,7 @@ import {
 } from "@/components/inventory/receive/ReceiveReviewModal";
 import { ReceiveReceiptModal } from "@/components/inventory/receive/ReceiveReceiptModal";
 import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
+import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
 import { useToast } from "@/components/ui/Toast";
 import type { StockReceiveReceipt } from "@/lib/stock-receive-summary";
 import { formatCurrency } from "@/lib/units";
@@ -147,19 +148,12 @@ export function StockReceiveScreen({
         >
           History
         </Link>
-        <Link
-          href="/inventory/purchases/new"
-          className="touch-target rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
-        >
-          Simple purchase
-        </Link>
         <div className="w-full sm:w-auto sm:min-w-[200px] md:min-w-[240px]">
-          <input
-            type="search"
-            placeholder="Search ingredients…"
+          <SmartSearchInput
+            placeholder="Search by name, SKU, barcode, alias…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
+            className="w-full"
           />
         </div>
       </header>

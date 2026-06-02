@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { toDateInputValue } from "@/lib/dates";
+import { UNITS } from "@/lib/units";
 
 type ItemOption = {
   id: string;
@@ -44,12 +45,17 @@ export function PurchaseForm({
   const [paymentStatus, setPaymentStatus] = useState("PAID");
   const [selectedItem, setSelectedItem] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [createNewItem, setCreateNewItem] = useState(false);
 
   const item = items.find((i) => i.id === selectedItem);
+  const unitOptions = UNITS.map((u) => ({ value: u, label: u }));
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    if (createNewItem) {
+      formData.set("createNewItem", "true");
+    }
     if (!formData.get("inventoryItemId")) {
       formData.delete("inventoryItemId");
     }
@@ -105,6 +111,47 @@ export function PurchaseForm({
           ...items.map((i) => ({ value: i.id, label: `${i.name} (${i.sku})` })),
         ]}
       />
+      <label className="flex items-center gap-2 text-sm text-charcoal">
+        <input
+          type="checkbox"
+          checked={createNewItem}
+          onChange={(e) => setCreateNewItem(e.target.checked)}
+          className="h-4 w-4 rounded border-brand-300 text-brand-600 focus:ring-brand-500"
+        />
+        Create new SKU inline (first-time purchase)
+      </label>
+      {createNewItem && !selectedItem && (
+        <div className="grid gap-3 rounded-lg border border-brand-200/60 bg-brand-50/30 p-3 sm:grid-cols-2">
+          <Input
+            name="newItemName"
+            label="New item name *"
+            placeholder="e.g. Sprite 300ml Can"
+            error={errors.newItemName?.[0]}
+          />
+          <Input
+            name="newItemSku"
+            label="New SKU *"
+            placeholder="e.g. SPRITE-300"
+            error={errors.newItemSku?.[0]}
+          />
+          <Input
+            name="newItemCategory"
+            label="Category *"
+            placeholder="e.g. Beverages"
+            error={errors.newItemCategory?.[0]}
+          />
+          <Select
+            name="newItemUnit"
+            label="Unit *"
+            defaultValue="pcs"
+            options={unitOptions}
+            error={errors.newItemUnit?.[0]}
+          />
+          <p className="sm:col-span-2 text-xs text-charcoal-muted">
+            The SKU will be created with opening qty 0, then this purchase will be recorded against it.
+          </p>
+        </div>
+      )}
       <Input
         name="description"
         label="Description *"

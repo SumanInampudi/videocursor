@@ -2,9 +2,15 @@
 
 import { useMemo } from "react";
 import { PosItemTile } from "@/components/orders/pos/PosItemTile";
+import { smartMatches } from "@/lib/smart-search";
 import type { PricedRecipe } from "@/lib/order-cart";
 
-type Recipe = PricedRecipe & { category: string; imageUrl?: string | null };
+type Recipe = PricedRecipe & {
+  category: string;
+  imageUrl?: string | null;
+  recipeType?: "PREPARED" | "RETAIL";
+  requiresKitchen?: boolean;
+};
 
 type PosItemGridProps = {
   recipes: Recipe[];
@@ -30,9 +36,20 @@ export function PosItemGrid({
 
   const filtered = useMemo(() => {
     let list = priced;
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
     if (q) {
-      list = list.filter((r) => r.name.toLowerCase().includes(q));
+      list = list.filter((r) =>
+        smartMatches(
+          [
+            r.name,
+            r.category,
+            r.barcode ?? "",
+            r.recipeType,
+            r.requiresKitchen ? "kitchen" : "no kitchen",
+          ],
+          q
+        )
+      );
     } else if (selectedCategory === "frequent") {
       const idSet = new Set(frequentIds);
       list = priced.filter((r) => idSet.has(r.id));
