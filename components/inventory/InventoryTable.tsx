@@ -6,12 +6,17 @@ import { useTransition } from "react";
 import { deleteInventoryItem } from "@/app/actions/inventory";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { usableQuantity } from "@/lib/ingredient-wastage";
 import { formatCurrency, formatQuantity } from "@/lib/units";
 import { isLowStock } from "@/lib/yield";
 import { InventoryItem } from "@prisma/client";
 
+type InventoryRow = InventoryItem & {
+  ingredient?: { wastagePercent: number } | null;
+};
+
 type InventoryTableProps = {
-  items: InventoryItem[];
+  items: InventoryRow[];
 };
 
 export function InventoryTable({ items }: InventoryTableProps) {
@@ -75,7 +80,10 @@ export function InventoryTable({ items }: InventoryTableProps) {
         </thead>
         <tbody className="divide-y divide-gray-200 bg-white">
           {items.map((item) => {
-            const lowStock = isLowStock(item.quantity, item.reorderLevel);
+            const physical = Number(item.quantity);
+            const waste = Number(item.ingredient?.wastagePercent ?? 0);
+            const usable = usableQuantity(physical, waste);
+            const lowStock = isLowStock(usable, item.reorderLevel);
 
             return (
               <tr key={item.id} className="hover:bg-gray-50">
@@ -89,8 +97,13 @@ export function InventoryTable({ items }: InventoryTableProps) {
                 <td className="px-4 py-3 text-sm text-gray-600">{item.category}</td>
                 <td className="px-4 py-3 text-sm">
                   <span className={lowStock ? "font-medium text-servora-red" : "text-servora-charcoal"}>
-                    {formatQuantity(Number(item.quantity), item.unit)}
+                    {formatQuantity(physical, item.unit)}
                   </span>
+                  {waste > 0 && (
+                    <div className="text-xs text-gray-500">
+                      {formatQuantity(usable, item.unit)} usable for recipes ({waste}% waste)
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">
                   {item.storageLocation || "—"}

@@ -31,6 +31,9 @@ export function YieldCard({ result, rank }: YieldCardProps) {
           <p className="text-gray-600">
             <span className="font-medium text-servora-yellow">Bottleneck:</span>{" "}
             {result.bottleneckIngredient}
+            {result.bottleneckNote ? (
+              <span className="block text-xs text-gray-500">{result.bottleneckNote}</span>
+            ) : null}
           </p>
         )}
         {result.missingIngredients.length > 0 && (

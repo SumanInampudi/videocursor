@@ -15,7 +15,21 @@ export async function getRecipes() {
     where: { businessId },
     include: {
       ingredients: {
-        include: { ingredient: { include: { inventoryItems: true } } },
+        include: {
+          ingredient: {
+            include: {
+              inventoryItems: {
+                where: { isActive: true },
+                include: {
+                  costLayers: {
+                    where: { quantityRemaining: { gt: 0 } },
+                    orderBy: { createdAt: "asc" },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -47,7 +61,7 @@ export async function getRecipe(id: string) {
 export async function getActiveIngredientsForRecipes() {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
-  return db.ingredient.findMany({
+  const rows = await db.ingredient.findMany({
     where: { businessId, isActive: true },
     select: {
       id: true,
@@ -60,6 +74,7 @@ export async function getActiveIngredientsForRecipes() {
     },
     orderBy: { name: "asc" },
   });
+  return serializeForClient(rows);
 }
 
 export async function createRecipe(formData: FormData) {
@@ -253,7 +268,21 @@ export async function getYieldResults() {
     where: { businessId },
     include: {
       ingredients: {
-        include: { ingredient: { include: { inventoryItems: true } } },
+        include: {
+          ingredient: {
+            include: {
+              inventoryItems: {
+                where: { isActive: true },
+                include: {
+                  costLayers: {
+                    where: { quantityRemaining: { gt: 0 } },
+                    orderBy: { createdAt: "asc" },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
   });

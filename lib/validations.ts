@@ -27,6 +27,7 @@ export const ingredientSchema = z.object({
   sku: z.string().optional(),
   category: z.string().min(1, "Category is required"),
   defaultUnit: z.enum(UNITS),
+  wastagePercent: z.coerce.number().min(0).max(99).default(0),
   aliases: z.string().optional(),
   notes: z.string().optional(),
   isActive: z.boolean().default(true),

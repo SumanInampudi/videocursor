@@ -102,7 +102,21 @@ export function IngredientSetup() {
           <Input name="sku" label="SKU" error={singleErrors.sku?.[0]} placeholder="Auto" />
           <Input name="category" label="Category *" defaultValue="General" error={singleErrors.category?.[0]} required />
           <Select name="defaultUnit" label="Default Unit *" defaultValue="g" options={unitOptions} error={singleErrors.defaultUnit?.[0]} required />
+          <Input
+            name="wastagePercent"
+            label="Expected wastage %"
+            type="number"
+            min={0}
+            max={99}
+            step={0.1}
+            defaultValue={0}
+            error={singleErrors.wastagePercent?.[0]}
+          />
         </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Wastage applies to all stock for this ingredient: reduces usable quantity and increases
+          recipe cost (FIFO uses oldest purchase cost first).
+        </p>
 
         <Textarea name="aliases" label="Search Aliases" rows={2} className="mt-3" error={singleErrors.aliases?.[0]} />
 

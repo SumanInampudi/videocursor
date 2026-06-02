@@ -14,7 +14,7 @@ export default async function RecipesPage() {
         <div>
           <h1 className="text-2xl font-bold text-servora-charcoal">Recipes</h1>
           <p className="text-sm text-gray-500">
-            Define bill of materials (BOM) to calculate how much food you can make.{" "}
+            Define bill of materials (BOM). &quot;Can make&quot; uses usable stock after wastage.{" "}
             <Link href="/recipes/pricing" className="font-medium text-servora-yellow hover:underline">
               Recipe pricing
             </Link>{" "}

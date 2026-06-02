@@ -99,7 +99,18 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
                 )}
               </td>
               <td className="px-4 py-3 text-sm text-gray-600">
-                {recipe.yieldResult.bottleneckIngredient || "—"}
+                {recipe.yieldResult.bottleneckIngredient ? (
+                  <>
+                    {recipe.yieldResult.bottleneckIngredient}
+                    {recipe.yieldResult.bottleneckNote && (
+                      <span className="mt-0.5 block text-xs text-gray-500">
+                        {recipe.yieldResult.bottleneckNote}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  "—"
+                )}
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="flex justify-end gap-2">

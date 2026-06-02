@@ -2,6 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import {
+  applyFifoConsumptions,
+  createCostLayer,
+  planFifoConsumption,
+  syncDisplayCostFromLayers,
+} from "@/lib/inventory-fifo";
 import { recordManualInventoryAdjustment } from "@/lib/inventory-adjustment-log";
 import { serializeForClient } from "@/lib/serialize";
 import { inventoryItemSchema } from "@/lib/validations";
@@ -34,6 +40,9 @@ export async function getInventoryItems(filters?: {
   const items = await db.inventoryItem.findMany({
     where: { businessId },
     orderBy: { updatedAt: "desc" },
+    include: {
+      ingredient: { select: { wastagePercent: true } },
+    },
   });
 
   let filtered = items;
@@ -58,7 +67,9 @@ export async function getInventoryItems(filters?: {
     );
   }
 
-  return serializeForClient(filtered);
+  return serializeForClient(filtered) as (Prisma.InventoryItemGetPayload<{
+    include: { ingredient: { select: { wastagePercent: true } } };
+  }> & { ingredient: { wastagePercent: number } | null })[];
 }
 
 export async function getInventoryCategories() {
@@ -118,6 +129,14 @@ export async function createInventoryItem(formData: FormData) {
         },
       });
       await recordCostHistory(tx, item.id, data.costPerUnit, null, "Initial cost");
+      if (data.quantity > 0) {
+        await createCostLayer(tx, {
+          inventoryItemId: item.id,
+          quantity: data.quantity,
+          unit: data.unit as Unit,
+          costPerUnit: data.costPerUnit,
+        });
+      }
     });
   } catch {
     return { error: { sku: ["SKU already exists"] } };
@@ -186,6 +205,46 @@ export async function updateInventoryItem(id: string, formData: FormData) {
           "Updated from inventory form"
         );
       }
+
+      const qtyDelta = data.quantity - previousQty;
+      if (qtyDelta > 0.0001) {
+        await createCostLayer(tx, {
+          inventoryItemId: id,
+          quantity: qtyDelta,
+          unit: data.unit as Unit,
+          costPerUnit: data.costPerUnit,
+        });
+      } else if (qtyDelta < -0.0001) {
+        const layers = await tx.inventoryCostLayer.findMany({
+          where: { inventoryItemId: id, quantityRemaining: { gt: 0 } },
+          orderBy: { createdAt: "asc" },
+        });
+        const plan = planFifoConsumption({
+          needed: -qtyDelta,
+          unit: data.unit as Unit,
+          wastagePercent: 0,
+          inventoryItems: [
+            {
+              id,
+              quantity: previousQty,
+              unit: data.unit as Unit,
+              costPerUnit: data.costPerUnit,
+              isActive: true,
+              costLayers: layers.map((l) => ({
+                id: l.id,
+                quantityRemaining: Number(l.quantityRemaining),
+                costPerUnit: Number(l.costPerUnit),
+                unit: l.unit,
+              })),
+            },
+          ],
+        });
+        if (plan.ok) {
+          await applyFifoConsumptions(tx, plan.consumptions);
+        }
+      }
+
+      await syncDisplayCostFromLayers(tx, id);
 
       if (qtyChanged || costChanged) {
         await recordManualInventoryAdjustment(tx, {

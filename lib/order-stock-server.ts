@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { checkStockForRecipes, type OrderLineStockInput } from "@/lib/order-stock-check";
+import { ingredientWithFifoStockInclude } from "@/lib/inventory-stock-query";
 
 async function loadRecipesForStockCheck(businessId: string, recipeIds: string[]) {
   if (recipeIds.length === 0) return [];
@@ -12,7 +13,7 @@ async function loadRecipesForStockCheck(businessId: string, recipeIds: string[])
       name: true,
       ingredients: {
         include: {
-          ingredient: { include: { inventoryItems: true } },
+          ingredient: ingredientWithFifoStockInclude,
         },
       },
     },

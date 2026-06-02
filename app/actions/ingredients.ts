@@ -107,7 +107,7 @@ export async function getIngredients(filters?: { search?: string; category?: str
     filtered = filtered.filter((ingredient) => ingredient.category === filters.category);
   }
 
-  return filtered.map(serializeForClient);
+  return serializeForClient(filtered);
 }
 
 export async function getIngredientCategories() {
@@ -117,13 +117,6 @@ export async function getIngredientCategories() {
     orderBy: { category: "asc" },
   });
   return ingredients.map((ingredient) => ingredient.category);
-}
-
-export async function getActiveIngredientsForRecipes() {
-  return db.ingredient.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-  });
 }
 
 export async function createIngredient(formData: FormData): Promise<IngredientResult> {
@@ -165,13 +158,14 @@ export async function createIngredient(formData: FormData): Promise<IngredientRe
         defaultUnit: data.defaultUnit as Unit,
         aliases: data.aliases || null,
         notes: data.notes || null,
+        wastagePercent: data.wastagePercent,
         isActive: data.isActive,
       },
     });
 
     revalidatePath("/ingredients");
     revalidatePath("/recipes");
-    return { success: true, ingredient };
+    return { success: true, ingredient: serializeForClient(ingredient) };
   } catch {
     return { error: { sku: ["SKU already exists"] } };
   }
@@ -181,7 +175,10 @@ export async function createQuickIngredient(name: string): Promise<IngredientRes
   const result = await createIngredientFromName(name);
 
   if (result.duplicate) {
-    return { error: { name: ["Ingredient already exists"] }, ingredient: result.duplicate };
+    return {
+      error: { name: ["Ingredient already exists"] },
+      ingredient: serializeForClient(result.duplicate),
+    };
   }
 
   if (!result.ingredient) {
@@ -190,7 +187,7 @@ export async function createQuickIngredient(name: string): Promise<IngredientRes
 
   revalidatePath("/ingredients");
   revalidatePath("/recipes");
-  return { success: true, ingredient: result.ingredient };
+  return { success: true, ingredient: serializeForClient(result.ingredient) };
 }
 
 export async function updateIngredient(id: string, formData: FormData): Promise<IngredientResult> {
@@ -234,6 +231,7 @@ export async function updateIngredient(id: string, formData: FormData): Promise<
         defaultUnit: data.defaultUnit as Unit,
         aliases: data.aliases || null,
         notes: data.notes || null,
+        wastagePercent: data.wastagePercent,
         isActive: data.isActive,
       },
     });
@@ -242,7 +240,7 @@ export async function updateIngredient(id: string, formData: FormData): Promise<
     revalidatePath("/inventory");
     revalidatePath("/recipes");
     revalidatePath("/yield");
-    return { success: true, ingredient };
+    return { success: true, ingredient: serializeForClient(ingredient) };
   } catch {
     return { error: { sku: ["SKU already exists"] } };
   }

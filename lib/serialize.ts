@@ -1,13 +1,21 @@
+import { Prisma } from "@prisma/client";
+
+function serializeValue(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (Prisma.Decimal.isDecimal(value)) return value.toNumber();
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(serializeValue);
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = serializeValue(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 /** Serialize Prisma results (Decimal, Date) for Server → Client components. */
 export function serializeForClient<T>(value: T): T {
-  return JSON.parse(
-    JSON.stringify(value, (_key, v) => {
-      if (typeof v === "object" && v !== null && "toNumber" in v) {
-        const n = (v as { toNumber: () => number }).toNumber();
-        if (!Number.isNaN(n)) return n;
-      }
-      if (v instanceof Date) return v.toISOString();
-      return v;
-    })
-  ) as T;
+  return serializeValue(value) as T;
 }

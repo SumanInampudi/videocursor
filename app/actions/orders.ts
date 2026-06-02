@@ -7,7 +7,9 @@ import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
+import { applyFifoConsumptions, ensureCostLayers } from "@/lib/inventory-fifo";
 import { planInventoryDeductions } from "@/lib/orderFulfillment";
+import { recipeIngredientsWithFifoStock } from "@/lib/inventory-stock-query";
 import { validateOrderLinesStock } from "@/lib/order-stock-server";
 import { estimateOrderPrepMinutes } from "@/lib/order-prep-time";
 import {
@@ -435,13 +437,7 @@ export async function getOrderFulfillmentPreview(orderId: string) {
       lineItems: {
         include: {
           recipe: {
-            include: {
-              ingredients: {
-                include: {
-                  ingredient: { include: { inventoryItems: true } },
-                },
-              },
-            },
+            include: recipeIngredientsWithFifoStock,
           },
         },
       },
@@ -473,13 +469,7 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
       lineItems: {
         include: {
           recipe: {
-            include: {
-              ingredients: {
-                include: {
-                  ingredient: { include: { inventoryItems: true } },
-                },
-              },
-            },
+            include: recipeIngredientsWithFifoStock,
           },
         },
       },
@@ -669,12 +659,20 @@ type OrderForFulfillment = {
         unit: import("@prisma/client").Unit;
         ingredient: {
           name: string;
+          wastagePercent: Prisma.Decimal;
           inventoryItems: {
             id: string;
             quantity: Prisma.Decimal;
             unit: import("@prisma/client").Unit;
             costPerUnit: Prisma.Decimal;
             isActive: boolean;
+            costLayers: {
+              id: string;
+              quantityRemaining: Prisma.Decimal;
+              costPerUnit: Prisma.Decimal;
+              unit: import("@prisma/client").Unit;
+              createdAt: Date;
+            }[];
           }[];
         };
       }[];
@@ -700,17 +698,10 @@ async function fulfillOrderInventory(order: OrderForFulfillment) {
 
     await db.$transaction(async (tx) => {
       for (const consumption of plan.consumptions) {
-        const item = await tx.inventoryItem.findUniqueOrThrow({
-          where: { id: consumption.inventoryItemId },
-        });
-        const newQty = Number(item.quantity) - consumption.quantityDeducted;
-        if (newQty < -0.0001) {
-          throw new Error(`Stock conflict for ${item.name}`);
-        }
-        await tx.inventoryItem.update({
-          where: { id: item.id },
-          data: { quantity: Math.max(0, newQty) },
-        });
+        await ensureCostLayers(tx, consumption.inventoryItemId);
+      }
+      await applyFifoConsumptions(tx, plan.consumptions);
+      for (const consumption of plan.consumptions) {
         await tx.orderLineConsumption.create({
           data: {
             orderLineItemId: line.id,

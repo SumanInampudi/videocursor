@@ -1,4 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
+import { estimateLineCostFifo, type CostLayerSnapshot } from "@/lib/inventory-fifo";
+import { usableQuantity } from "@/lib/ingredient-wastage";
 
 type InventoryStock = {
   id: string;
@@ -6,6 +8,7 @@ type InventoryStock = {
   unit: string;
   costPerUnit: Decimal | number;
   isActive: boolean;
+  costLayers?: CostLayerSnapshot[];
 };
 
 type RecipeIngredientRow = {
@@ -15,6 +18,7 @@ type RecipeIngredientRow = {
     id: string;
     name: string;
     isActive: boolean;
+    wastagePercent?: Decimal | number | null;
     inventoryItems: InventoryStock[];
   };
 };
@@ -45,33 +49,15 @@ function toNumber(value: Decimal | number | string): number {
   return value.toNumber();
 }
 
-/** Weighted average cost per unit across active stock with matching unit. */
-export function averageCostForIngredient(
-  inventoryItems: InventoryStock[],
-  unit: string
-): { available: number; avgCostPerUnit: number } {
-  const matching = inventoryItems.filter(
-    (item) => item.isActive && item.unit === unit && toNumber(item.quantity) > 0
-  );
-
-  if (matching.length === 0) {
-    return { available: 0, avgCostPerUnit: 0 };
-  }
-
-  let totalQty = 0;
-  let totalValue = 0;
-
-  for (const item of matching) {
-    const qty = toNumber(item.quantity);
-    const cost = toNumber(item.costPerUnit);
-    totalQty += qty;
-    totalValue += qty * cost;
-  }
-
-  return {
-    available: totalQty,
-    avgCostPerUnit: totalQty > 0 ? totalValue / totalQty : 0,
-  };
+function mapItemsForFifo(items: InventoryStock[]) {
+  return items.map((item) => ({
+    id: item.id,
+    quantity: item.quantity,
+    unit: item.unit as import("@prisma/client").Unit,
+    costPerUnit: item.costPerUnit,
+    isActive: item.isActive,
+    costLayers: item.costLayers,
+  }));
 }
 
 export function estimateRecipeIngredientCost(
@@ -89,12 +75,16 @@ export function estimateRecipeIngredientCost(
   for (const row of recipe.ingredients) {
     const requiredPerBatch = toNumber(row.quantityRequired);
     const requiredTotal = requiredPerBatch * batchCount;
-    const { available, avgCostPerUnit } = averageCostForIngredient(
-      row.ingredient.inventoryItems,
-      row.unit
-    );
+    const waste =
+      row.ingredient.wastagePercent != null
+        ? toNumber(row.ingredient.wastagePercent)
+        : 0;
+    const items = mapItemsForFifo(row.ingredient.inventoryItems);
+    const matching = items.filter((i) => i.isActive && i.unit === row.unit);
+    const physical = matching.reduce((s, i) => s + toNumber(i.quantity), 0);
+    const availableUsable = usableQuantity(physical, waste);
 
-    if (!row.ingredient.isActive || available <= 0 || avgCostPerUnit <= 0) {
+    if (!row.ingredient.isActive || availableUsable <= 0) {
       ingredientLines.push({
         ingredientName: row.ingredient.name,
         quantity: requiredTotal,
@@ -105,7 +95,24 @@ export function estimateRecipeIngredientCost(
       continue;
     }
 
-    const lineCost = requiredTotal * avgCostPerUnit;
+    const { cost: lineCost } = estimateLineCostFifo({
+      requiredQty: requiredTotal,
+      unit: row.unit as import("@prisma/client").Unit,
+      wastagePercent: waste,
+      inventoryItems: items,
+    });
+
+    if (lineCost <= 0) {
+      ingredientLines.push({
+        ingredientName: row.ingredient.name,
+        quantity: requiredTotal,
+        unit: row.unit,
+        estimatedCost: 0,
+        source: "missing",
+      });
+      continue;
+    }
+
     totalIngredientCost += lineCost;
     ingredientLines.push({
       ingredientName: row.ingredient.name,

@@ -12,6 +12,7 @@ import {
 import { STARTER_INGREDIENTS, normalizeIngredientName } from "@/lib/ingredients";
 import { serializeForClient } from "@/lib/serialize";
 import type { ReceiveCatalogItem } from "@/lib/stock-receive-cart";
+import { createCostLayer, syncDisplayCostFromLayers } from "@/lib/inventory-fifo";
 import { recordStockReceiveExpense } from "@/lib/stock-receive-finance";
 import {
   groupPurchasesIntoBatches,
@@ -346,6 +347,15 @@ export async function postStockReceive(formData: FormData) {
           unitCost: line.unitCost,
           lineTotal,
         });
+
+        await createCostLayer(tx, {
+          inventoryItemId: item.id,
+          quantity: line.quantity,
+          unit: receiveUnit,
+          costPerUnit: newCost,
+          receiveBatchId,
+        });
+        await syncDisplayCostFromLayers(tx, item.id);
 
         await tx.inventoryPurchase.create({
           data: {

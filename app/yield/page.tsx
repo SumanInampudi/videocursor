@@ -13,8 +13,8 @@ export default async function YieldPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-servora-charcoal">Yield Calculator</h1>
         <p className="text-sm text-gray-500">
-          See how much of each recipe you can make with current inventory. Bottleneck
-          ingredients are highlighted.
+          How many portions you can make using <strong>usable</strong> stock (after ingredient
+          wastage %). Recipe food cost on the pricing page also includes wastage and FIFO.
         </p>
       </div>
 

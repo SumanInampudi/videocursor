@@ -1,4 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/library";
+import { normalizeWastagePercent, usableQuantity } from "@/lib/ingredient-wastage";
 
 type IngredientWithItem = {
   quantityRequired: Decimal | number;
@@ -7,6 +8,7 @@ type IngredientWithItem = {
     id: string;
     name: string;
     isActive: boolean;
+    wastagePercent?: Decimal | number | null;
     inventoryItems: {
       id: string;
       name: string;
@@ -33,6 +35,8 @@ export type YieldResult = {
   yieldUnit: string;
   maxYield: number;
   bottleneckIngredient: string | null;
+  /** Human-readable stock note for the limiting ingredient (includes wastage). */
+  bottleneckNote: string | null;
   missingIngredients: string[];
   canMake: boolean;
 };
@@ -41,6 +45,11 @@ function toNumber(value: Decimal | number | string): number {
   if (typeof value === "number") return value;
   if (typeof value === "string") return parseFloat(value);
   return value.toNumber();
+}
+
+function formatQty(amount: number, unit: string): string {
+  const rounded = Math.round(amount * 100) / 100;
+  return `${rounded} ${unit}`;
 }
 
 export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult {
@@ -52,6 +61,7 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
       yieldUnit: recipe.yieldUnit,
       maxYield: 0,
       bottleneckIngredient: null,
+      bottleneckNote: null,
       missingIngredients: ["No ingredients defined"],
       canMake: false,
     };
@@ -60,9 +70,12 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
   const missingIngredients: string[] = [];
   let minYield = Infinity;
   let bottleneckIngredient: string | null = null;
+  let bottleneckNote: string | null = null;
 
   for (const recipeIngredient of recipe.ingredients) {
     const ingredient = recipeIngredient.ingredient;
+    const unit = recipeIngredient.unit;
+    const waste = normalizeWastagePercent(ingredient.wastagePercent);
 
     if (!ingredient.isActive) {
       missingIngredients.push(`${ingredient.name} (inactive)`);
@@ -71,27 +84,32 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
     }
 
     const matchingItems = ingredient.inventoryItems.filter(
-      (item) => item.isActive && item.unit === recipeIngredient.unit
+      (item) => item.isActive && item.unit === unit
     );
 
     const mismatchedItems = ingredient.inventoryItems.filter(
-      (item) => item.isActive && item.unit !== recipeIngredient.unit
+      (item) => item.isActive && item.unit !== unit
     );
 
     if (matchingItems.length === 0 && mismatchedItems.length > 0) {
       const units = Array.from(new Set(mismatchedItems.map((item) => item.unit))).join(", ");
       missingIngredients.push(
-        `${ingredient.name} (unit mismatch: need ${recipeIngredient.unit}, have ${units})`
+        `${ingredient.name} (unit mismatch: need ${unit}, have ${units})`
       );
       minYield = 0;
       continue;
     }
 
-    const available = matchingItems.reduce((sum, item) => sum + toNumber(item.quantity), 0);
+    const physical = matchingItems.reduce((sum, item) => sum + toNumber(item.quantity), 0);
+    const available = usableQuantity(physical, waste);
     const required = toNumber(recipeIngredient.quantityRequired);
 
-    if (available <= 0) {
-      missingIngredients.push(ingredient.name);
+    if (physical <= 0 || available <= 0) {
+      missingIngredients.push(
+        waste > 0
+          ? `${ingredient.name} (no usable stock after ${waste}% waste)`
+          : ingredient.name
+      );
       minYield = 0;
       continue;
     }
@@ -101,6 +119,10 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
     if (possible < minYield) {
       minYield = possible;
       bottleneckIngredient = ingredient.name;
+      bottleneckNote =
+        waste > 0
+          ? `${formatQty(available, unit)} usable (${formatQty(physical, unit)} on hand, ${waste}% waste)`
+          : `${formatQty(available, unit)} on hand`;
     }
   }
 
@@ -113,6 +135,7 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
     yieldUnit: recipe.yieldUnit,
     maxYield: minYield,
     bottleneckIngredient,
+    bottleneckNote,
     missingIngredients,
     canMake: minYield > 0 && missingIngredients.length === 0,
   };

@@ -14,8 +14,8 @@ export default async function RecipePricingPage() {
         <div>
           <h1 className="text-2xl font-bold text-servora-charcoal">Recipe pricing</h1>
           <p className="text-sm text-gray-500">
-            Set sale prices, kitchen prep time (for POS & KDS estimates), menu photos, margins,
-            and barcodes
+            Set sale prices, prep time, and menu photos. Ingredient cost uses FIFO stock layers
+            and ingredient wastage % (higher waste → higher cost per plate).
           </p>
         </div>
         <Link href="/recipes">

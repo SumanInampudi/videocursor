@@ -45,7 +45,19 @@ export async function getRecipePricingDetail(recipeId: string) {
     include: {
       ingredients: {
         include: {
-          ingredient: { include: { inventoryItems: { where: { isActive: true } } } },
+          ingredient: {
+            include: {
+              inventoryItems: {
+                where: { isActive: true },
+                include: {
+                  costLayers: {
+                    where: { quantityRemaining: { gt: 0 } },
+                    orderBy: { createdAt: "asc" },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -65,7 +77,19 @@ export async function getRecipesWithPricing() {
     include: {
       ingredients: {
         include: {
-          ingredient: { include: { inventoryItems: { where: { isActive: true } } } },
+          ingredient: {
+            include: {
+              inventoryItems: {
+                where: { isActive: true },
+                include: {
+                  costLayers: {
+                    where: { quantityRemaining: { gt: 0 } },
+                    orderBy: { createdAt: "asc" },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },

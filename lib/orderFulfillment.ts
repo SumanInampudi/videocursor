@@ -1,5 +1,10 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import { Unit } from "@prisma/client";
+import {
+  type CostLayerSnapshot,
+  planFifoConsumption,
+  type FifoConsumptionSlice,
+} from "@/lib/inventory-fifo";
 
 type StockItem = {
   id: string;
@@ -7,6 +12,7 @@ type StockItem = {
   unit: Unit;
   costPerUnit: Decimal;
   isActive: boolean;
+  costLayers?: CostLayerSnapshot[];
 };
 
 type RecipeIngredientRow = {
@@ -14,17 +20,12 @@ type RecipeIngredientRow = {
   unit: Unit;
   ingredient: {
     name: string;
+    wastagePercent?: Decimal | number | null;
     inventoryItems: StockItem[];
   };
 };
 
-export type ConsumptionPlan = {
-  inventoryItemId: string;
-  quantityDeducted: number;
-  unit: Unit;
-  costPerUnit: number;
-  lineCost: number;
-};
+export type ConsumptionPlan = FifoConsumptionSlice;
 
 export type FulfillmentResult =
   | { ok: true; consumptions: ConsumptionPlan[]; totalCost: number }
@@ -35,8 +36,21 @@ function toNumber(value: Decimal | number): number {
   return value.toNumber();
 }
 
+function mapLayers(
+  items: StockItem[]
+): Parameters<typeof planFifoConsumption>[0]["inventoryItems"] {
+  return items.map((item) => ({
+    id: item.id,
+    quantity: item.quantity,
+    unit: item.unit,
+    costPerUnit: item.costPerUnit,
+    isActive: item.isActive,
+    costLayers: item.costLayers,
+  }));
+}
+
 /**
- * Build a deduction plan from active inventory (matching unit), highest qty first.
+ * FIFO deduction plan with ingredient wastage applied to usable stock and recipe cost.
  */
 export function planInventoryDeductions(
   ingredients: RecipeIngredientRow[],
@@ -46,35 +60,24 @@ export function planInventoryDeductions(
 
   for (const row of ingredients) {
     const needed = toNumber(row.quantityRequired) * batchCount;
-    const matching = row.ingredient.inventoryItems
-      .filter((item) => item.isActive && item.unit === row.unit)
-      .sort((a, b) => toNumber(b.quantity) - toNumber(a.quantity));
+    const result = planFifoConsumption({
+      needed,
+      unit: row.unit,
+      wastagePercent:
+        row.ingredient.wastagePercent != null
+          ? toNumber(row.ingredient.wastagePercent as Decimal)
+          : 0,
+      inventoryItems: mapLayers(row.ingredient.inventoryItems),
+    });
 
-    let remaining = needed;
-
-    for (const item of matching) {
-      if (remaining <= 0) break;
-      const available = toNumber(item.quantity);
-      if (available <= 0) continue;
-
-      const take = Math.min(available, remaining);
-      const costPerUnit = toNumber(item.costPerUnit);
-      consumptions.push({
-        inventoryItemId: item.id,
-        quantityDeducted: take,
-        unit: row.unit,
-        costPerUnit,
-        lineCost: take * costPerUnit,
-      });
-      remaining -= take;
-    }
-
-    if (remaining > 0.0001) {
+    if (!result.ok) {
       return {
         ok: false,
-        error: `Insufficient stock for ${row.ingredient.name}: need ${needed} ${row.unit}, short by ${remaining.toFixed(2)} ${row.unit}`,
+        error: `Insufficient stock for ${row.ingredient.name}: ${result.error}`,
       };
     }
+
+    consumptions.push(...result.consumptions);
   }
 
   const totalCost = consumptions.reduce((sum, c) => sum + c.lineCost, 0);

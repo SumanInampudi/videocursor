@@ -65,6 +65,7 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Barcode</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Category</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Unit</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Waste %</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Inventory Links</th>
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
             <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
@@ -77,7 +78,7 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
             if (isEditing) {
               return (
                 <tr key={ingredient.id} className="bg-yellow-50/40 align-top">
-                  <td colSpan={8} className="px-4 py-4">
+                  <td colSpan={9} className="px-4 py-4">
                     <form action={(formData) => saveIngredient(ingredient.id, formData)}>
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_150px_180px_100px_1fr_120px]">
                         <Input
@@ -108,6 +109,16 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
                           options={unitOptions}
                           error={errors.defaultUnit?.[0]}
                           required
+                        />
+                        <Input
+                          name="wastagePercent"
+                          label="Wastage %"
+                          type="number"
+                          min={0}
+                          max={99}
+                          step={0.1}
+                          defaultValue={Number(ingredient.wastagePercent ?? 0)}
+                          error={errors.wastagePercent?.[0]}
                         />
                         <Input
                           name="aliases"
@@ -152,6 +163,9 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{ingredient.category}</td>
                 <td className="px-4 py-3 text-sm text-gray-600">{ingredient.defaultUnit}</td>
+                <td className="px-4 py-3 text-sm text-gray-600 tabular-nums">
+                  {Number(ingredient.wastagePercent ?? 0)}%
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{ingredient.inventoryItems.length}</td>
                 <td className="px-4 py-3">
                   <Badge variant={ingredient.isActive ? "success" : "default"}>
