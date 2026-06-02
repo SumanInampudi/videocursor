@@ -46,7 +46,7 @@ export function DiningTablesManager({ tables }: { tables: TableRow[] }) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="card-padded">
       <h2 className="font-semibold text-servora-charcoal">Dining tables</h2>
       <p className="mt-1 text-sm text-gray-500">
         Shown as tap targets on the POS when staff choose dine-in.

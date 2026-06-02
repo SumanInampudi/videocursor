@@ -32,10 +32,8 @@ export function BarcodeScanInput({
   }, [disabled]);
 
   return (
-    <div className="rounded-lg border-2 border-dashed border-servora-yellow/60 bg-yellow-50/50 p-4">
-      <label className="mb-1 block text-sm font-medium text-servora-charcoal">
-        Barcode scanner
-      </label>
+    <div className="rounded-xl border-2 border-dashed border-brand-400 bg-brand-50/60 p-4 shadow-inset">
+      <label className="form-label mb-2 block">Barcode scanner</label>
       <input
         ref={inputRef}
         type="text"
@@ -49,10 +47,10 @@ export function BarcodeScanInput({
           }
         }}
         placeholder={placeholder}
-        className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm focus:border-servora-yellow focus:outline-none focus:ring-1 focus:ring-servora-yellow disabled:bg-gray-100"
+        className="input-field font-mono"
         autoComplete="off"
       />
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="form-hint mt-2">
         Click here, then scan. Recipe codes start with 2; ingredients with 3.
       </p>
     </div>

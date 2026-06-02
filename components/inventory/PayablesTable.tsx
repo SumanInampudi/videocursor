@@ -52,9 +52,9 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
 
   if (purchases.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
+      <div className="empty-state text-sm text-gray-500">
         No open supplier balances.{" "}
-        <Link href="/inventory/purchases/new" className="text-servora-yellow hover:underline">
+        <Link href="/inventory/purchases/new" className="link-brand">
           Record a credit purchase
         </Link>
       </div>
@@ -62,7 +62,7 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="table-panel">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
         <thead className="bg-gray-50">
           <tr>

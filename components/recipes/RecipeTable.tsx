@@ -42,8 +42,8 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
 
   if (recipes.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-        <p className="text-sm text-gray-500">No recipes found.</p>
+      <div className="empty-state">
+        <p className="empty-state-text">No recipes found.</p>
         <Link href="/recipes/new" className="mt-4 inline-block">
           <Button>Create your first recipe</Button>
         </Link>
@@ -52,44 +52,30 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="table-panel">
+      <table>
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Recipe
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Category
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Ingredients
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Max Yield
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Bottleneck
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-              Actions
-            </th>
+            <th>Recipe</th>
+            <th>Category</th>
+            <th>Ingredients</th>
+            <th>Max Yield</th>
+            <th>Bottleneck</th>
+            <th className="text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
+        <tbody>
           {recipes.map((recipe) => (
-            <tr key={recipe.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3">
+            <tr key={recipe.id}>
+              <td>
                 <div className="flex items-center gap-3">
                   <RecipeThumbnail name={recipe.name} imageUrl={recipe.imageUrl} size="sm" />
-                  <span className="font-medium text-servora-charcoal">{recipe.name}</span>
+                  <span className="font-semibold text-charcoal">{recipe.name}</span>
                 </div>
               </td>
-              <td className="px-4 py-3 text-sm text-gray-600">{recipe.category}</td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {recipe.ingredients.length} items
-              </td>
-              <td className="px-4 py-3">
+              <td className="text-charcoal-muted">{recipe.category}</td>
+              <td className="text-charcoal-muted">{recipe.ingredients.length} items</td>
+              <td>
                 {recipe.yieldResult.canMake ? (
                   <Badge variant="success">
                     {recipe.yieldResult.maxYield} {recipe.yieldUnit}
@@ -98,7 +84,7 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
                   <Badge variant="danger">Cannot make</Badge>
                 )}
               </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
+              <td className="text-charcoal-muted">
                 {recipe.yieldResult.bottleneckIngredient ? (
                   <>
                     {recipe.yieldResult.bottleneckIngredient}
@@ -112,7 +98,7 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
                   "—"
                 )}
               </td>
-              <td className="px-4 py-3 text-right">
+              <td className="text-right">
                 <div className="flex justify-end gap-2">
                   <Link href={`/recipes/${recipe.id}/edit#menu-image`}>
                     <Button variant="ghost" className="px-2 py-1 text-xs">

@@ -69,7 +69,7 @@ export default async function OrdersPage({
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Orders</h1>
+          <h1 className="page-title">Orders</h1>
           <p className="text-sm text-gray-500">
             Browse and search orders (oldest received first). Kitchen staff use the kitchen display
             to run the line.
@@ -101,7 +101,7 @@ export default async function OrdersPage({
       />
 
       <section className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold text-servora-charcoal">All orders</h2>
+        <h2 className="mb-3 section-title">All orders</h2>
 
         <Suspense fallback={null}>
           <OrderListFilters />
@@ -122,11 +122,11 @@ export default async function OrdersPage({
       </section>
 
       <div className="mt-8 flex flex-wrap gap-2 text-sm">
-        <Link href="/orders/new" className="text-servora-yellow hover:underline">
+        <Link href="/orders/new" className="link-brand">
           Simple order form
         </Link>
         <span className="text-gray-300">·</span>
-        <Link href="/orders/costing" className="text-servora-yellow hover:underline">
+        <Link href="/orders/costing" className="link-brand">
           How costing works
         </Link>
       </div>

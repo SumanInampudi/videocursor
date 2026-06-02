@@ -16,7 +16,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-servora-charcoal">Team & roles</h1>
+      <h1 className="page-title">Team & roles</h1>
       <p className="mt-2 text-sm text-gray-500">
         Admin (full access), POS (register only), Kitchen (kitchen display only).
       </p>

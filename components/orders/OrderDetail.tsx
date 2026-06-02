@@ -136,7 +136,7 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">{order.orderNumber}</h1>
+          <h1 className="page-title">{order.orderNumber}</h1>
           <OrderMetaBadges order={order} />
           <div className="mt-2">
             <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
@@ -230,7 +230,7 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-servora-charcoal">Line items</h2>
+        <h2 className="section-title">Line items</h2>
         {order.lineItems.map((line) => {
           const revenue =
             line.revenue != null
@@ -326,7 +326,7 @@ function SummaryCard({
   highlight?: "danger";
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="card-padded">
       <p className="text-sm text-gray-500">{label}</p>
       <p
         className={`mt-1 text-xl font-bold ${

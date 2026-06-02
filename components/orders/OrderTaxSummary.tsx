@@ -27,7 +27,7 @@ export function OrderTaxSummary({ order }: OrderTaxSummaryProps) {
   if (subtotal <= 0 && grand <= 0) return null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm space-y-1">
+    <div className="filter-bar text-sm space-y-1">
       <div className="flex justify-between">
         <span className="text-gray-600">Subtotal</span>
         <span>{formatCurrency(subtotal)}</span>

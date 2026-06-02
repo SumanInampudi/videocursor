@@ -16,7 +16,7 @@ export default async function AdminBusinessPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-servora-charcoal">Businesses</h1>
+      <h1 className="page-title">Businesses</h1>
       <p className="mt-2 text-sm text-gray-500">
         Each business has its own menu, tables, orders, and team. Users pick a business at
         login when they belong to more than one.

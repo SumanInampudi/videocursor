@@ -41,39 +41,27 @@ export function DateRangePicker({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4"
+      className="filter-bar items-end"
     >
       <div>
-        <label htmlFor="from" className="mb-1 block text-xs font-medium text-gray-500">
+        <label htmlFor="from" className="form-label mb-1.5 block text-xs">
           From
         </label>
-        <input
-          id="from"
-          name="from"
-          type="date"
-          defaultValue={from}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-        />
+        <input id="from" name="from" type="date" defaultValue={from} className="input-field" />
       </div>
       <div>
-        <label htmlFor="to" className="mb-1 block text-xs font-medium text-gray-500">
+        <label htmlFor="to" className="form-label mb-1.5 block text-xs">
           To
         </label>
-        <input
-          id="to"
-          name="to"
-          type="date"
-          defaultValue={to}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-        />
+        <input id="to" name="to" type="date" defaultValue={to} className="input-field" />
       </div>
-      <Button type="submit" className="text-sm">
+      <Button type="submit" size="sm">
         Apply
       </Button>
       <Button
         type="button"
         variant="secondary"
-        className="text-sm"
+        size="sm"
         onClick={() => setRange(thisMonth.from, thisMonth.to)}
       >
         This month
@@ -81,9 +69,9 @@ export function DateRangePicker({
       {defaultPreset === "month" && (
         <Button
           type="button"
-          variant="ghost"
-          className="text-sm"
-          onClick={() => setRange(today, today)}
+        variant="ghost"
+        size="sm"
+        onClick={() => setRange(today, today)}
         >
           Today only
         </Button>
@@ -91,7 +79,7 @@ export function DateRangePicker({
       <Button
         type="button"
         variant="ghost"
-        className="text-sm"
+        size="sm"
         onClick={() => {
           const end = new Date();
           const start = new Date();

@@ -150,11 +150,11 @@ export function OrderForm({ recipes, customers = [] }: OrderFormProps) {
           </div>
         )}
         <p className="mt-2 text-xs text-gray-500">
-          <a href="/recipes/pricing" className="text-servora-yellow hover:underline">
+          <a href="/recipes/pricing" className="link-brand">
             Add menu photos on recipe pricing →
           </a>
           {" · "}
-          <a href="/recipes/barcodes" className="text-servora-yellow hover:underline">
+          <a href="/recipes/barcodes" className="link-brand">
             Printable barcodes
           </a>
         </p>

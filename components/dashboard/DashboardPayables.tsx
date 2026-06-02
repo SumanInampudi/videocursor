@@ -7,7 +7,7 @@ export async function DashboardPayables() {
 
   if (count === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="card-padded shadow-sm">
         <p className="text-sm text-gray-500">Supplier payables</p>
         <p className="mt-1 text-sm text-green-700">No open balances</p>
       </div>

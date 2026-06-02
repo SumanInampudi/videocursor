@@ -15,6 +15,7 @@ import { ProfitComparison } from "@/components/dashboard/ProfitComparison";
 import { ProfitHistoryTable } from "@/components/dashboard/ProfitHistoryTable";
 import { ProfitLossPanel } from "@/components/dashboard/ProfitLossPanel";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { getAuthContext } from "@/lib/auth";
 import { defaultReportDateRange } from "@/lib/dates";
 
@@ -50,24 +51,24 @@ export default async function DashboardPage({
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Dashboard</h1>
-          <p className="text-sm text-gray-500">
-            {isCurrentMonth
-              ? "This month · times shown in IST where applicable"
-              : "Profit & margins for the selected date range"}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/orders/pos">
-            <Button className="min-h-[44px]">POS register</Button>
-          </Link>
-          <Link href="/expenses/new">
-            <Button variant="secondary">Add expense</Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle={
+          isCurrentMonth
+            ? "This month · times shown in IST where applicable"
+            : "Profit & margins for the selected date range"
+        }
+        actions={
+          <>
+            <Link href="/orders/pos">
+              <Button>POS register</Button>
+            </Link>
+            <Link href="/expenses/new">
+              <Button variant="secondary">Add expense</Button>
+            </Link>
+          </>
+        }
+      />
 
       <DashboardQuickActions userRoles={roles} />
 
@@ -107,8 +108,8 @@ export default async function DashboardPage({
 
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-servora-charcoal">Daily history</h2>
-          <Link href="/reports" className="text-sm text-servora-yellow hover:underline">
+          <h2 className="section-title">Daily history</h2>
+          <Link href="/reports" className="link-brand text-sm">
             Full reports →
           </Link>
         </div>

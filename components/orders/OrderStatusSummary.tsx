@@ -50,7 +50,7 @@ export function OrderStatusSummary({
       </ul>
       <p className="text-sm text-gray-500">
         Kitchen staff process orders on the{" "}
-        <Link href="/orders/kitchen" className="font-medium text-servora-yellow hover:underline">
+        <Link href="/orders/kitchen" className="font-medium link-brand">
           kitchen display
         </Link>
         . Flow: New → Cooking → Packing → Ready → Delivered.

@@ -15,12 +15,12 @@ export default async function NewOrderPage() {
   return (
     <div>
       <div className="mb-6">
-        <Link href="/orders" className="text-sm text-servora-yellow hover:underline">
+        <Link href="/orders" className="link-brand text-sm">
           ← Back to orders
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-servora-charcoal">Place order</h1>
+            <h1 className="page-title">Place order</h1>
             <p className="text-sm text-gray-500">
               Simple form with thumbnails and barcode scan. For iPad / counter use, open
               full-screen POS.

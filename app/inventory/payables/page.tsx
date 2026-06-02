@@ -16,10 +16,10 @@ export default async function PayablesPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <Link href="/inventory" className="text-sm text-servora-yellow hover:underline">
+          <Link href="/inventory" className="link-brand text-sm">
             ← Inventory
           </Link>
-          <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Supplier payables</h1>
+          <h1 className="mt-2 page-title">Supplier payables</h1>
           <p className="text-sm text-gray-500">
             Amounts you still owe for inventory bought on credit. Paying suppliers reduces this
             balance; it is separate from COGS on sold orders.

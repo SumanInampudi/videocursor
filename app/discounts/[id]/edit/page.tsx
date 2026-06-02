@@ -14,10 +14,10 @@ export default async function EditDiscountPage({ params }: Props) {
 
   return (
     <div>
-      <Link href="/discounts" className="text-sm text-servora-yellow hover:underline">
+      <Link href="/discounts" className="link-brand text-sm">
         ← Discounts
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Edit discount</h1>
+      <h1 className="mt-2 page-title">Edit discount</h1>
       <p className="mb-6 text-sm text-gray-500">{discount.code}</p>
       <DiscountForm
         action={action}

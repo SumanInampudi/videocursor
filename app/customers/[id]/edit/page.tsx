@@ -14,10 +14,10 @@ export default async function EditCustomerPage({ params }: Props) {
 
   return (
     <div>
-      <Link href={`/customers/${id}`} className="text-sm text-servora-yellow hover:underline">
+      <Link href={`/customers/${id}`} className="link-brand text-sm">
         ← Customer insights
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Edit customer</h1>
+      <h1 className="mt-2 page-title">Edit customer</h1>
       <p className="mb-6 text-sm text-gray-500">{customer.name}</p>
       <CustomerForm action={action} initialData={customer} submitLabel="Update customer" />
     </div>

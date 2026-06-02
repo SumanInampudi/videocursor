@@ -12,10 +12,10 @@ export default async function IngredientBarcodesPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <Link href="/ingredients" className="text-sm text-servora-yellow hover:underline">
+          <Link href="/ingredients" className="link-brand text-sm">
             ← Back to ingredients
           </Link>
-          <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Ingredient barcodes</h1>
+          <h1 className="mt-2 page-title">Ingredient barcodes</h1>
           <p className="text-sm text-gray-500">
             Each ingredient has a unique EAN-13-style code (prefix 3). Print or scan these
             labels to select ingredients quickly in future workflows.

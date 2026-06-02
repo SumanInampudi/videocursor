@@ -42,7 +42,7 @@ export function OrderDiscountSection({ subtotal, onApplied }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+    <div className="filter-bar space-y-3">
       <p className="text-sm font-medium text-servora-charcoal">Discount code</p>
       <div className="flex flex-wrap gap-2">
         <Input

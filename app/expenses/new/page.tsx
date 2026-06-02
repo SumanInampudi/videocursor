@@ -11,10 +11,10 @@ export default async function NewExpensePage({ searchParams }: Props) {
 
   return (
     <div>
-      <Link href="/expenses" className="text-sm text-servora-yellow hover:underline">
+      <Link href="/expenses" className="link-brand text-sm">
         ← Back to expenses
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Add expense</h1>
+      <h1 className="mt-2 page-title">Add expense</h1>
       <p className="mb-6 text-sm text-gray-500">
         Choose the accounting month this cost belongs to (e.g. May rent → May). Payment
         date is optional.

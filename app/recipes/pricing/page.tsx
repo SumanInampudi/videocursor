@@ -12,7 +12,7 @@ export default async function RecipePricingPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Recipe pricing</h1>
+          <h1 className="page-title">Recipe pricing</h1>
           <p className="text-sm text-gray-500">
             Set sale prices, prep time, and menu photos. Ingredient cost uses FIFO stock layers
             and ingredient wastage % (higher waste → higher cost per plate).

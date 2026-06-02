@@ -14,10 +14,10 @@ export default async function EditSupplierPage({ params }: Props) {
 
   return (
     <div>
-      <Link href="/suppliers" className="text-sm text-servora-yellow hover:underline">
+      <Link href="/suppliers" className="link-brand text-sm">
         ← Suppliers
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Edit supplier</h1>
+      <h1 className="mt-2 page-title">Edit supplier</h1>
       <p className="mb-6 text-sm text-gray-500">{supplier.name}</p>
       <SupplierForm action={action} initialData={supplier} submitLabel="Update supplier" />
     </div>

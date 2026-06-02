@@ -39,7 +39,7 @@ export default async function PosSettingsPage() {
         <TaxSettingsForm initial={taxSettings} />
         <DiningTablesManager tables={tables} />
         <ReservationsPanel tables={tables} />
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="card-padded">
           <h2 className="font-semibold text-servora-charcoal">Menu category order</h2>
           <div className="mt-4">
             <PosCategoryOrderEditor initialOrder={ordered} allCategories={allCategories} />

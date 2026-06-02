@@ -49,14 +49,14 @@ export function IngredientTable({ ingredients }: { ingredients: IngredientWithIn
 
   if (ingredients.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
+      <div className="empty-state">
         <p className="text-sm text-gray-500">No ingredients found.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="table-panel">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>

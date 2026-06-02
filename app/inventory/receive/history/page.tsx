@@ -31,11 +31,11 @@ export default async function StockReceiveHistoryPage({
         <div>
           <Link
             href="/inventory/receive"
-            className="text-sm text-servora-yellow hover:underline"
+            className="link-brand text-sm"
           >
             ← Stock receive
           </Link>
-          <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Stock history</h1>
+          <h1 className="mt-2 page-title">Stock history</h1>
           <p className="text-sm text-gray-500">
             Stock receives from the receive screen and manual edits from{" "}
             <strong>Inventory → Edit item</strong> (quantity or cost changes). Expand a row
@@ -49,7 +49,7 @@ export default async function StockReceiveHistoryPage({
 
       <form
         method="get"
-        className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4"
+        className="mb-6 flex flex-wrap items-end gap-3 card-padded"
       >
         <div>
           <label htmlFor="from" className="mb-1 block text-xs font-medium text-gray-500">

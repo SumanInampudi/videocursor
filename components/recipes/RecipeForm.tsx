@@ -354,7 +354,7 @@ export function RecipeForm({
         )}
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <div className="card-padded">
             <label className="text-sm font-medium text-servora-charcoal">
               Search Ingredient Master
             </label>
@@ -434,7 +434,7 @@ export function RecipeForm({
             )}
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="filter-bar">
             <label className="text-sm font-medium text-servora-charcoal">
               Bulk Paste
             </label>
@@ -487,7 +487,7 @@ export function RecipeForm({
           </div>
         </div>
 
-        <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+        <div className="mt-4 table-panel">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

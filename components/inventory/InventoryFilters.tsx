@@ -32,7 +32,7 @@ export function InventoryFilters({ categories }: InventoryFiltersProps) {
   ];
 
   return (
-    <div className="mb-6 flex flex-wrap gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <div className="filter-bar">
       <div className="min-w-[200px] flex-1">
         <Input
           label="Search"

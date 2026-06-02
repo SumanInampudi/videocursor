@@ -13,7 +13,7 @@ export default async function AdminDataPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-servora-charcoal">Import & export data</h1>
+      <h1 className="page-title">Import & export data</h1>
       <p className="mt-2 text-sm text-gray-500">
         Migrate an existing restaurant into Servora using CSV templates. Export anytime for
         backup or analysis.

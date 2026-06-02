@@ -43,8 +43,8 @@ export function Pagination({
   const end = Math.min(page * pageSize, total);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
-      <p className="text-sm text-gray-500">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-brand-100 pt-4">
+      <p className="text-sm text-charcoal-muted">
         Showing {start}–{end} of {total}
         {totalPages > 1 && (
           <span className="text-gray-400">

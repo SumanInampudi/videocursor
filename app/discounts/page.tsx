@@ -12,7 +12,7 @@ export default async function DiscountsPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Discounts</h1>
+          <h1 className="page-title">Discounts</h1>
           <p className="text-sm text-gray-500">
             Promo codes applied when placing orders. Percent or fixed amount off subtotal.
           </p>

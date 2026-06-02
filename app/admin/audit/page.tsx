@@ -9,10 +9,10 @@ export default async function AuditLogPage() {
 
   return (
     <div>
-      <Link href="/" className="text-sm text-servora-yellow hover:underline">
+      <Link href="/" className="link-brand text-sm">
         ← Dashboard
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Audit log</h1>
+      <h1 className="mt-2 page-title">Audit log</h1>
       <p className="mb-6 text-sm text-gray-500">
         Recent changes to orders and other tracked actions (IST).
       </p>
@@ -20,7 +20,7 @@ export default async function AuditLogPage() {
       {logs.length === 0 ? (
         <p className="text-sm text-gray-500">No audit entries yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="table-panel">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>

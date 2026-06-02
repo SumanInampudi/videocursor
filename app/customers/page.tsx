@@ -19,7 +19,7 @@ export default async function CustomersPage({
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Customers</h1>
+          <h1 className="page-title">Customers</h1>
           <p className="text-sm text-gray-500">
             Profiles for repeat buyers. Open a customer for revenue and marketing signals.
           </p>

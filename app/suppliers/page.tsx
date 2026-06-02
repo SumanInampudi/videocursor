@@ -12,7 +12,7 @@ export default async function SuppliersPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Suppliers</h1>
+          <h1 className="page-title">Suppliers</h1>
           <p className="text-sm text-gray-500">
             Vendors you buy stock from. Link suppliers on purchases for payables tracking.
           </p>

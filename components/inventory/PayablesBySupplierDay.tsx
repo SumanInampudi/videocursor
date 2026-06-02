@@ -10,7 +10,7 @@ export function PayablesBySupplierDay({ groups }: PayablesBySupplierDayProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-servora-charcoal">Credit by supplier & day</h2>
+      <h2 className="section-title">Credit by supplier & day</h2>
       <p className="text-sm text-gray-500">
         Amounts still owed from stock received on credit, grouped by supplier and purchase date.
       </p>

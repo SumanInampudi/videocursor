@@ -15,7 +15,7 @@ export function ReceiveHistoryTable({ batches }: ReceiveHistoryTableProps) {
 
   if (batches.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
+      <div className="empty-state text-sm text-gray-500">
         No stock receives in this date range.
       </div>
     );

@@ -8,14 +8,16 @@ type YieldCardProps = {
 
 export function YieldCard({ result, rank }: YieldCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between">
+    <div className="card-padded transition-shadow hover:shadow-card-hover">
+      <div className="flex items-start justify-between gap-3">
         <div>
           {rank !== undefined && (
-            <span className="text-xs font-medium text-gray-400">#{rank}</span>
+            <Badge variant="primary" className="mb-2 normal-case">
+              #{rank}
+            </Badge>
           )}
-          <h3 className="text-lg font-semibold text-servora-charcoal">{result.recipeName}</h3>
-          <p className="text-sm text-gray-500">{result.category}</p>
+          <h3 className="text-lg font-bold text-charcoal">{result.recipeName}</h3>
+          <p className="text-sm text-charcoal-muted">{result.category}</p>
         </div>
         {result.canMake ? (
           <Badge variant="success">
@@ -28,18 +30,18 @@ export function YieldCard({ result, rank }: YieldCardProps) {
 
       <div className="mt-4 space-y-2 text-sm">
         {result.canMake && result.bottleneckIngredient && (
-          <p className="text-gray-600">
-            <span className="font-medium text-servora-yellow">Bottleneck:</span>{" "}
+          <p className="text-charcoal-muted">
+            <span className="font-semibold text-brand-700">Bottleneck:</span>{" "}
             {result.bottleneckIngredient}
             {result.bottleneckNote ? (
-              <span className="block text-xs text-gray-500">{result.bottleneckNote}</span>
+              <span className="mt-1 block text-xs text-charcoal-muted">{result.bottleneckNote}</span>
             ) : null}
           </p>
         )}
         {result.missingIngredients.length > 0 && (
           <div>
-            <p className="font-medium text-servora-red">Issues:</p>
-            <ul className="mt-1 list-inside list-disc text-gray-600">
+            <p className="font-semibold text-danger">Issues</p>
+            <ul className="mt-1 list-inside list-disc text-charcoal-muted">
               {result.missingIngredients.map((issue) => (
                 <li key={issue}>{issue}</li>
               ))}

@@ -15,7 +15,7 @@ export function ProfitChart({ rows }: { rows: Row[] }) {
   const max = Math.max(...withRevenue.map((r) => Math.max(r.revenue, Math.abs(r.netProfit))), 1);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="card-padded">
       <p className="mb-3 text-xs text-gray-500">Revenue (bars) vs net profit (line) by day</p>
       <div className="flex h-40 items-end gap-0.5 overflow-x-auto">
         {withRevenue.map((row) => {

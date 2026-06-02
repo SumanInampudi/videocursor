@@ -106,7 +106,7 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="card-padded shadow-sm">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <Link

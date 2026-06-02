@@ -42,10 +42,10 @@ export default async function ReportsPage({
   return (
     <div>
       <div className="mb-6">
-        <Link href="/" className="text-sm text-servora-yellow hover:underline">
+        <Link href="/" className="link-brand text-sm">
           ← Dashboard
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">
+        <h1 className="mt-2 page-title">
           Profit & loss reports
         </h1>
         <p className="text-sm text-gray-500">
@@ -93,7 +93,7 @@ export default async function ReportsPage({
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-4 text-lg font-semibold text-servora-charcoal">Day by day</h2>
+        <h2 className="mb-4 section-title">Day by day</h2>
         <ProfitHistoryTable rows={history} />
       </section>
     </div>

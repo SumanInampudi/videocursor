@@ -77,7 +77,7 @@ export function OrderSettlePanel({
     <div className={compact ? "space-y-3" : "rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-4"}>
       {!compact && (
         <div>
-          <h2 className="text-lg font-semibold text-servora-charcoal">Settle bill</h2>
+          <h2 className="section-title">Settle bill</h2>
           <p className="text-sm text-gray-600">
             {orderNumber} · unpaid dine-in tab
           </p>

@@ -46,7 +46,7 @@ export function CustomerInsightsPanel({ data }: { data: Insights }) {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">{data.customer.name}</h1>
+          <h1 className="page-title">{data.customer.name}</h1>
           <p className="text-sm text-gray-500">
             {[data.customer.phone, data.customer.email].filter(Boolean).join(" · ") || "No contact info"}
           </p>
@@ -54,7 +54,7 @@ export function CustomerInsightsPanel({ data }: { data: Insights }) {
             {seg.label} — {seg.hint}
           </span>
         </div>
-        <Link href={`/customers/${data.customer.id}/edit`} className="text-sm text-servora-yellow hover:underline">
+        <Link href={`/customers/${data.customer.id}/edit`} className="link-brand text-sm">
           Edit customer
         </Link>
       </div>
@@ -93,7 +93,7 @@ export function CustomerInsightsPanel({ data }: { data: Insights }) {
       </section>
 
       {data.customer.notes && (
-        <section className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+        <section className="filter-bar text-sm text-gray-600">
           <strong>Notes:</strong> {data.customer.notes}
         </section>
       )}
@@ -126,7 +126,7 @@ export function CustomerInsightsPanel({ data }: { data: Insights }) {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="card-padded shadow-sm">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="mt-1 text-xl font-bold text-servora-charcoal">{value}</p>
     </div>

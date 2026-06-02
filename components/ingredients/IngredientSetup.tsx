@@ -85,7 +85,7 @@ export function IngredientSetup() {
       <form
         ref={singleFormRef}
         action={handleSingle}
-        className="rounded-lg border border-gray-200 bg-white p-4"
+        className="card-padded"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -128,7 +128,7 @@ export function IngredientSetup() {
         </div>
       </form>
 
-      <form action={handleBulk} className="rounded-lg border border-gray-200 bg-white p-4">
+      <form action={handleBulk} className="card-padded">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-servora-charcoal">Bulk Add / CSV Import</h2>

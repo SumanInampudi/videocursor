@@ -61,20 +61,20 @@ function SummaryCard({
   href?: string;
 }) {
   const content = (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
+    <div className="metric-card">
+      <p className="metric-card-label">{label}</p>
       <p
-        className={`mt-1 text-2xl font-bold ${
+        className={`metric-card-value ${
           highlight === "danger"
-            ? "text-servora-red"
+            ? "text-danger"
             : highlight === "warning"
-              ? "text-amber-700"
-              : "text-servora-charcoal"
+              ? "text-brand-800"
+              : ""
         }`}
       >
         {value}
       </p>
-      {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-charcoal-muted">{hint}</p>}
     </div>
   );
 

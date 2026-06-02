@@ -40,8 +40,8 @@ export function DataMigrationPanel() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-servora-charcoal">Choose data type</h2>
+      <section className="card-padded">
+        <h2 className="section-title">Choose data type</h2>
         <p className="mt-1 text-sm text-gray-500">
           Import in this order for a new restaurant: ingredients → inventory → recipes →
           recipe BOM → customers → suppliers → discounts.
@@ -99,7 +99,7 @@ export function DataMigrationPanel() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
+      <section className="card-padded">
         <h3 className="font-semibold text-servora-charcoal">Full backup (JSON)</h3>
         <p className="mt-1 text-sm text-gray-500">
           All datasets in one file — useful for backups or moving between environments.
@@ -112,7 +112,7 @@ export function DataMigrationPanel() {
       </section>
 
       {result && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+        <div className="filter-bar text-sm">
           <p className="font-medium text-servora-charcoal">
             Imported {result.imported} row(s)
             {result.errors.length > 0 && ` · ${result.errors.length} issue(s)`}

@@ -43,7 +43,7 @@ export function RecipeImageUploadCompact({
     <div className="flex flex-col items-center gap-2">
       <RecipeThumbnail name={recipeName} imageUrl={imageUrl} size="lg" />
       <label className="cursor-pointer text-center">
-        <span className="text-xs font-medium text-servora-yellow hover:underline">
+        <span className="text-xs font-medium link-brand">
           {isPending ? "Uploading…" : imageUrl ? "Change photo" : "Add photo"}
         </span>
         <input

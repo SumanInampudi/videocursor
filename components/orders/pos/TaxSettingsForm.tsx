@@ -31,7 +31,7 @@ export function TaxSettingsForm({ initial }: TaxSettingsFormProps) {
   return (
     <form
       onSubmit={submit}
-      className="rounded-lg border border-gray-200 bg-white p-4 space-y-4"
+      className="card-padded space-y-4"
     >
       <div>
         <h2 className="font-semibold text-servora-charcoal">GST & tax (India)</h2>

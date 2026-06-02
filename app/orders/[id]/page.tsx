@@ -17,7 +17,7 @@ export default async function OrderDetailPage({ params }: Props) {
 
   return (
     <div>
-      <Link href="/orders" className="text-sm text-servora-yellow hover:underline">
+      <Link href="/orders" className="link-brand text-sm">
         ← Back to orders
       </Link>
       <div className="mt-4">

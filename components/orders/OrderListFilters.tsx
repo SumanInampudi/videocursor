@@ -66,7 +66,7 @@ export function OrderListFilters() {
   }, [searchParams]);
 
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <div className="mb-4 flex flex-wrap items-end gap-4 filter-bar">
       <div className="min-w-[200px] flex-1">
         <Input
           label="Search"
@@ -107,7 +107,7 @@ export function OrderListFilters() {
         searchParams.get("page")) && (
         <button
           type="button"
-          className="pb-2 text-sm text-servora-yellow hover:underline"
+          className="pb-2 link-brand text-sm"
           onClick={() => router.push("/orders")}
         >
           Clear filters

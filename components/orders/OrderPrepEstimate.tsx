@@ -26,7 +26,7 @@ export function OrderPrepEstimate({ lines, recipes, variant = "banner" }: OrderP
     return (
       <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
         Set <strong>Prep time (min)</strong> on{" "}
-        <a href="/recipes/pricing" className="text-servora-yellow hover:underline">
+        <a href="/recipes/pricing" className="link-brand">
           recipe pricing
         </a>{" "}
         for kitchen ETA at checkout.

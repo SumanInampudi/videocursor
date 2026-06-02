@@ -8,6 +8,8 @@ import {
   getVisibleNavSections,
   type NavRole,
 } from "@/lib/navigation";
+import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui/Button";
 
 export function MobileNav({ userRoles = null }: { userRoles?: NavRole[] | null }) {
   const [open, setOpen] = useState(false);
@@ -20,26 +22,29 @@ export function MobileNav({ userRoles = null }: { userRoles?: NavRole[] | null }
 
   return (
     <div className="md:hidden">
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        size="sm"
         onClick={() => setOpen((v) => !v)}
-        className="fixed left-3 top-[4.25rem] z-50 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium shadow-sm"
+        className="fixed left-3 top-[4.5rem] z-50 shadow-card"
         aria-expanded={open}
       >
         Menu
-      </button>
+      </Button>
       {open && (
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-black/30"
+            className="fixed inset-0 z-40 bg-charcoal/40 backdrop-blur-sm"
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <nav className="fixed left-0 top-16 z-50 h-[calc(100vh-4rem)] w-64 overflow-y-auto border-r border-gray-200 bg-white p-4 shadow-lg">
+          <nav className="fixed left-0 top-[4.25rem] z-50 h-[calc(100dvh-4.25rem)] w-72 overflow-y-auto border-r border-brand-200 bg-white p-4 shadow-card-hover">
+            <div className="mb-3 h-1 rounded-full bg-brand-gradient" aria-hidden />
             {sections.map((section) => (
-              <div key={section.id} className="mb-4">
-                <p className="mb-1 px-2 text-[10px] font-semibold uppercase text-gray-400">
+              <div key={section.id} className="mb-5">
+                <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wider text-brand-700/70">
                   {section.label}
                 </p>
                 <ul className="space-y-0.5">
@@ -48,11 +53,12 @@ export function MobileNav({ userRoles = null }: { userRoles?: NavRole[] | null }
                       <Link
                         href={item.href}
                         onClick={() => setOpen(false)}
-                        className={`block rounded-md px-3 py-2 text-sm ${
+                        className={cn(
+                          "block rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
                           item.href === activeHref
-                            ? "bg-servora-yellow text-white"
-                            : "text-servora-charcoal hover:bg-gray-100"
-                        }`}
+                            ? "bg-sidebar-active text-charcoal shadow-btn"
+                            : "text-charcoal hover:bg-brand-50"
+                        )}
                       >
                         {item.label}
                       </Link>

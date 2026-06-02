@@ -22,7 +22,7 @@ export function RecipeBarcodeGrid({ recipes }: { recipes: RecipeRow[] }) {
       {recipes.map((recipe) => (
         <article
           key={recipe.id}
-          className="flex flex-col items-center rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+          className="flex flex-col items-center card-padded"
         >
           <h3 className="text-center font-semibold text-servora-charcoal">{recipe.name}</h3>
           <p className="mt-1 text-xs text-gray-500">{recipe.category}</p>

@@ -16,10 +16,10 @@ export default async function EditExpensePage({ params }: Props) {
 
   return (
     <div>
-      <Link href="/expenses" className="text-sm text-servora-yellow hover:underline">
+      <Link href="/expenses" className="link-brand text-sm">
         ← Back to expenses
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Edit expense</h1>
+      <h1 className="mt-2 page-title">Edit expense</h1>
       <div className="mt-6">
         <ExpenseForm
           action={action}

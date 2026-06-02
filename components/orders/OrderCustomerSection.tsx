@@ -23,7 +23,7 @@ export function OrderCustomerSection({ customers }: { customers: CustomerOption[
       />
       <p className="text-xs text-gray-500">
         Pick a saved customer for insights, or enter a one-off label.{" "}
-        <a href="/customers/new" className="text-servora-yellow hover:underline">
+        <a href="/customers/new" className="link-brand">
           Add customer →
         </a>
       </p>

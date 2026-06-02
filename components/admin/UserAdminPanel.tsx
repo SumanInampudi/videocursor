@@ -39,7 +39,7 @@ export function UserAdminPanel({ users }: { users: UserRow[] }) {
 
   return (
     <div className="mt-8 grid gap-8 lg:grid-cols-2">
-      <form action={formAction} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
+      <form action={formAction} className="space-y-4 card-padded">
         <h2 className="font-semibold text-servora-charcoal">Add team member</h2>
         <Input label="Name" name="name" required />
         <Input label="Email" name="email" type="email" required />
@@ -54,7 +54,7 @@ export function UserAdminPanel({ users }: { users: UserRow[] }) {
         </Button>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="table-panel">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>

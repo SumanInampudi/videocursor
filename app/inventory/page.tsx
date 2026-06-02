@@ -9,6 +9,7 @@ import { InventoryFilters } from "@/components/inventory/InventoryFilters";
 import { InventorySummary } from "@/components/inventory/InventorySummary";
 import { InventoryTable } from "@/components/inventory/InventoryTable";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type SearchParams = Promise<{
   search?: string;
@@ -36,28 +37,26 @@ export default async function InventoryPage({
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Inventory</h1>
-          <p className="text-sm text-gray-500">
-            Manage stock with granular details — quantities, locations, suppliers, and more
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/inventory/receive">
-            <Button>Stock receive</Button>
-          </Link>
-          <Link href="/inventory/receive/history">
-            <Button variant="secondary">Receive history</Button>
-          </Link>
-          <Link href="/inventory/purchases/new">
-            <Button variant="secondary">Record purchase</Button>
-          </Link>
-          <Link href="/inventory/new">
-            <Button>Add Item</Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Inventory"
+        subtitle="Manage stock — quantities, locations, suppliers, FIFO layers, and wastage"
+        actions={
+          <>
+            <Link href="/inventory/receive">
+              <Button>Stock receive</Button>
+            </Link>
+            <Link href="/inventory/receive/history">
+              <Button variant="secondary">Receive history</Button>
+            </Link>
+            <Link href="/inventory/purchases/new">
+              <Button variant="outline">Record purchase</Button>
+            </Link>
+            <Link href="/inventory/new">
+              <Button variant="secondary">Add Item</Button>
+            </Link>
+          </>
+        }
+      />
 
       <InventorySummary summary={summary} />
 

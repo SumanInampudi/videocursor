@@ -1,9 +1,9 @@
-import React from 'react';
-
 const Footer = () => {
   return (
-    <footer className="bg-white text-gray-900 text-center text-xs py-2 shadow-md border-t fixed bottom-0 w-full">
-      <p>© 2026 Servora. All rights reserved.</p>
+    <footer className="fixed bottom-0 z-30 w-full border-t border-brand-200/60 bg-brand-gradient-soft py-2.5 text-center text-xs font-medium text-charcoal-muted shadow-[0_-2px_12px_rgb(245_166_35_/_0.08)]">
+      <p>
+        © 2026 <span className="font-semibold text-brand-800">Servora</span>. All rights reserved.
+      </p>
     </footer>
   );
 };

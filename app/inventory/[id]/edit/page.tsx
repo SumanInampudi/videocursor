@@ -26,10 +26,10 @@ export default async function EditInventoryPage({ params }: Props) {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-servora-charcoal">Edit Inventory Item</h1>
+        <h1 className="page-title">Edit Inventory Item</h1>
         <p className="text-sm text-gray-500">
           Update stock details for {item.name}. Quantity or cost changes are logged in{" "}
-          <a href="/inventory/receive/history" className="text-servora-yellow hover:underline">
+          <a href="/inventory/receive/history" className="link-brand">
             Stock history
           </a>
           .

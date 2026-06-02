@@ -66,7 +66,7 @@ export function OrderBoardWithFilters({ grouped }: OrderBoardWithFiltersProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex flex-wrap items-end gap-3 card-padded">
         <div className="min-w-[200px] flex-1">
           <Input
             label="Search"

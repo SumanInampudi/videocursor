@@ -22,7 +22,7 @@ export default async function IngredientsPage({ searchParams }: { searchParams: 
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Ingredients</h1>
+          <h1 className="page-title">Ingredients</h1>
           <p className="text-sm text-gray-500">
             Master catalog with auto-generated barcodes for scanner input. Inventory attaches
             stock and pricing separately.
@@ -35,7 +35,7 @@ export default async function IngredientsPage({ searchParams }: { searchParams: 
 
       <IngredientSetup />
 
-      <form className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_220px_auto]">
+      <form className="mb-4 grid gap-3 filter-bar md:grid-cols-[1fr_220px_auto]">
         <input
           name="search"
           defaultValue={filters.search ?? ""}

@@ -72,9 +72,9 @@ export function RecipeMenuImageFields({
   return (
     <section
       id="menu-image"
-      className="mt-8 scroll-mt-24 rounded-lg border border-gray-200 bg-white p-4"
+      className="mt-8 scroll-mt-24 card-padded"
     >
-      <h2 className="text-lg font-semibold text-servora-charcoal">POS menu image</h2>
+      <h2 className="section-title">POS menu image</h2>
       <p className="mt-1 text-sm text-gray-500">
         Shown on register tiles for {recipeName}. JPG, PNG, or WebP up to 2 MB.
       </p>

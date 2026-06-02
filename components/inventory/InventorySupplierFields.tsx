@@ -33,7 +33,7 @@ export function InventorySupplierFields({
         />
       ) : (
         <p className="text-xs text-gray-500 sm:col-span-2">
-          <a href="/suppliers/new" className="text-servora-yellow hover:underline">
+          <a href="/suppliers/new" className="link-brand">
             Add suppliers
           </a>{" "}
           to link stock items for purchases and payables.

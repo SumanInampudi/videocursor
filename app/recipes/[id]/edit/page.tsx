@@ -27,7 +27,7 @@ export default async function EditRecipePage({ params }: Props) {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-servora-charcoal">Edit Recipe</h1>
+        <h1 className="page-title">Edit Recipe</h1>
         <p className="text-sm text-gray-500">Update recipe and ingredients for {recipe.name}</p>
       </div>
       <RecipeForm

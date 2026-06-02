@@ -127,7 +127,7 @@ export function PurchaseForm({
         />
       ) : (
         <p className="text-xs text-gray-500">
-          <a href="/suppliers/new" className="text-servora-yellow hover:underline">
+          <a href="/suppliers/new" className="link-brand">
             Add suppliers
           </a>{" "}
           to link purchases for payables.

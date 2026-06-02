@@ -17,16 +17,16 @@ export function AppShell({ children, userRoles = null, user }: AppShellProps) {
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen flex-col bg-gray-50">
+      <div className="flex min-h-screen flex-col bg-surface">
         <Header user={user} />
-        <div className="flex flex-1 pt-16">
+        <div className="flex flex-1 pt-[4.25rem]">
           {!hideNav && (
             <div className="hidden md:block">
               <Sidebar userRoles={userRoles} />
             </div>
           )}
           {!hideNav && <MobileNav userRoles={userRoles} />}
-          <main className="safe-area-padding flex-1 overflow-auto p-4 pb-24 md:p-6 md:pb-20 lg:pb-16">
+          <main className="safe-area-padding page flex-1 overflow-auto p-4 pb-24 md:p-6 md:pb-20 lg:pb-16">
             {children}
           </main>
         </div>

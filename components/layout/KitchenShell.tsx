@@ -13,15 +13,14 @@ type KitchenShellProps = {
 export function KitchenShell({ children, user, showOrdersLink = true }: KitchenShellProps) {
   return (
     <ToastProvider>
-      <div className="min-h-[100dvh] bg-gray-50 text-servora-charcoal">
-        <header className="safe-area-top flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <div className="min-h-[100dvh] bg-surface text-charcoal">
+        <header className="safe-area-top relative flex flex-wrap items-center justify-between gap-3 border-b border-brand-200/60 bg-white px-4 py-3 shadow-header">
+          <div className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" aria-hidden />
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-700/80">
               Servora · Kitchen
             </p>
-            <h1 className="text-xl font-bold text-servora-charcoal md:text-2xl">
-              Kitchen display
-            </h1>
+            <h1 className="page-title text-xl md:text-2xl">Kitchen display</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {user && <UserMenu user={user} compact />}

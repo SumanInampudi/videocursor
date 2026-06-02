@@ -39,7 +39,7 @@ function CompareCard({
   const pct = previous !== 0 ? ((delta / previous) * 100).toFixed(1) : null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="card-padded shadow-sm">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="mt-1 text-lg font-bold text-servora-charcoal">{formatCurrency(current)}</p>
       <p className="mt-1 text-xs text-gray-500">

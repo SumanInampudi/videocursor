@@ -7,10 +7,10 @@ export function DashboardQuickActions({ userRoles = null }: { userRoles?: NavRol
   if (actions.length === 0) return null;
 
   return (
-    <div className="mb-6 flex flex-wrap gap-2">
+    <div className="card mb-6 flex flex-wrap gap-2 p-3">
       {actions.map((a) => (
         <Link key={a.href} href={a.href}>
-          <Button variant="secondary" className="text-sm">
+          <Button variant="outline" size="sm">
             {a.label}
           </Button>
         </Link>

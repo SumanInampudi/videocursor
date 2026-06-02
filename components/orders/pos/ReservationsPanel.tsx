@@ -96,7 +96,7 @@ export function ReservationsPanel({ tables }: { tables: DiningTableOption[] }) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="card-padded">
       <h2 className="font-semibold text-servora-charcoal">Reservations</h2>
       <p className="mt-1 text-sm text-gray-500">
         Book tables ahead · Check in opens a tab on the assigned table (pay at close).

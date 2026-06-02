@@ -4,17 +4,17 @@ import { Button } from "@/components/ui/Button";
 export default function OrderCostingGuidePage() {
   return (
     <div className="max-w-3xl">
-      <Link href="/orders" className="text-sm text-servora-yellow hover:underline">
+      <Link href="/orders" className="link-brand text-sm">
         ← Back to orders
       </Link>
 
-      <h1 className="mt-4 text-2xl font-bold text-servora-charcoal">
+      <h1 className="mt-4 page-title">
         Inventory pricing & order profit
       </h1>
 
       <div className="prose prose-sm mt-6 space-y-6 text-gray-700">
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-servora-charcoal">
+          <h2 className="section-title">
             1. Current cost on inventory items
           </h2>
           <p className="mt-2 text-sm leading-relaxed">
@@ -25,7 +25,7 @@ export default function OrderCostingGuidePage() {
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-servora-charcoal">
+          <h2 className="section-title">
             2. Cost history when prices change
           </h2>
           <p className="mt-2 text-sm leading-relaxed">
@@ -37,12 +37,12 @@ export default function OrderCostingGuidePage() {
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-servora-charcoal">
+          <h2 className="section-title">
             3. Recipe pricing page (estimates)
           </h2>
           <p className="mt-2 text-sm leading-relaxed">
             On{" "}
-            <Link href="/recipes/pricing" className="text-servora-yellow hover:underline">
+            <Link href="/recipes/pricing" className="link-brand">
               recipe pricing
             </Link>
             , estimated ingredient cost uses a <strong>weighted average</strong> of active
@@ -52,7 +52,7 @@ export default function OrderCostingGuidePage() {
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-servora-charcoal">
+          <h2 className="section-title">
             4. Orders lock cost at fulfillment
           </h2>
           <p className="mt-2 text-sm leading-relaxed">
@@ -65,7 +65,7 @@ export default function OrderCostingGuidePage() {
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-amber-50 p-5">
-          <h2 className="text-lg font-semibold text-servora-charcoal">
+          <h2 className="section-title">
             Advanced: FIFO / batches (future)
           </h2>
           <p className="mt-2 text-sm leading-relaxed">

@@ -3,8 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
+  --background: #fafaf8;
   --foreground: #2b2b2b;
+  --brand: #f5a623;
+  --brand-dark: #c47d0e;
+  --brand-light: #fef3c7;
+  --surface-card: #ffffff;
+  --border: #fde68a;
+  --border-subtle: #fef3c7;
+  --ring: #f5a623;
+  --muted: #6b7280;
 }
 
 body {
@@ -12,6 +20,152 @@ body {
   background: var(--background);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  /* —— Page layout —— */
+  .page {
+    @apply mx-auto w-full max-w-[1600px];
+  }
+
+  .page-header {
+    @apply mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-brand-200/50 pb-5;
+  }
+
+  .page-title {
+    @apply text-2xl font-bold tracking-tight text-charcoal md:text-3xl;
+  }
+
+  .page-subtitle {
+    @apply mt-1 max-w-2xl text-sm leading-relaxed text-charcoal-muted;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold tracking-tight text-charcoal;
+  }
+
+  .section-subtitle {
+    @apply mt-0.5 text-xs text-charcoal-muted;
+  }
+
+  /* —— Cards & panels —— */
+  .card {
+    @apply rounded-xl border border-brand-200/50 bg-surface-card shadow-card;
+  }
+
+  .card-padded {
+    @apply card p-5 md:p-6;
+  }
+
+  .card-header {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-brand-100 bg-brand-gradient-soft px-5 py-4 rounded-t-xl;
+  }
+
+  .card-header-title {
+    @apply text-sm font-semibold uppercase tracking-wide text-brand-800;
+  }
+
+  .metric-card {
+    @apply card-padded transition-shadow hover:shadow-card-hover;
+  }
+
+  .metric-card-label {
+    @apply text-xs font-semibold uppercase tracking-wider text-charcoal-muted;
+  }
+
+  .metric-card-value {
+    @apply mt-2 text-2xl font-bold tabular-nums tracking-tight text-charcoal;
+  }
+
+  /* —— Tables —— */
+  .table-panel {
+    @apply overflow-x-auto rounded-xl border border-brand-200/50 bg-white shadow-card;
+  }
+
+  .table-panel table {
+    @apply min-w-full divide-y divide-brand-100;
+  }
+
+  .table-panel thead {
+    @apply bg-gradient-to-r from-brand-50 via-brand-50/80 to-white;
+  }
+
+  .table-panel th {
+    @apply px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-brand-800/80;
+  }
+
+  .table-panel tbody {
+    @apply divide-y divide-brand-50/80 bg-white;
+  }
+
+  .table-panel tbody tr {
+    @apply transition-colors duration-150 hover:bg-brand-50/50;
+  }
+
+  .table-panel td {
+    @apply px-4 py-3 text-sm text-charcoal;
+  }
+
+  /* —— Forms —— */
+  .form-label {
+    @apply text-sm font-semibold text-charcoal;
+  }
+
+  .form-hint {
+    @apply text-xs text-charcoal-muted;
+  }
+
+  .form-error {
+    @apply text-xs font-medium text-danger;
+  }
+
+  .input-field {
+    @apply w-full rounded-lg border border-brand-200/80 bg-white px-3.5 py-2.5 text-sm text-charcoal shadow-inset placeholder:text-gray-400 transition-all duration-150;
+    @apply hover:border-brand-300;
+    @apply focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25;
+    @apply disabled:cursor-not-allowed disabled:bg-brand-50/50 disabled:opacity-60;
+  }
+
+  .input-field-error {
+    @apply border-danger focus:border-danger focus:ring-danger/20;
+  }
+
+  .select-field {
+    @apply input-field cursor-pointer appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23C47D0E'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  }
+
+  /* —— Links & chips —— */
+  .link-brand {
+    @apply font-semibold text-brand-700 underline-offset-2 transition-colors hover:text-brand-800 hover:underline;
+  }
+
+  .filter-bar {
+    @apply mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-brand-200/50 bg-white p-4 shadow-card;
+  }
+
+  /* —— Empty states —— */
+  .empty-state {
+    @apply rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/30 p-10 text-center;
+  }
+
+  .empty-state-text {
+    @apply text-sm text-charcoal-muted;
+  }
+
+  /* —— Auth / standalone panels —— */
+  .auth-panel {
+    @apply w-full max-w-md rounded-2xl border border-brand-200/60 bg-white p-8 shadow-card md:p-10;
+  }
+
+  .auth-panel-accent {
+    @apply -mx-8 -mt-8 mb-6 h-1.5 rounded-t-2xl bg-brand-gradient md:-mx-10 md:-mt-10;
+  }
+
+  /* —— Badges row in tables —— */
+  .badge-row {
+    @apply flex flex-wrap gap-1.5;
+  }
 }
 
 @layer utilities {
@@ -54,10 +208,10 @@ body {
 @keyframes kitchen-card-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35);
+    box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.35);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    box-shadow: 0 0 0 6px rgba(245, 166, 35, 0);
   }
 }
 

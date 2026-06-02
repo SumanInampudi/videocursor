@@ -24,9 +24,9 @@ export function ExpenseTable({ expenses }: { expenses: Expense[] }) {
 
   if (expenses.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
+      <div className="empty-state text-sm text-gray-500">
         No expenses in this period.{" "}
-        <Link href="/expenses/new" className="text-servora-yellow hover:underline">
+        <Link href="/expenses/new" className="link-brand">
           Add one
         </Link>
       </div>
@@ -40,7 +40,7 @@ export function ExpenseTable({ expenses }: { expenses: Expense[] }) {
       <p className="mb-3 text-sm text-gray-600">
         Total: <span className="font-semibold text-servora-charcoal">{formatCurrency(total)}</span>
       </p>
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="table-panel">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>

@@ -27,7 +27,7 @@ export function DashboardLowStock({ items }: { items: LowStockItem[] }) {
         </h3>
         <Link
           href="/inventory?lowStock=true"
-          className="text-xs font-medium text-servora-yellow hover:underline"
+          className="text-xs font-medium link-brand"
         >
           View all →
         </Link>

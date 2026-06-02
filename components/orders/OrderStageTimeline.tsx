@@ -18,9 +18,9 @@ export function OrderStageTimeline({ order }: OrderStageTimelineProps) {
   const maxMs = Math.max(...rows.map((r) => r.durationMs ?? 0), 1);
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-4">
+    <section className="card-padded">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold text-servora-charcoal">Time in each stage</h2>
+        <h2 className="section-title">Time in each stage</h2>
         <p className="text-sm text-gray-600">
           {order.status === "DELIVERED" || order.status === "CANCELLED" ? (
             <>

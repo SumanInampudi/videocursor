@@ -27,7 +27,7 @@ export function RecipePricingTable({ recipes }: { recipes: RecipePricingRow[] })
     return (
       <p className="text-sm text-gray-500">
         No recipes yet.{" "}
-        <Link href="/recipes/new" className="text-servora-yellow hover:underline">
+        <Link href="/recipes/new" className="link-brand">
           Create a recipe
         </Link>
       </p>
@@ -76,7 +76,7 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="card-padded">
       <div className="grid gap-6 lg:grid-cols-[auto_1fr_auto]">
         <RecipeImageUploadCompact
           recipeId={recipe.id}
@@ -84,7 +84,7 @@ function RecipePricingCard({ recipe }: { recipe: RecipePricingRow }) {
           imageUrl={recipe.imageUrl}
         />
         <div>
-          <h3 className="text-lg font-semibold text-servora-charcoal">{recipe.name}</h3>
+          <h3 className="section-title">{recipe.name}</h3>
           <p className="text-sm text-gray-500">
             {recipe.category}
             {marginLow && (

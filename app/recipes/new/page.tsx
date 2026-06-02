@@ -9,7 +9,7 @@ export default async function NewRecipePage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-servora-charcoal">Create Recipe</h1>
+        <h1 className="page-title">Create Recipe</h1>
         <p className="text-sm text-gray-500">
           Link inventory ingredients to calculate production yield
         </p>
