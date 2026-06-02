@@ -43,6 +43,15 @@ export async function getRecipePricingDetail(recipeId: string) {
   const recipe = await db.recipe.findUnique({
     where: { id: recipeId },
     include: {
+      retailInventoryItem: {
+        include: {
+          ingredient: { select: { wastagePercent: true } },
+          costLayers: {
+            where: { quantityRemaining: { gt: 0 } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
       ingredients: {
         include: {
           ingredient: {
@@ -75,6 +84,15 @@ export async function getRecipesWithPricing() {
   const recipes = await db.recipe.findMany({
     where: { businessId },
     include: {
+      retailInventoryItem: {
+        include: {
+          ingredient: { select: { wastagePercent: true } },
+          costLayers: {
+            where: { quantityRemaining: { gt: 0 } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
       ingredients: {
         include: {
           ingredient: {

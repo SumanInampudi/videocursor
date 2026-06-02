@@ -15,6 +15,15 @@ export const ingredientWithFifoStockInclude = {
 
 /** Recipe → ingredients → stock (orders, pricing, previews). */
 export const recipeIngredientsWithFifoStock = {
+  retailInventoryItem: {
+    include: {
+      ingredient: { select: { wastagePercent: true } },
+      costLayers: {
+        where: { quantityRemaining: { gt: 0 } },
+        orderBy: { createdAt: "asc" as const },
+      },
+    },
+  },
   ingredients: {
     include: {
       ingredient: ingredientWithFifoStockInclude,

@@ -15,11 +15,12 @@ export default async function RecipesPage() {
         title="Recipes"
         subtitle={
           <>
-            Define bill of materials (BOM). &quot;Can make&quot; uses usable stock after wastage.{" "}
+            Prepared dishes use a BOM. Retail items (Coke, packaged snacks) resell inventory
+            directly — no kitchen prep.{" "}
             <Link href="/recipes/pricing" className="link-brand">
               Recipe pricing
             </Link>{" "}
-            · upload POS menu photos when editing a recipe.
+            · upload POS menu photos when editing a item.
           </>
         }
         actions={

@@ -1,15 +1,9 @@
-import { planInventoryDeductions } from "@/lib/orderFulfillment";
+import { planRecipeStockDeduction, type RecipeForStockPlan } from "@/lib/recipe-fulfillment";
 
 export type OrderLineStockInput = {
   recipeId: string;
   quantity: number;
   recipeName?: string;
-};
-
-type RecipeWithIngredients = {
-  id: string;
-  name: string;
-  ingredients: Parameters<typeof planInventoryDeductions>[0];
 };
 
 /**
@@ -32,7 +26,7 @@ export function mergeOrderLinesByRecipe(
 
 /** Check whether active inventory can cover all lines (no deduction). */
 export function checkStockForRecipes(
-  recipes: RecipeWithIngredients[],
+  recipes: RecipeForStockPlan[],
   lines: OrderLineStockInput[]
 ): { ok: true } | { ok: false; issues: string[] } {
   const recipeMap = new Map(recipes.map((r) => [r.id, r]));
@@ -42,10 +36,10 @@ export function checkStockForRecipes(
   for (const line of merged.values()) {
     const recipe = recipeMap.get(line.recipeId);
     if (!recipe) {
-      issues.push(`"${line.recipeName ?? line.recipeId}": recipe not found`);
+      issues.push(`"${line.recipeName ?? line.recipeId}": menu item not found`);
       continue;
     }
-    const plan = planInventoryDeductions(recipe.ingredients, line.quantity);
+    const plan = planRecipeStockDeduction(recipe, line.quantity);
     if (!plan.ok) {
       issues.push(`"${recipe.name}" (${line.quantity}×): ${plan.error}`);
     }

@@ -121,10 +121,12 @@ export async function getIngredientCategories() {
 
 export async function createIngredient(formData: FormData): Promise<IngredientResult> {
   const raw = Object.fromEntries(formData.entries());
+  const isActiveRaw = raw.isActive;
   const parsed = ingredientSchema.safeParse({
     ...raw,
     sku: raw.sku || undefined,
-    isActive: raw.isActive === "on" || raw.isActive === "true",
+    isActive:
+      isActiveRaw == null ? true : isActiveRaw === "on" || isActiveRaw === "true",
   });
 
   if (!parsed.success) {

@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { applyFifoConsumptions, ensureCostLayers } from "@/lib/inventory-fifo";
-import { planInventoryDeductions } from "@/lib/orderFulfillment";
+import { planRecipeStockDeduction } from "@/lib/recipe-fulfillment";
 import { recipeIngredientsWithFifoStock } from "@/lib/inventory-stock-query";
 import { validateOrderLinesStock } from "@/lib/order-stock-server";
 import { estimateOrderPrepMinutes } from "@/lib/order-prep-time";
@@ -83,6 +83,8 @@ export async function getOrdersByStatus() {
               yieldUnit: true,
               barcode: true,
               prepTimeMinutes: true,
+              recipeType: true,
+              requiresKitchen: true,
             },
           },
         },
@@ -100,10 +102,12 @@ export async function getOrdersByStatus() {
       return a.id.localeCompare(b.id);
     }),
     estimatedPrepMinutes: estimateOrderPrepMinutes(
-      order.lineItems.map((line) => ({
-        quantity: line.quantity,
-        prepTimeMinutes: line.recipe?.prepTimeMinutes ?? null,
-      }))
+      order.lineItems
+        .filter((line) => line.recipe?.requiresKitchen !== false)
+        .map((line) => ({
+          quantity: line.quantity,
+          prepTimeMinutes: line.recipe?.prepTimeMinutes ?? null,
+        }))
     ),
   }));
 
@@ -185,6 +189,8 @@ export async function getPosMenuData() {
         barcode: true,
         yieldUnit: true,
         imageUrl: true,
+        recipeType: true,
+        requiresKitchen: true,
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
@@ -393,6 +399,11 @@ export async function createOrder(formData: FormData) {
   });
 
   revalidateOrders();
+
+  if (paymentMethod) {
+    await tryAutoCompletePaidRetailOnlyOrder(order.id, businessId);
+  }
+
   return { success: true, orderId: order.id, orderNumber: order.orderNumber };
 }
 
@@ -453,7 +464,7 @@ export async function getOrderFulfillmentPreview(orderId: string) {
       issues.push(`"${line.recipeName}": recipe removed from catalog`);
       continue;
     }
-    const plan = planInventoryDeductions(line.recipe.ingredients, line.quantity);
+    const plan = planRecipeStockDeduction(line.recipe, line.quantity);
     if (!plan.ok) {
       issues.push(`"${line.recipe?.name ?? line.recipeName}": ${plan.error}`);
     }
@@ -653,32 +664,42 @@ type OrderForFulfillment = {
     quantity: number;
     unitSalePrice: Prisma.Decimal;
     processedAt: Date | null;
-    recipe: {
-      ingredients: {
-        quantityRequired: Prisma.Decimal;
-        unit: import("@prisma/client").Unit;
-        ingredient: {
-          name: string;
-          wastagePercent: Prisma.Decimal;
-          inventoryItems: {
-            id: string;
-            quantity: Prisma.Decimal;
-            unit: import("@prisma/client").Unit;
-            costPerUnit: Prisma.Decimal;
-            isActive: boolean;
-            costLayers: {
-              id: string;
-              quantityRemaining: Prisma.Decimal;
-              costPerUnit: Prisma.Decimal;
-              unit: import("@prisma/client").Unit;
-              createdAt: Date;
-            }[];
-          }[];
-        };
-      }[];
-    } | null;
+    recipe: Parameters<typeof planRecipeStockDeduction>[0] | null;
   }[];
 };
+
+/** Paid POS tabs with only retail lines — deduct stock and mark delivered immediately. */
+async function tryAutoCompletePaidRetailOnlyOrder(orderId: string, businessId: string) {
+  const order = await db.order.findFirst({
+    where: { id: orderId, businessId },
+    include: {
+      lineItems: {
+        include: {
+          recipe: {
+            include: recipeIngredientsWithFifoStock,
+          },
+        },
+      },
+    },
+  });
+  if (!order) return;
+
+  const recipes = order.lineItems.map((l) => l.recipe).filter(Boolean);
+  if (recipes.length === 0) return;
+  const allRetail = recipes.every((r) => r!.recipeType === "RETAIL");
+  if (!allRetail) return;
+
+  const fulfillResult = await fulfillOrderInventory(order);
+  if ("error" in fulfillResult) return;
+
+  await db.order.update({
+    where: { id: orderId },
+    data: {
+      status: OrderStatus.DELIVERED,
+      deliveredAt: new Date(),
+    },
+  });
+}
 
 async function fulfillOrderInventory(order: OrderForFulfillment) {
 
@@ -691,7 +712,7 @@ async function fulfillOrderInventory(order: OrderForFulfillment) {
       };
     }
 
-    const plan = planInventoryDeductions(line.recipe.ingredients, line.quantity);
+    const plan = planRecipeStockDeduction(line.recipe, line.quantity);
     if (!plan.ok) {
       return { error: plan.error };
     }

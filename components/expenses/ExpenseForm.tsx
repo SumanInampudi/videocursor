@@ -17,7 +17,7 @@ type ExpenseFormProps = {
     description: string;
     amount: number;
     periodMonth: string;
-    expenseDate: Date | null;
+    expenseDate: Date | string | null;
     notes: string | null;
   };
   submitLabel?: string;
@@ -37,6 +37,13 @@ export function ExpenseForm({
     value: c.value,
     label: c.label,
   }));
+  const initialExpenseDate = initialData?.expenseDate
+    ? new Date(initialData.expenseDate)
+    : null;
+  const initialExpenseDateValue =
+    initialExpenseDate && !Number.isNaN(initialExpenseDate.getTime())
+      ? toDateInputValue(initialExpenseDate)
+      : "";
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -110,9 +117,7 @@ export function ExpenseForm({
         name="expenseDate"
         label="Payment date (optional)"
         type="date"
-        defaultValue={
-          initialData?.expenseDate ? toDateInputValue(initialData.expenseDate) : ""
-        }
+        defaultValue={initialExpenseDateValue}
         error={errors.expenseDate?.[0]}
       />
       <Textarea

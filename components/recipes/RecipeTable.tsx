@@ -15,6 +15,7 @@ type RecipeWithYield = {
   imageUrl?: string | null;
   category: string;
   yieldUnit: string;
+  recipeType?: "PREPARED" | "RETAIL";
   ingredients: { id: string }[];
   yieldResult: YieldResult;
 };
@@ -71,10 +72,19 @@ export function RecipeTable({ recipes }: RecipeTableProps) {
                 <div className="flex items-center gap-3">
                   <RecipeThumbnail name={recipe.name} imageUrl={recipe.imageUrl} size="sm" />
                   <span className="font-semibold text-charcoal">{recipe.name}</span>
+                  {recipe.recipeType === "RETAIL" && (
+                    <Badge variant="primary" className="ml-1 normal-case">
+                      Retail
+                    </Badge>
+                  )}
                 </div>
               </td>
               <td className="text-charcoal-muted">{recipe.category}</td>
-              <td className="text-charcoal-muted">{recipe.ingredients.length} items</td>
+              <td className="text-charcoal-muted">
+                {recipe.recipeType === "RETAIL"
+                  ? "Retail item"
+                  : `${recipe.ingredients.length} items`}
+              </td>
               <td>
                 {recipe.yieldResult.canMake ? (
                   <Badge variant="success">

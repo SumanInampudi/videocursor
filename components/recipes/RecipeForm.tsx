@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { createQuickIngredient } from "@/app/actions/ingredients";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -32,9 +33,19 @@ type ParsedBulkLine = {
   unit: string;
 };
 
+type InventoryOption = {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  unit: string;
+  quantity: number | string;
+};
+
 type RecipeFormProps = {
   action: (formData: FormData) => Promise<{ error?: Record<string, string[]>; success?: boolean }>;
   ingredients: IngredientOption[];
+  inventoryItems?: InventoryOption[];
   initialData?: {
     name: string;
     description: string | null;
@@ -42,6 +53,10 @@ type RecipeFormProps = {
     yieldQuantity: number;
     yieldUnit: string;
     instructions: string | null;
+    recipeType?: "PREPARED" | "RETAIL";
+    requiresKitchen?: boolean;
+    retailInventoryItemId?: string | null;
+    retailQuantityPerSale?: number | null;
     ingredients: {
       ingredientId: string;
       quantityRequired: number;
@@ -54,6 +69,7 @@ type RecipeFormProps = {
 export function RecipeForm({
   action,
   ingredients: initialIngredients,
+  inventoryItems = [],
   initialData,
   submitLabel = "Save Recipe",
 }: RecipeFormProps) {
@@ -67,6 +83,20 @@ export function RecipeForm({
   const [bulkIssues, setBulkIssues] = useState<ParsedBulkLine[]>([]);
   const [highlightedIngredientId, setHighlightedIngredientId] = useState("");
   const [builderError, setBuilderError] = useState("");
+  const [recipeType, setRecipeType] = useState<"PREPARED" | "RETAIL">(
+    initialData?.recipeType ?? "PREPARED"
+  );
+  const [requiresKitchen, setRequiresKitchen] = useState(
+    initialData?.requiresKitchen ?? initialData?.recipeType !== "RETAIL"
+  );
+  const [retailInventoryItemId, setRetailInventoryItemId] = useState(
+    initialData?.retailInventoryItemId ?? ""
+  );
+  const [retailQuantityPerSale, setRetailQuantityPerSale] = useState(
+    initialData?.retailQuantityPerSale != null
+      ? String(initialData.retailQuantityPerSale)
+      : "1"
+  );
   const [ingredients, setIngredients] = useState<IngredientRow[]>(
     initialData?.ingredients.map((ing) => ({
         ingredientId: ing.ingredientId,
@@ -258,24 +288,46 @@ export function RecipeForm({
   }
 
   function handleSubmit(formData: FormData) {
-    if (ingredients.length === 0) {
-      setBuilderError("Add at least one ingredient to the recipe.");
-      return;
+    formData.set("recipeType", recipeType);
+    if (requiresKitchen) {
+      formData.set("requiresKitchen", "on");
     }
 
-    const missingQty = ingredients.some((ing) => !ing.quantityRequired || Number(ing.quantityRequired) <= 0);
-    if (missingQty) {
-      setBuilderError("Every ingredient needs a quantity greater than 0.");
-      return;
-    }
+    if (recipeType === "RETAIL") {
+      if (!retailInventoryItemId) {
+        setBuilderError("Select the inventory item you sell (e.g. Coke can).");
+        return;
+      }
+      if (!retailQuantityPerSale || Number(retailQuantityPerSale) <= 0) {
+        setBuilderError("Quantity per sale must be greater than 0.");
+        return;
+      }
+      formData.set("retailInventoryItemId", retailInventoryItemId);
+      formData.set("retailQuantityPerSale", retailQuantityPerSale);
+      formData.set("ingredientCount", "0");
+      setBuilderError("");
+    } else {
+      if (ingredients.length === 0) {
+        setBuilderError("Add at least one ingredient to the recipe.");
+        return;
+      }
 
-    setBuilderError("");
-    formData.set("ingredientCount", String(ingredients.length));
-    ingredients.forEach((ing, i) => {
-      formData.set(`ingredient_${i}_ingredientId`, ing.ingredientId);
-      formData.set(`ingredient_${i}_quantityRequired`, ing.quantityRequired);
-      formData.set(`ingredient_${i}_unit`, ing.unit);
-    });
+      const missingQty = ingredients.some(
+        (ing) => !ing.quantityRequired || Number(ing.quantityRequired) <= 0
+      );
+      if (missingQty) {
+        setBuilderError("Every ingredient needs a quantity greater than 0.");
+        return;
+      }
+
+      formData.set("ingredientCount", String(ingredients.length));
+      ingredients.forEach((ing, i) => {
+        formData.set(`ingredient_${i}_ingredientId`, ing.ingredientId);
+        formData.set(`ingredient_${i}_quantityRequired`, ing.quantityRequired);
+        formData.set(`ingredient_${i}_unit`, ing.unit);
+      });
+      setBuilderError("");
+    }
 
     startTransition(async () => {
       const result = await action(formData);
@@ -290,6 +342,50 @@ export function RecipeForm({
 
   return (
     <form action={handleSubmit} className="max-w-3xl space-y-6">
+      <div className="card-padded space-y-4">
+        <div>
+          <p className="form-label mb-2">Menu item type</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={recipeType === "PREPARED" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => {
+                setRecipeType("PREPARED");
+                setRequiresKitchen(true);
+              }}
+            >
+              Prepared dish
+            </Button>
+            <Button
+              type="button"
+              variant={recipeType === "RETAIL" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => {
+                setRecipeType("RETAIL");
+                setRequiresKitchen(false);
+              }}
+            >
+              Retail / resale
+            </Button>
+          </div>
+          <p className="form-hint mt-2">
+            {recipeType === "RETAIL"
+              ? "Sell stock directly (Coke, chips, bottled water). Links to inventory — no kitchen prep."
+              : "Made in kitchen from ingredients (BOM)."}
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm font-medium text-charcoal">
+          <input
+            type="checkbox"
+            checked={requiresKitchen}
+            onChange={(e) => setRequiresKitchen(e.target.checked)}
+            className="h-4 w-4 rounded border-brand-300 text-brand-600 focus:ring-brand-500"
+          />
+          Send to kitchen display (KDS)
+        </label>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Input
           name="name"
@@ -342,6 +438,50 @@ export function RecipeForm({
         error={errors.instructions?.[0]}
       />
 
+      {recipeType === "RETAIL" ? (
+        <div className="card-padded space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="section-title">Retail stock link</h3>
+            <Badge variant="primary">Resale</Badge>
+          </div>
+          <p className="form-hint">
+            Receive stock under Inventory → Stock receive, then sell it here on POS.
+          </p>
+          <Select
+            label="Inventory item *"
+            value={retailInventoryItemId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setRetailInventoryItemId(id);
+              const item = inventoryItems.find((i) => i.id === id);
+              if (item && !initialData?.yieldUnit) {
+                const yieldInput = document.querySelector<HTMLInputElement>(
+                  'input[name="yieldUnit"]'
+                );
+                if (yieldInput) yieldInput.value = item.unit;
+              }
+            }}
+            options={[
+              { value: "", label: "Select inventory SKU…" },
+              ...inventoryItems.map((item) => ({
+                value: item.id,
+                label: `${item.name} (${item.sku}) · ${Number(item.quantity)} ${item.unit} on hand`,
+              })),
+            ]}
+            error={errors.retailInventoryItemId?.[0]}
+          />
+          <Input
+            label="Quantity per sale *"
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={retailQuantityPerSale}
+            onChange={(e) => setRetailQuantityPerSale(e.target.value)}
+            hint="Usually 1 for a bottle or can (pcs)."
+            error={errors.retailQuantityPerSale?.[0]}
+          />
+        </div>
+      ) : (
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-medium text-servora-charcoal">Ingredients (BOM) *</h3>
@@ -567,6 +707,7 @@ export function RecipeForm({
           </table>
         </div>
       </div>
+      )}
 
       <div className="flex gap-3">
         <Button type="submit" disabled={isPending}>

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { UNITS } from "./units";
 
+export const RECIPE_TYPES = ["PREPARED", "RETAIL"] as const;
+
 export const inventoryItemSchema = z.object({
   ingredientId: z.string().optional(),
   name: z.string().min(1, "Name is required"),
@@ -41,28 +43,62 @@ export const recipeIngredientSchema = z.object({
   unit: z.enum(UNITS),
 });
 
-export const recipeSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  category: z.string().min(1, "Category is required"),
-  yieldQuantity: z.coerce.number().positive("Yield quantity must be greater than 0"),
-  yieldUnit: z.string().min(1, "Yield unit is required"),
-  instructions: z.string().optional(),
-  ingredients: z.array(recipeIngredientSchema).min(1, "At least one ingredient is required"),
-}).superRefine((data, ctx) => {
-  const seen = new Set<string>();
+export const recipeSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    category: z.string().min(1, "Category is required"),
+    yieldQuantity: z.coerce.number().positive("Yield quantity must be greater than 0"),
+    yieldUnit: z.string().min(1, "Yield unit is required"),
+    instructions: z.string().optional(),
+    recipeType: z.enum(RECIPE_TYPES).default("PREPARED"),
+    requiresKitchen: z
+      .union([z.boolean(), z.literal("true"), z.literal("false"), z.literal("on")])
+      .transform((v) => v === true || v === "true" || v === "on")
+      .default(true),
+    retailInventoryItemId: z.string().optional(),
+    retailQuantityPerSale: z.coerce.number().optional(),
+    ingredients: z.array(recipeIngredientSchema).default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (data.recipeType === "RETAIL") {
+      if (!data.retailInventoryItemId?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Select the inventory item to sell",
+          path: ["retailInventoryItemId"],
+        });
+      }
+      if (data.retailQuantityPerSale == null || data.retailQuantityPerSale <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Quantity per sale must be greater than 0",
+          path: ["retailQuantityPerSale"],
+        });
+      }
+      return;
+    }
 
-  data.ingredients.forEach((ingredient, index) => {
-    if (seen.has(ingredient.ingredientId)) {
+    if (data.ingredients.length < 1) {
       ctx.addIssue({
         code: "custom",
-        message: "Do not add the same ingredient twice",
-        path: ["ingredients", index, "ingredientId"],
+        message: "At least one ingredient is required",
+        path: ["ingredients"],
       });
     }
-    seen.add(ingredient.ingredientId);
+
+    const seen = new Set<string>();
+    data.ingredients.forEach((ingredient, index) => {
+      if (seen.has(ingredient.ingredientId)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Do not add the same ingredient twice",
+          path: ["ingredients", index, "ingredientId"],
+        });
+      }
+      seen.add(ingredient.ingredientId);
+    });
   });
-});
 
 export type RecipeInput = z.infer<typeof recipeSchema>;
 

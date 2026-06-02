@@ -1,4 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/library";
+import { RecipeType } from "@prisma/client";
 import { estimateLineCostFifo, type CostLayerSnapshot } from "@/lib/inventory-fifo";
 import { usableQuantity } from "@/lib/ingredient-wastage";
 
@@ -65,10 +66,65 @@ export function estimateRecipeIngredientCost(
     id: string;
     name: string;
     salePrice?: Decimal | number | null;
+    recipeType?: RecipeType;
+    retailQuantityPerSale?: Decimal | number | null;
+    retailInventoryItem?: InventoryStock & {
+      name?: string;
+      ingredient?: { wastagePercent?: Decimal | number | null } | null;
+    } | null;
     ingredients: RecipeIngredientRow[];
   },
   batchCount = 1
 ): RecipeCostEstimate {
+  if (recipe.recipeType === RecipeType.RETAIL && recipe.retailInventoryItem) {
+    const perSale = toNumber(recipe.retailQuantityPerSale ?? 1);
+    const needed = perSale * batchCount;
+    const item = recipe.retailInventoryItem;
+    const waste =
+      item.ingredient?.wastagePercent != null
+        ? toNumber(item.ingredient.wastagePercent)
+        : 0;
+    const { cost: lineCost } = estimateLineCostFifo({
+      requiredQty: needed,
+      unit: item.unit as import("@prisma/client").Unit,
+      wastagePercent: waste,
+      inventoryItems: mapItemsForFifo([item]),
+    });
+
+    const ingredientLines: IngredientCostLine[] = [
+      {
+        ingredientName: item.name ?? recipe.name,
+        quantity: needed,
+        unit: item.unit,
+        estimatedCost: lineCost,
+        source: lineCost > 0 ? "inventory" : "missing",
+      },
+    ];
+
+    const totalIngredientCost = lineCost;
+    const unitIngredientCost = batchCount > 0 ? totalIngredientCost / batchCount : 0;
+    const unitSalePrice =
+      recipe.salePrice != null ? toNumber(recipe.salePrice) : null;
+    const unitProfit =
+      unitSalePrice != null ? unitSalePrice - unitIngredientCost : null;
+    const marginPercent =
+      unitSalePrice != null && unitSalePrice > 0 && unitProfit != null
+        ? (unitProfit / unitSalePrice) * 100
+        : null;
+
+    return {
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      batchCount,
+      ingredientLines,
+      totalIngredientCost,
+      unitIngredientCost,
+      unitSalePrice,
+      unitProfit,
+      marginPercent,
+    };
+  }
+
   const ingredientLines: IngredientCostLine[] = [];
   let totalIngredientCost = 0;
 

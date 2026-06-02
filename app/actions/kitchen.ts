@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
-import { kitchenLineProgress } from "@/lib/kitchen-kds";
+import { kitchenLineProgressForKitchen } from "@/lib/recipe-fulfillment";
 
 const KITCHEN_PATHS = ["/orders/kitchen", "/orders"];
 
@@ -65,12 +65,13 @@ export async function getKitchenPackWarning(orderId: string): Promise<{
           addedAt: true,
           kitchenDoneAt: true,
           kitchenDoneQty: true,
+          recipe: { select: { recipeType: true, requiresKitchen: true } },
         },
       },
     },
   });
   if (!order) return { incomplete: false, done: 0, total: 0 };
 
-  const { done, total } = kitchenLineProgress(order.lineItems);
+  const { done, total } = kitchenLineProgressForKitchen(order.lineItems);
   return { incomplete: total > 0 && done < total, done, total };
 }

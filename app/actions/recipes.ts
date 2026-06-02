@@ -6,32 +6,77 @@ import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
 import { recipeSchema } from "@/lib/validations";
 import { calculateAllYields } from "@/lib/yield";
-import { Unit } from "@prisma/client";
+import { RecipeType, Unit } from "@prisma/client";
 
-export async function getRecipes() {
-  const { requireBusinessContext } = await import("@/lib/business-context");
-  const { businessId } = await requireBusinessContext();
-  const recipes = await db.recipe.findMany({
-    where: { businessId },
+function parseRecipeFormData(raw: Record<string, FormDataEntryValue>) {
+  const ingredientCount = parseInt(String(raw.ingredientCount || "0"), 10);
+  const ingredients = [];
+  for (let i = 0; i < ingredientCount; i++) {
+    ingredients.push({
+      ingredientId: String(raw[`ingredient_${i}_ingredientId`] || ""),
+      quantityRequired: raw[`ingredient_${i}_quantityRequired`],
+      unit: raw[`ingredient_${i}_unit`],
+    });
+  }
+
+  const recipeType = raw.recipeType === "RETAIL" ? "RETAIL" : "PREPARED";
+  const requiresKitchen =
+    raw.requiresKitchen === "true" || raw.requiresKitchen === "on"
+      ? true
+      : recipeType === "RETAIL"
+        ? false
+        : true;
+
+  return recipeSchema.safeParse({
+    name: raw.name,
+    description: raw.description,
+    category: raw.category,
+    yieldQuantity: raw.yieldQuantity,
+    yieldUnit: raw.yieldUnit,
+    instructions: raw.instructions,
+    recipeType,
+    requiresKitchen: recipeType === "RETAIL" ? requiresKitchen : requiresKitchen,
+    retailInventoryItemId: String(raw.retailInventoryItemId || "").trim() || undefined,
+    retailQuantityPerSale: raw.retailQuantityPerSale,
+    ingredients,
+  });
+}
+
+const recipeStockInclude = {
+  retailInventoryItem: {
     include: {
-      ingredients: {
+      ingredient: { select: { wastagePercent: true } },
+      costLayers: {
+        where: { quantityRemaining: { gt: 0 } },
+        orderBy: { createdAt: "asc" as const },
+      },
+    },
+  },
+  ingredients: {
+    include: {
+      ingredient: {
         include: {
-          ingredient: {
+          inventoryItems: {
+            where: { isActive: true },
             include: {
-              inventoryItems: {
-                where: { isActive: true },
-                include: {
-                  costLayers: {
-                    where: { quantityRemaining: { gt: 0 } },
-                    orderBy: { createdAt: "asc" },
-                  },
-                },
+              costLayers: {
+                where: { quantityRemaining: { gt: 0 } },
+                orderBy: { createdAt: "asc" },
               },
             },
           },
         },
       },
     },
+  },
+} as const;
+
+export async function getRecipes() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const recipes = await db.recipe.findMany({
+    where: { businessId },
+    include: recipeStockInclude,
     orderBy: { updatedAt: "desc" },
   });
 
@@ -51,6 +96,9 @@ export async function getRecipe(id: string) {
     include: {
       ingredients: {
         include: { ingredient: true },
+      },
+      retailInventoryItem: {
+        select: { id: true, name: true, unit: true, sku: true },
       },
     },
   });
@@ -77,37 +125,52 @@ export async function getActiveIngredientsForRecipes() {
   return serializeForClient(rows);
 }
 
+export async function getInventoryItemsForRetailMenu() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const rows = await db.inventoryItem.findMany({
+    where: { businessId, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      category: true,
+      unit: true,
+      quantity: true,
+    },
+    orderBy: { name: "asc" },
+  });
+  return serializeForClient(rows) as unknown as {
+    id: string;
+    name: string;
+    sku: string;
+    category: string;
+    unit: string;
+    quantity: number;
+  }[];
+}
+
 export async function createRecipe(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
-  const ingredientCount = parseInt(String(raw.ingredientCount || "0"), 10);
-
-  const ingredients = [];
-  for (let i = 0; i < ingredientCount; i++) {
-    ingredients.push({
-      ingredientId: String(raw[`ingredient_${i}_ingredientId`] || ""),
-      quantityRequired: raw[`ingredient_${i}_quantityRequired`],
-      unit: raw[`ingredient_${i}_unit`],
-    });
-  }
-
-  const parsed = recipeSchema.safeParse({
-    name: raw.name,
-    description: raw.description,
-    category: raw.category,
-    yieldQuantity: raw.yieldQuantity,
-    yieldUnit: raw.yieldUnit,
-    instructions: raw.instructions,
-    ingredients,
-  });
+  const parsed = parseRecipeFormData(raw);
 
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
   const data = parsed.data;
-
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
+
+  if (data.recipeType === "RETAIL" && data.retailInventoryItemId) {
+    const item = await db.inventoryItem.findFirst({
+      where: { id: data.retailInventoryItemId, businessId, isActive: true },
+    });
+    if (!item) {
+      return { error: { retailInventoryItemId: ["Inventory item not found"] } };
+    }
+  }
+
   await db.recipe.create({
     data: {
       businessId,
@@ -118,13 +181,22 @@ export async function createRecipe(formData: FormData) {
       yieldUnit: data.yieldUnit,
       instructions: data.instructions || null,
       barcode: generateRecipeBarcode(data.name),
-      ingredients: {
-        create: data.ingredients.map((ing) => ({
-          ingredientId: ing.ingredientId,
-          quantityRequired: ing.quantityRequired,
-          unit: ing.unit as Unit,
-        })),
-      },
+      recipeType: data.recipeType as RecipeType,
+      requiresKitchen: data.requiresKitchen,
+      retailInventoryItemId:
+        data.recipeType === "RETAIL" ? data.retailInventoryItemId ?? null : null,
+      retailQuantityPerSale:
+        data.recipeType === "RETAIL" ? data.retailQuantityPerSale ?? null : null,
+      ingredients:
+        data.recipeType === "PREPARED"
+          ? {
+              create: data.ingredients.map((ing) => ({
+                ingredientId: ing.ingredientId,
+                quantityRequired: ing.quantityRequired,
+                unit: ing.unit as Unit,
+              })),
+            }
+          : undefined,
     },
   });
 
@@ -137,32 +209,24 @@ export async function createRecipe(formData: FormData) {
 
 export async function updateRecipe(id: string, formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
-  const ingredientCount = parseInt(String(raw.ingredientCount || "0"), 10);
-
-  const ingredients = [];
-  for (let i = 0; i < ingredientCount; i++) {
-    ingredients.push({
-      ingredientId: String(raw[`ingredient_${i}_ingredientId`] || ""),
-      quantityRequired: raw[`ingredient_${i}_quantityRequired`],
-      unit: raw[`ingredient_${i}_unit`],
-    });
-  }
-
-  const parsed = recipeSchema.safeParse({
-    name: raw.name,
-    description: raw.description,
-    category: raw.category,
-    yieldQuantity: raw.yieldQuantity,
-    yieldUnit: raw.yieldUnit,
-    instructions: raw.instructions,
-    ingredients,
-  });
+  const parsed = parseRecipeFormData(raw);
 
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
   const data = parsed.data;
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  if (data.recipeType === "RETAIL" && data.retailInventoryItemId) {
+    const item = await db.inventoryItem.findFirst({
+      where: { id: data.retailInventoryItemId, businessId, isActive: true },
+    });
+    if (!item) {
+      return { error: { retailInventoryItemId: ["Inventory item not found"] } };
+    }
+  }
 
   await db.$transaction([
     db.recipeIngredient.deleteMany({ where: { recipeId: id } }),
@@ -175,13 +239,22 @@ export async function updateRecipe(id: string, formData: FormData) {
         yieldQuantity: data.yieldQuantity,
         yieldUnit: data.yieldUnit,
         instructions: data.instructions || null,
-        ingredients: {
-        create: data.ingredients.map((ing) => ({
-          ingredientId: ing.ingredientId,
-          quantityRequired: ing.quantityRequired,
-          unit: ing.unit as Unit,
-        })),
-        },
+        recipeType: data.recipeType as RecipeType,
+        requiresKitchen: data.requiresKitchen,
+        retailInventoryItemId:
+          data.recipeType === "RETAIL" ? data.retailInventoryItemId ?? null : null,
+        retailQuantityPerSale:
+          data.recipeType === "RETAIL" ? data.retailQuantityPerSale ?? null : null,
+        ingredients:
+          data.recipeType === "PREPARED"
+            ? {
+                create: data.ingredients.map((ing) => ({
+                  ingredientId: ing.ingredientId,
+                  quantityRequired: ing.quantityRequired,
+                  unit: ing.unit as Unit,
+                })),
+              }
+            : undefined,
       },
     }),
   ]);
@@ -255,6 +328,7 @@ export async function getRecipeByBarcode(barcode: string) {
       category: true,
       yieldUnit: true,
       imageUrl: true,
+      recipeType: true,
     },
   });
 
@@ -266,25 +340,7 @@ export async function getYieldResults() {
   const { businessId } = await requireBusinessContext();
   const recipes = await db.recipe.findMany({
     where: { businessId },
-    include: {
-      ingredients: {
-        include: {
-          ingredient: {
-            include: {
-              inventoryItems: {
-                where: { isActive: true },
-                include: {
-                  costLayers: {
-                    where: { quantityRemaining: { gt: 0 } },
-                    orderBy: { createdAt: "asc" },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+    include: recipeStockInclude,
   });
 
   return calculateAllYields(recipes);

@@ -1,5 +1,7 @@
 import { Decimal } from "@prisma/client/runtime/library";
+import { RecipeType } from "@prisma/client";
 import { normalizeWastagePercent, usableQuantity } from "@/lib/ingredient-wastage";
+import { isRetailRecipe } from "@/lib/recipe-fulfillment";
 
 type IngredientWithItem = {
   quantityRequired: Decimal | number;
@@ -25,6 +27,16 @@ type RecipeWithIngredients = {
   category: string;
   yieldQuantity: Decimal | number;
   yieldUnit: string;
+  recipeType?: RecipeType;
+  retailQuantityPerSale?: Decimal | number | null;
+  retailInventoryItem?: {
+    id: string;
+    name: string;
+    quantity: Decimal | number;
+    unit: string;
+    isActive: boolean;
+    ingredient?: { wastagePercent?: Decimal | number | null } | null;
+  } | null;
   ingredients: IngredientWithItem[];
 };
 
@@ -53,6 +65,52 @@ function formatQty(amount: number, unit: string): string {
 }
 
 export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult {
+  if (isRetailRecipe(recipe)) {
+    const item = recipe.retailInventoryItem;
+    const perSale = recipe.retailQuantityPerSale;
+    if (!item || perSale == null || toNumber(perSale) <= 0) {
+      return {
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        category: recipe.category,
+        yieldUnit: recipe.yieldUnit,
+        maxYield: 0,
+        bottleneckIngredient: null,
+        bottleneckNote: null,
+        missingIngredients: ["Link an inventory item and quantity per sale"],
+        canMake: false,
+      };
+    }
+
+    const waste = normalizeWastagePercent(item.ingredient?.wastagePercent);
+    const physical = toNumber(item.quantity);
+    const available = usableQuantity(physical, waste);
+    const required = toNumber(perSale);
+    const maxYield = available > 0 ? Math.floor(available / required) : 0;
+
+    return {
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      category: recipe.category,
+      yieldUnit: recipe.yieldUnit,
+      maxYield,
+      bottleneckIngredient: item.name,
+      bottleneckNote:
+        waste > 0
+          ? `${formatQty(available, item.unit)} usable (${formatQty(physical, item.unit)} on hand, ${waste}% waste)`
+          : `${formatQty(physical, item.unit)} on hand`,
+      missingIngredients:
+        maxYield <= 0
+          ? [
+              waste > 0
+                ? `${item.name} (no usable stock after ${waste}% waste)`
+                : item.name,
+            ]
+          : [],
+      canMake: maxYield > 0 && item.isActive,
+    };
+  }
+
   if (recipe.ingredients.length === 0) {
     return {
       recipeId: recipe.id,

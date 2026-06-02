@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import {
   getActiveIngredientsForRecipes,
+  getInventoryItemsForRetailMenu,
   getRecipe,
   updateRecipe,
 } from "@/app/actions/recipes";
@@ -15,9 +16,10 @@ type Props = {
 
 export default async function EditRecipePage({ params }: Props) {
   const { id } = await params;
-  const [recipe, ingredients] = await Promise.all([
+  const [recipe, ingredients, inventoryItems] = await Promise.all([
     getRecipe(id),
     getActiveIngredientsForRecipes(),
+    getInventoryItemsForRetailMenu(),
   ]);
 
   if (!recipe) notFound();
@@ -27,12 +29,13 @@ export default async function EditRecipePage({ params }: Props) {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="page-title">Edit Recipe</h1>
-        <p className="text-sm text-gray-500">Update recipe and ingredients for {recipe.name}</p>
+        <h1 className="page-title">Edit menu item</h1>
+        <p className="page-subtitle">Update {recipe.name}</p>
       </div>
       <RecipeForm
         action={updateAction}
         ingredients={ingredients}
+        inventoryItems={inventoryItems}
         initialData={{
           name: recipe.name,
           description: recipe.description,
@@ -40,19 +43,24 @@ export default async function EditRecipePage({ params }: Props) {
           yieldQuantity: Number(recipe.yieldQuantity),
           yieldUnit: recipe.yieldUnit,
           instructions: recipe.instructions,
+          recipeType: recipe.recipeType,
+          requiresKitchen: recipe.requiresKitchen,
+          retailInventoryItemId: recipe.retailInventoryItemId,
+          retailQuantityPerSale:
+            recipe.retailQuantityPerSale != null
+              ? Number(recipe.retailQuantityPerSale)
+              : null,
           ingredients: recipe.ingredients.map((ing) => ({
             ingredientId: ing.ingredientId,
             quantityRequired: Number(ing.quantityRequired),
             unit: ing.unit,
           })),
         }}
-        submitLabel="Update Recipe"
+        submitLabel="Update menu item"
       />
-      <RecipeMenuImageFields
-        recipeId={recipe.id}
-        recipeName={recipe.name}
-        imageUrl={recipe.imageUrl}
-      />
+      <div className="mt-8">
+        <RecipeMenuImageFields recipeId={id} recipeName={recipe.name} imageUrl={recipe.imageUrl} />
+      </div>
     </div>
   );
 }

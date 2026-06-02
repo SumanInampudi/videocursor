@@ -48,10 +48,11 @@ export async function getExpenses(filters?: {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
 
-  return db.expense.findMany({
+  const rows = await db.expense.findMany({
     where: { ...where, businessId },
     orderBy: [{ periodMonth: "desc" }, { createdAt: "desc" }],
   });
+  return serializeForClient(rows);
 }
 
 export async function getExpensesGroupedByMonth(periodMonth?: string) {
