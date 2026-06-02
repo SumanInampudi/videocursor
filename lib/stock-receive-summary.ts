@@ -1,4 +1,4 @@
-import { toDateInputValue } from "@/lib/dates";
+import { formatCalendarDateString } from "@/lib/dates";
 import type { PurchasePaymentStatus, Unit } from "@prisma/client";
 
 export type StockReceiveLineSummary = {
@@ -105,7 +105,7 @@ function parseInvoiceRef(notes: string | null): string | null {
 }
 
 function legacyBatchKey(p: PurchaseRow): string {
-  const day = toDateInputValue(p.purchaseDate);
+  const day = formatCalendarDateString(p.purchaseDate);
   const minute = Math.floor(p.createdAt.getTime() / 60_000);
   return `legacy:${day}:${p.supplier ?? ""}:${p.notes ?? ""}:${p.paymentStatus}:${minute}`;
 }
@@ -164,7 +164,7 @@ export function groupPurchasesIntoBatches(purchases: PurchaseRow[]): StockReceiv
       return {
         receiveBatchId: b.receiveBatchId,
         kind: b.kind,
-        purchaseDate: toDateInputValue(b.purchaseDate),
+        purchaseDate: formatCalendarDateString(b.purchaseDate),
         postedAt: b.postedAt.toISOString(),
         supplierName: b.supplierName,
         invoiceRef: parseInvoiceRef(b.notes),

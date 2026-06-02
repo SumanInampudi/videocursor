@@ -1,3 +1,56 @@
+/** Primary timezone for calendar dates (matches business default & UI copy). */
+export const APP_TIMEZONE = "Asia/Kolkata";
+
+/** Calendar YYYY-MM-DD in app timezone — use for Prisma @db.Date values from the DB. */
+export function formatCalendarDateString(
+  date: Date,
+  timeZone: string = APP_TIMEZONE
+): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+}
+
+/**
+ * Parse YYYY-MM-DD for Prisma @db.Date storage without UTC day shift.
+ * (Avoid `new Date("YYYY-MM-DD")` which is UTC midnight and can store/read as prior day.)
+ */
+export function parseCalendarDateString(
+  value: string | undefined,
+  fallback: Date = new Date()
+): Date {
+  if (!value) {
+    return dateAtUtcNoon(formatCalendarDateString(fallback));
+  }
+  const match = DATE_INPUT_RE.exec(value.trim());
+  if (!match) {
+    return dateAtUtcNoon(formatCalendarDateString(fallback));
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return dateAtUtcNoon(formatCalendarDateString(fallback));
+  }
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+}
+
+function dateAtUtcNoon(yyyyMmDd: string): Date {
+  const match = DATE_INPUT_RE.exec(yyyyMmDd);
+  if (!match) return new Date();
+  return new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0, 0)
+  );
+}
+
+/** YYYY-MM accounting month from a calendar date string or Date (IST). */
+export function calendarDateToPeriodMonth(
+  date: Date | string,
+  timeZone: string = APP_TIMEZONE
+): string {
+  const key =
+    typeof date === "string" ? date.slice(0, 10) : formatCalendarDateString(date, timeZone);
+  return key.slice(0, 7);
+}
+
 /** Start of calendar day in local server time. */
 export function toIST(date: Date): string {
   return date.toLocaleString('en-IN', {
@@ -110,13 +163,13 @@ export function periodMonthsInRange(from: Date, to: Date): string[] {
   return months;
 }
 
-/** Default dashboard/report range: start of current month through today. */
+/** Default dashboard/report range: start of current month through today (IST calendar). */
 export function defaultReportDateRange(): { from: string; to: string } {
-  const today = new Date();
-  const from = startOfDay(new Date(today.getFullYear(), today.getMonth(), 1));
+  const todayKey = formatCalendarDateString(new Date());
+  const [y, m] = todayKey.split("-").map(Number);
   return {
-    from: toDateInputValue(from),
-    to: toDateInputValue(today),
+    from: `${y}-${String(m).padStart(2, "0")}-01`,
+    to: todayKey,
   };
 }
 

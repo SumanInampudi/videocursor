@@ -1,3 +1,5 @@
+import { formatCalendarDateString } from "@/lib/dates";
+
 export type PayablePurchaseRow = {
   id: string;
   description: string;
@@ -52,11 +54,11 @@ export function groupPayablesBySupplierAndDay(
       purchaseDate:
         typeof p.purchaseDate === "string"
           ? p.purchaseDate.slice(0, 10)
-          : p.purchaseDate.toISOString().slice(0, 10),
+          : formatCalendarDateString(p.purchaseDate),
       dueDate: p.dueDate
         ? typeof p.dueDate === "string"
           ? p.dueDate.slice(0, 10)
-          : p.dueDate.toISOString().slice(0, 10)
+          : formatCalendarDateString(p.dueDate)
         : null,
       paymentStatus: p.paymentStatus,
     };

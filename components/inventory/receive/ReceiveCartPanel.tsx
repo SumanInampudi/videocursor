@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { toDateInputValue } from "@/lib/dates";
+import { formatCalendarDateString } from "@/lib/dates";
 import type { ReceiveCartLine } from "@/lib/stock-receive-cart";
 import { formatCurrency, formatQuantity } from "@/lib/units";
 
@@ -53,7 +53,7 @@ export function ReceiveCartPanel({
   const [supplierId, setSupplierId] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("PAID");
   const [amountPaid, setAmountPaid] = useState("");
-  const [purchaseDate] = useState(() => toDateInputValue(new Date()));
+  const [purchaseDate] = useState(() => formatCalendarDateString(new Date()));
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [invoiceRef, setInvoiceRef] = useState("");

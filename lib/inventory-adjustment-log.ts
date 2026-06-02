@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { formatCalendarDateString, parseCalendarDateString } from "@/lib/dates";
 import type { Prisma, Unit } from "@prisma/client";
 
 /** Audit row for manual inventory form edits (shown in receive history). */
@@ -43,7 +44,7 @@ export async function recordManualInventoryAdjustment(
       totalAmount: valueEstimate,
       amountPaid: 0,
       paymentStatus: "PAID",
-      purchaseDate: new Date(),
+      purchaseDate: parseCalendarDateString(formatCalendarDateString(new Date())),
       notes: "Inventory form edit",
     },
   });

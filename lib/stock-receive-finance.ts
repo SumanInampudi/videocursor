@@ -1,7 +1,11 @@
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
-import { toDateInputValue, toPeriodMonth } from "@/lib/dates";
+import {
+  calendarDateToPeriodMonth,
+  formatCalendarDateString,
+  parseCalendarDateString,
+} from "@/lib/dates";
 import { ExpenseCategory } from "@prisma/client";
 
 const DAILY_EXPENSE_PREFIX = "Stock receive (daily)";
@@ -25,10 +29,9 @@ export async function recordStockReceiveExpense(
   const { amountPaid, purchaseDate, businessId } = input;
   if (amountPaid <= 0.0001) return;
 
-  const expenseDate = new Date(purchaseDate);
-  expenseDate.setHours(0, 0, 0, 0);
-  const periodMonth = toPeriodMonth(expenseDate);
-  const dayLabel = toDateInputValue(expenseDate);
+  const dayLabel = formatCalendarDateString(purchaseDate);
+  const expenseDate = parseCalendarDateString(dayLabel);
+  const periodMonth = calendarDateToPeriodMonth(dayLabel);
 
   const detail = [
     input.supplierName ? `Supplier: ${input.supplierName}` : null,

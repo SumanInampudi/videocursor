@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
-import { toDateInputValue, toPeriodMonth } from "@/lib/dates";
+import {
+  calendarDateToPeriodMonth,
+  formatCalendarDateString,
+  parseCalendarDateString,
+} from "@/lib/dates";
 import { groupPayablesBySupplierAndDay } from "@/lib/payables-by-day";
 import { serializeForClient } from "@/lib/serialize";
 import { ExpenseCategory } from "@prisma/client";
@@ -150,8 +154,8 @@ export async function createInventoryPurchase(formData: FormData) {
       totalAmount: data.totalAmount,
       amountPaid,
       paymentStatus: status,
-      purchaseDate: new Date(data.purchaseDate),
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      purchaseDate: parseCalendarDateString(data.purchaseDate),
+      dueDate: data.dueDate ? parseCalendarDateString(data.dueDate) : null,
       notes: data.notes || null,
     },
   });
@@ -191,18 +195,17 @@ export async function recordPurchasePayment(id: string, formData: FormData) {
     });
 
     if (amount > 0) {
-      const payDate = purchase.purchaseDate;
-      const expenseDate = new Date(payDate);
-      expenseDate.setHours(0, 0, 0, 0);
+      const dayLabel = formatCalendarDateString(purchase.purchaseDate);
+      const expenseDate = parseCalendarDateString(dayLabel);
       await tx.expense.create({
         data: {
           businessId,
           category: ExpenseCategory.SUPPLIES,
           description: "Supplier payment (payables)",
           amount,
-          periodMonth: toPeriodMonth(expenseDate),
+          periodMonth: calendarDateToPeriodMonth(dayLabel),
           expenseDate,
-          notes: `${purchase.description} · ${purchase.supplier ?? "Supplier"} · ${toDateInputValue(expenseDate)}`,
+          notes: `${purchase.description} · ${purchase.supplier ?? "Supplier"} · ${dayLabel}`,
         },
       });
     }

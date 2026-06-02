@@ -5,9 +5,8 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import {
-  endOfDay,
-  parseDateInputValue,
-  startOfDay,
+  formatCalendarDateString,
+  parseCalendarDateString,
   toDateInputValue,
 } from "@/lib/dates";
 import { STARTER_INGREDIENTS, normalizeIngredientName } from "@/lib/ingredients";
@@ -180,13 +179,13 @@ export async function getStockReceiveHistory(filters?: {
   to?: string;
 }) {
   const { businessId } = await requireBusinessContext();
-  const today = new Date();
-  const from = filters?.from
-    ? startOfDay(parseDateInputValue(filters.from, today))
-    : startOfDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30));
-  const to = filters?.to
-    ? endOfDay(parseDateInputValue(filters.to, today))
-    : endOfDay(today);
+  const todayKey = formatCalendarDateString(new Date());
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const defaultFromKey = formatCalendarDateString(thirtyDaysAgo);
+
+  const from = parseCalendarDateString(filters?.from ?? defaultFromKey);
+  const to = parseCalendarDateString(filters?.to ?? todayKey);
 
   const purchases = await db.inventoryPurchase.findMany({
     where: {
@@ -280,8 +279,8 @@ export async function postStockReceive(formData: FormData) {
     supplierName = sup.name;
   }
 
-  const purchaseDate = new Date(data.purchaseDate);
-  const dueDate = data.dueDate ? new Date(data.dueDate) : null;
+  const purchaseDate = parseCalendarDateString(data.purchaseDate);
+  const dueDate = data.dueDate ? parseCalendarDateString(data.dueDate) : null;
   const headerNote = [
     data.invoiceRef?.trim() ? `Ref: ${data.invoiceRef.trim()}` : null,
     data.notes?.trim() || null,
