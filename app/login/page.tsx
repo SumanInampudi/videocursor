@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         </p>
         <LoginForm nextPath={params.next} />
         <div className="mt-6 rounded-xl border border-brand-200/60 bg-brand-50/50 p-4 text-xs text-charcoal-muted">
-          <p className="font-semibold text-brand-900">Demo accounts (after seed)</p>
+          <p className="font-semibold text-brand-900">Default accounts (after seed)</p>
           <ul className="mt-2 space-y-1">
             <li>
               <Badge variant="outline" className="mr-1 normal-case">

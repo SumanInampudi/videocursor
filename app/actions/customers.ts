@@ -43,7 +43,7 @@ export async function getCustomerInsights(id: string) {
       orders: {
         where: { status: OrderStatus.DELIVERED },
         include: {
-          lineItems: { select: { revenue: true, quantity: true, recipeName: true } },
+          lineItems: { select: { revenue: true, quantity: true, productName: true } },
         },
         orderBy: { deliveredAt: "desc" },
       },

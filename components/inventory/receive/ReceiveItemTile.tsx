@@ -1,10 +1,11 @@
 "use client";
 
-import { RecipeMenuTile } from "@/components/recipes/RecipeMenuTile";
+import { ProductMenuTile } from "@/components/products/ProductMenuTile";
 import { formatCurrency, formatQuantity } from "@/lib/units";
 
 type ReceiveItemTileProps = {
   name: string;
+  imageUrl?: string | null;
   lastUnitCost: number;
   stockQty: number | null;
   stockUnit: string | null;
@@ -15,6 +16,7 @@ type ReceiveItemTileProps = {
 
 export function ReceiveItemTile({
   name,
+  imageUrl,
   lastUnitCost,
   stockQty,
   stockUnit,
@@ -36,9 +38,10 @@ export function ReceiveItemTile({
     );
 
   return (
-    <RecipeMenuTile
+    <ProductMenuTile
       name={name}
       price={lastUnitCost > 0 ? lastUnitCost : 0}
+      imageUrl={imageUrl}
       onClick={onAdd}
       disabled={disabled}
       subtitle={subtitle}

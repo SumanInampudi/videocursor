@@ -1,5 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/library";
-import { RecipeType } from "@prisma/client";
+import { ProductType } from "@prisma/client";
 import { estimateLineCostFifo, type CostLayerSnapshot } from "@/lib/inventory-fifo";
 import { usableQuantity } from "@/lib/ingredient-wastage";
 
@@ -32,9 +32,9 @@ export type IngredientCostLine = {
   source: "inventory" | "missing";
 };
 
-export type RecipeCostEstimate = {
-  recipeId: string;
-  recipeName: string;
+export type ProductCostEstimate = {
+  productId: string;
+  productName: string;
   batchCount: number;
   ingredientLines: IngredientCostLine[];
   totalIngredientCost: number;
@@ -61,12 +61,12 @@ function mapItemsForFifo(items: InventoryStock[]) {
   }));
 }
 
-export function estimateRecipeIngredientCost(
+export function estimateProductIngredientCost(
   recipe: {
     id: string;
     name: string;
     salePrice?: Decimal | number | null;
-    recipeType?: RecipeType;
+    productType?: ProductType;
     retailQuantityPerSale?: Decimal | number | null;
     retailInventoryItem?: InventoryStock & {
       name?: string;
@@ -75,8 +75,8 @@ export function estimateRecipeIngredientCost(
     ingredients: RecipeIngredientRow[];
   },
   batchCount = 1
-): RecipeCostEstimate {
-  if (recipe.recipeType === RecipeType.RETAIL && recipe.retailInventoryItem) {
+): ProductCostEstimate {
+  if (recipe.productType === ProductType.RETAIL && recipe.retailInventoryItem) {
     const perSale = toNumber(recipe.retailQuantityPerSale ?? 1);
     const needed = perSale * batchCount;
     const item = recipe.retailInventoryItem;
@@ -113,8 +113,8 @@ export function estimateRecipeIngredientCost(
         : null;
 
     return {
-      recipeId: recipe.id,
-      recipeName: recipe.name,
+      productId: recipe.id,
+      productName: recipe.name,
       batchCount,
       ingredientLines,
       totalIngredientCost,
@@ -190,8 +190,8 @@ export function estimateRecipeIngredientCost(
       : null;
 
   return {
-    recipeId: recipe.id,
-    recipeName: recipe.name,
+    productId: recipe.id,
+    productName: recipe.name,
     batchCount,
     ingredientLines,
     totalIngredientCost,

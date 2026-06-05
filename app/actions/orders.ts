@@ -8,8 +8,8 @@ import { db } from "@/lib/db";
 import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { applyFifoConsumptions, ensureCostLayers } from "@/lib/inventory-fifo";
-import { planRecipeStockDeduction } from "@/lib/recipe-fulfillment";
-import { recipeIngredientsWithFifoStock } from "@/lib/inventory-stock-query";
+import { planProductStockDeduction } from "@/lib/product-fulfillment";
+import { productIngredientsWithFifoStock } from "@/lib/inventory-stock-query";
 import { validateOrderLinesStock } from "@/lib/order-stock-server";
 import { estimateOrderPrepMinutes } from "@/lib/order-prep-time";
 import {
@@ -47,7 +47,7 @@ const ORDER_PATHS = [
   "/reports",
   "/inventory",
   "/yield",
-  "/recipes",
+  "/products",
 ];
 
 const PUBLIC_QUEUE_PATHS = ["/queue"];
@@ -76,14 +76,13 @@ export async function getOrdersByStatus() {
       customer: { select: { id: true, name: true } },
       lineItems: {
         include: {
-          recipe: {
+          product: {
             select: {
               id: true,
               name: true,
               yieldUnit: true,
-              barcode: true,
               prepTimeMinutes: true,
-              recipeType: true,
+              productType: true,
               requiresKitchen: true,
             },
           },
@@ -103,10 +102,10 @@ export async function getOrdersByStatus() {
     }),
     estimatedPrepMinutes: estimateOrderPrepMinutes(
       order.lineItems
-        .filter((line) => line.recipe?.requiresKitchen !== false)
+        .filter((line) => line.product?.requiresKitchen !== false)
         .map((line) => ({
           quantity: line.quantity,
-          prepTimeMinutes: line.recipe?.prepTimeMinutes ?? null,
+          prepTimeMinutes: line.product?.prepTimeMinutes ?? null,
         }))
     ),
   }));
@@ -140,7 +139,7 @@ export async function getOrder(id: string) {
       diningTable: { select: { id: true, code: true, label: true } },
       lineItems: {
         include: {
-          recipe: true,
+          product: true,
           consumptions: {
             include: { inventoryItem: { select: { id: true, name: true, sku: true } } },
           },
@@ -152,23 +151,22 @@ export async function getOrder(id: string) {
   return order ? serializeForClient(order) : null;
 }
 
-export async function getRecipesForOrdering() {
+export async function getProductsForOrdering() {
   const { businessId } = await requireBusinessContext();
-  const recipes = await db.recipe.findMany({
+  const products = await db.product.findMany({
     where: { businessId },
     select: {
       id: true,
       name: true,
       category: true,
       salePrice: true,
-      barcode: true,
       yieldUnit: true,
       yieldQuantity: true,
       imageUrl: true,
     },
     orderBy: { name: "asc" },
   });
-  return serializeForClient(recipes);
+  return serializeForClient(products);
 }
 
 /** Menu data for full-screen POS (categories, items, frequently sold). */
@@ -177,8 +175,8 @@ export async function getPosMenuData() {
   const since = new Date();
   since.setDate(since.getDate() - 90);
 
-  const [recipes, frequentGroups] = await Promise.all([
-    db.recipe.findMany({
+  const [products, frequentGroups] = await Promise.all([
+    db.product.findMany({
       where: { businessId },
       select: {
         id: true,
@@ -186,18 +184,17 @@ export async function getPosMenuData() {
         category: true,
         salePrice: true,
         prepTimeMinutes: true,
-        barcode: true,
         yieldUnit: true,
         imageUrl: true,
-        recipeType: true,
+        productType: true,
         requiresKitchen: true,
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
     db.orderLineItem.groupBy({
-      by: ["recipeId"],
+      by: ["productId"],
       where: {
-        recipeId: { not: null },
+        productId: { not: null },
         order: {
           businessId,
           status: OrderStatus.DELIVERED,
@@ -211,14 +208,14 @@ export async function getPosMenuData() {
   ]);
 
   const frequentIds = frequentGroups
-    .map((row) => row.recipeId)
+    .map((row) => row.productId)
     .filter((id): id is string => id != null);
 
-  const allCategories = [...new Set(recipes.map((r) => r.category))];
+  const allCategories = [...new Set(products.map((p) => p.category))];
   const categories = await getOrderedPosCategories(allCategories);
 
   return serializeForClient({
-    recipes,
+    products,
     categories,
     frequentIds,
   });
@@ -236,7 +233,7 @@ export async function createOrder(formData: FormData) {
 
   for (let i = 0; i < lineCount; i++) {
     lines.push({
-      recipeId: String(raw[`line_${i}_recipeId`] || ""),
+      productId: String(raw[`line_${i}_productId`] || ""),
       quantity: raw[`line_${i}_quantity`],
     });
   }
@@ -328,7 +325,7 @@ export async function createOrder(formData: FormData) {
 
   const stockCheck = await validateOrderLinesStock(
     businessId,
-    parsed.data.lines.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }))
+    parsed.data.lines.map((l) => ({ productId: l.productId, quantity: l.quantity }))
   );
   if (!stockCheck.ok) {
     return { error: { stock: stockCheck.issues } };
@@ -374,6 +371,14 @@ export async function createOrder(formData: FormData) {
     ? await buildOrderTaxFields(businessId, subtotal, discountTotal, tipAmount)
     : {};
 
+  const createLinePayloads = linePayloads.map((line) => ({
+    productId: line.productId,
+    productName: line.productName,
+    quantity: line.quantity,
+    unitSalePrice: line.unitSalePrice,
+    revenue: line.revenue,
+  }));
+
   const order = await db.order.create({
     data: {
       businessId,
@@ -394,7 +399,7 @@ export async function createOrder(formData: FormData) {
       paidAt: paymentMethod ? new Date() : null,
       notes: parsed.data.notes || null,
       status: OrderStatus.NEW,
-      lineItems: { create: linePayloads },
+      lineItems: { create: createLinePayloads },
     },
   });
 
@@ -431,7 +436,7 @@ export async function createPosOrder(formData: FormData) {
 
 /** Client preview before POS checkout (optional; server enforces on create). */
 export async function previewCartStock(
-  lines: { recipeId: string; quantity: number }[],
+  lines: { productId: string; quantity: number }[],
   existingOrderId?: string
 ) {
   const { businessId } = await requireBusinessContext();
@@ -447,8 +452,8 @@ export async function getOrderFulfillmentPreview(orderId: string) {
     include: {
       lineItems: {
         include: {
-          recipe: {
-            include: recipeIngredientsWithFifoStock,
+          product: {
+            include: productIngredientsWithFifoStock,
           },
         },
       },
@@ -460,13 +465,13 @@ export async function getOrderFulfillmentPreview(orderId: string) {
   const issues: string[] = [];
   for (const line of order.lineItems) {
     if (line.processedAt) continue;
-    if (!line.recipe) {
-      issues.push(`"${line.recipeName}": recipe removed from catalog`);
+    if (!line.product) {
+      issues.push(`"${line.productName}": product removed from catalog`);
       continue;
     }
-    const plan = planRecipeStockDeduction(line.recipe, line.quantity);
+    const plan = planProductStockDeduction(line.product, line.quantity);
     if (!plan.ok) {
-      issues.push(`"${line.recipe?.name ?? line.recipeName}": ${plan.error}`);
+      issues.push(`"${line.product?.name ?? line.productName}": ${plan.error}`);
     }
   }
 
@@ -479,8 +484,8 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
     include: {
       lineItems: {
         include: {
-          recipe: {
-            include: recipeIngredientsWithFifoStock,
+          product: {
+            include: productIngredientsWithFifoStock,
           },
         },
       },
@@ -660,11 +665,11 @@ export async function cancelOrder(orderId: string, reason?: string) {
 type OrderForFulfillment = {
   lineItems: {
     id: string;
-    recipeName: string;
+    productName: string;
     quantity: number;
     unitSalePrice: Prisma.Decimal;
     processedAt: Date | null;
-    recipe: Parameters<typeof planRecipeStockDeduction>[0] | null;
+    product: Parameters<typeof planProductStockDeduction>[0] | null;
   }[];
 };
 
@@ -675,8 +680,8 @@ async function tryAutoCompletePaidRetailOnlyOrder(orderId: string, businessId: s
     include: {
       lineItems: {
         include: {
-          recipe: {
-            include: recipeIngredientsWithFifoStock,
+          product: {
+            include: productIngredientsWithFifoStock,
           },
         },
       },
@@ -684,9 +689,9 @@ async function tryAutoCompletePaidRetailOnlyOrder(orderId: string, businessId: s
   });
   if (!order) return;
 
-  const recipes = order.lineItems.map((l) => l.recipe).filter(Boolean);
-  if (recipes.length === 0) return;
-  const allRetail = recipes.every((r) => r!.recipeType === "RETAIL");
+  const products = order.lineItems.map((l) => l.product).filter(Boolean);
+  if (products.length === 0) return;
+  const allRetail = products.every((p) => p!.productType === "RETAIL");
   if (!allRetail) return;
 
   const fulfillResult = await fulfillOrderInventory(order);
@@ -706,13 +711,13 @@ async function fulfillOrderInventory(order: OrderForFulfillment) {
   for (const line of order.lineItems) {
     if (line.processedAt) continue;
 
-    if (!line.recipe) {
+    if (!line.product) {
       return {
-        error: `Cannot fulfill: recipe "${line.recipeName}" was removed from the catalog`,
+        error: `Cannot fulfill: product "${line.productName}" was removed from the catalog`,
       };
     }
 
-    const plan = planRecipeStockDeduction(line.recipe, line.quantity);
+    const plan = planProductStockDeduction(line.product, line.quantity);
     if (!plan.ok) {
       return { error: plan.error };
     }
@@ -780,7 +785,7 @@ function buildOrdersListWhere(
       { customerName: { contains: q } },
       { discountCode: { contains: q } },
       { customer: { name: { contains: q } } },
-      { lineItems: { some: { recipeName: { contains: q } } } },
+      { lineItems: { some: { productName: { contains: q } } } },
     ];
   }
 
@@ -804,8 +809,8 @@ export async function getOrdersList(filters: OrdersListQuery = {}) {
             id: true,
             quantity: true,
             unitSalePrice: true,
-            recipeName: true,
-            recipe: { select: { name: true, yieldUnit: true } },
+            productName: true,
+            product: { select: { name: true, yieldUnit: true } },
           },
         },
       },

@@ -20,7 +20,7 @@ export function ProfitLossPanel({
         <MetricCard
           label="Total costs"
           value={formatCurrency(summary.totalCosts)}
-          sub="Ingredient COGS + operating expenses"
+          sub="Raw material COGS + operating expenses"
         />
         <MetricCard
           label="Net profit / loss"
@@ -38,7 +38,7 @@ export function ProfitLossPanel({
           sub={
             summary.grossMarginPercent != null
               ? `${summary.grossMarginPercent.toFixed(1)}% before rent & payroll`
-              : "After ingredient COGS only"
+              : "After raw material COGS only"
           }
         />
       </div>
@@ -50,7 +50,7 @@ export function ProfitLossPanel({
         <div className="space-y-3 text-sm">
           <CostRow
             label="Cost of goods sold (COGS)"
-            description="Ingredients used on delivered orders (from inventory when orders marked ready)"
+            description="Raw materials used on delivered orders (from inventory when orders marked ready)"
             amount={summary.cogs}
           />
           <CostRow

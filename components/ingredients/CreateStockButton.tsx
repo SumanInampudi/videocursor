@@ -2,15 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { createInventoryFromIngredient } from "@/app/actions/ingredients";
+import { createStockFromRawMaterial } from "@/app/actions/ingredients";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 
 export function CreateStockButton({
-  ingredientId,
+  rawMaterialId,
   hasStock,
 }: {
-  ingredientId: string;
+  rawMaterialId: string;
   hasStock: boolean;
 }) {
   const router = useRouter();
@@ -21,7 +21,7 @@ export function CreateStockButton({
 
   function handleClick() {
     startTransition(async () => {
-      const result = await createInventoryFromIngredient(ingredientId);
+      const result = await createStockFromRawMaterial(rawMaterialId);
       if (result.error) {
         if (result.itemId) {
           router.push(`/inventory/${result.itemId}/edit`);
@@ -43,7 +43,7 @@ export function CreateStockButton({
       disabled={isPending}
       onClick={handleClick}
     >
-      {isPending ? "…" : "Create stock"}
+      {isPending ? "…" : "Create zero stock"}
     </Button>
   );
 }

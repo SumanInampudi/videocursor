@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { postStockReceive } from "@/app/actions/stock-receive";
-import { getIngredientByBarcode } from "@/app/actions/ingredients";
 import { PosCategoryNav } from "@/components/orders/pos/PosCategoryNav";
 import { ReceiveCartPanel } from "@/components/inventory/receive/ReceiveCartPanel";
 import { ReceiveItemGrid } from "@/components/inventory/receive/ReceiveItemGrid";
@@ -13,7 +12,6 @@ import {
   type ReceivePostFields,
 } from "@/components/inventory/receive/ReceiveReviewModal";
 import { ReceiveReceiptModal } from "@/components/inventory/receive/ReceiveReceiptModal";
-import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
 import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
 import { useToast } from "@/components/ui/Toast";
 import type { StockReceiveReceipt } from "@/lib/stock-receive-summary";
@@ -54,11 +52,6 @@ export function StockReceiveScreen({
   const [receipt, setReceipt] = useState<StockReceiveReceipt | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
 
-  const catalogMap = useMemo(
-    () => new Map(catalog.map((i) => [i.id, i])),
-    [catalog]
-  );
-
   const total = receiveCartTotal(cart);
 
   const addItem = useCallback((item: ReceiveCatalogItem) => {
@@ -66,20 +59,6 @@ export function StockReceiveScreen({
     setScanHint(`${item.name} added — set qty & cost in cart`);
     setErrors({});
   }, []);
-
-  async function handleScan(barcode: string) {
-    const ingredient = await getIngredientByBarcode(barcode);
-    if (!ingredient) {
-      setScanHint("No ingredient for that barcode.");
-      return;
-    }
-    const item = catalogMap.get(ingredient.id);
-    if (!item) {
-      setScanHint("Ingredient is inactive or not in catalog.");
-      return;
-    }
-    addItem(item);
-  }
 
   const supplierNameForReview = useMemo(() => {
     if (!reviewFields?.supplierId) return null;
@@ -150,7 +129,7 @@ export function StockReceiveScreen({
         </Link>
         <div className="w-full sm:w-auto sm:min-w-[200px] md:min-w-[240px]">
           <SmartSearchInput
-            placeholder="Search by name, SKU, barcode, alias…"
+            placeholder="Search by name, SKU, or alias…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full"
@@ -178,7 +157,6 @@ export function StockReceiveScreen({
                 variant="pills"
               />
             </div>
-            <BarcodeScanInput onScan={handleScan} disabled={isPending} />
             {scanHint && (
               <p className="text-xs text-gray-600" role="status">
                 {scanHint}

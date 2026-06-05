@@ -1,47 +1,47 @@
-import { planRecipeStockDeduction, type RecipeForStockPlan } from "@/lib/recipe-fulfillment";
+import { planProductStockDeduction, type ProductForStockPlan } from "@/lib/product-fulfillment";
 
 export type OrderLineStockInput = {
-  recipeId: string;
+  productId: string;
   quantity: number;
-  recipeName?: string;
+  productName?: string;
 };
 
 /**
- * Merge lines by recipeId (sum quantities) for stock planning.
+ * Merge lines by productId (sum quantities) for stock planning.
  */
-export function mergeOrderLinesByRecipe(
+export function mergeOrderLinesByProduct(
   lines: OrderLineStockInput[]
-): Map<string, { recipeId: string; quantity: number; recipeName?: string }> {
-  const map = new Map<string, { recipeId: string; quantity: number; recipeName?: string }>();
+): Map<string, { productId: string; quantity: number; productName?: string }> {
+  const map = new Map<string, { productId: string; quantity: number; productName?: string }>();
   for (const line of lines) {
-    const existing = map.get(line.recipeId);
+    const existing = map.get(line.productId);
     if (existing) {
       existing.quantity += line.quantity;
     } else {
-      map.set(line.recipeId, { ...line });
+      map.set(line.productId, { ...line });
     }
   }
   return map;
 }
 
 /** Check whether active inventory can cover all lines (no deduction). */
-export function checkStockForRecipes(
-  recipes: RecipeForStockPlan[],
+export function checkStockForProducts(
+  products: ProductForStockPlan[],
   lines: OrderLineStockInput[]
 ): { ok: true } | { ok: false; issues: string[] } {
-  const recipeMap = new Map(recipes.map((r) => [r.id, r]));
-  const merged = mergeOrderLinesByRecipe(lines);
+  const productMap = new Map(products.map((p) => [p.id, p]));
+  const merged = mergeOrderLinesByProduct(lines);
   const issues: string[] = [];
 
   for (const line of merged.values()) {
-    const recipe = recipeMap.get(line.recipeId);
-    if (!recipe) {
-      issues.push(`"${line.recipeName ?? line.recipeId}": menu item not found`);
+    const product = productMap.get(line.productId);
+    if (!product) {
+      issues.push(`"${line.productName ?? line.productId}": menu item not found`);
       continue;
     }
-    const plan = planRecipeStockDeduction(recipe, line.quantity);
+    const plan = planProductStockDeduction(product, line.quantity);
     if (!plan.ok) {
-      issues.push(`"${recipe.name}" (${line.quantity}×): ${plan.error}`);
+      issues.push(`"${product.name}" (${line.quantity}×): ${plan.error}`);
     }
   }
 

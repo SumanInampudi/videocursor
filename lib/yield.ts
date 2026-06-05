@@ -1,7 +1,7 @@
 import { Decimal } from "@prisma/client/runtime/library";
-import { RecipeType } from "@prisma/client";
+import { ProductType } from "@prisma/client";
 import { normalizeWastagePercent, usableQuantity } from "@/lib/ingredient-wastage";
-import { isRetailRecipe } from "@/lib/recipe-fulfillment";
+import { isRetailProduct } from "@/lib/product-fulfillment";
 
 type IngredientWithItem = {
   quantityRequired: Decimal | number;
@@ -27,7 +27,7 @@ type RecipeWithIngredients = {
   category: string;
   yieldQuantity: Decimal | number;
   yieldUnit: string;
-  recipeType?: RecipeType;
+  productType?: ProductType;
   retailQuantityPerSale?: Decimal | number | null;
   retailInventoryItem?: {
     id: string;
@@ -41,13 +41,13 @@ type RecipeWithIngredients = {
 };
 
 export type YieldResult = {
-  recipeId: string;
-  recipeName: string;
+  productId: string;
+  productName: string;
   category: string;
   yieldUnit: string;
   maxYield: number;
   bottleneckIngredient: string | null;
-  /** Human-readable stock note for the limiting ingredient (includes wastage). */
+  /** Human-readable stock note for the limiting raw material (includes wastage). */
   bottleneckNote: string | null;
   missingIngredients: string[];
   canMake: boolean;
@@ -65,19 +65,19 @@ function formatQty(amount: number, unit: string): string {
 }
 
 export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult {
-  if (isRetailRecipe(recipe)) {
+  if (isRetailProduct(recipe as never)) {
     const item = recipe.retailInventoryItem;
     const perSale = recipe.retailQuantityPerSale;
     if (!item || perSale == null || toNumber(perSale) <= 0) {
       return {
-        recipeId: recipe.id,
-        recipeName: recipe.name,
+        productId: recipe.id,
+        productName: recipe.name,
         category: recipe.category,
         yieldUnit: recipe.yieldUnit,
         maxYield: 0,
         bottleneckIngredient: null,
         bottleneckNote: null,
-        missingIngredients: ["Link an inventory item and quantity per sale"],
+      missingIngredients: ["Link a stock item and quantity per sale"],
         canMake: false,
       };
     }
@@ -89,8 +89,8 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
     const maxYield = available > 0 ? Math.floor(available / required) : 0;
 
     return {
-      recipeId: recipe.id,
-      recipeName: recipe.name,
+      productId: recipe.id,
+      productName: recipe.name,
       category: recipe.category,
       yieldUnit: recipe.yieldUnit,
       maxYield,
@@ -113,14 +113,14 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
 
   if (recipe.ingredients.length === 0) {
     return {
-      recipeId: recipe.id,
-      recipeName: recipe.name,
+      productId: recipe.id,
+      productName: recipe.name,
       category: recipe.category,
       yieldUnit: recipe.yieldUnit,
       maxYield: 0,
       bottleneckIngredient: null,
       bottleneckNote: null,
-      missingIngredients: ["No ingredients defined"],
+      missingIngredients: ["No raw materials defined"],
       canMake: false,
     };
   }
@@ -187,8 +187,8 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
   if (minYield === Infinity) minYield = 0;
 
   return {
-    recipeId: recipe.id,
-    recipeName: recipe.name,
+    productId: recipe.id,
+    productName: recipe.name,
     category: recipe.category,
     yieldUnit: recipe.yieldUnit,
     maxYield: minYield,

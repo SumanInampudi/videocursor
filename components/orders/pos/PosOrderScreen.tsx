@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { createPosOrder, previewCartStock } from "@/app/actions/orders";
 import { getOrderForPosResume } from "@/app/actions/table-service";
-import { getRecipeByBarcode } from "@/app/actions/recipes";
 import { PosExitLink } from "@/components/layout/PosShell";
 import { PosCartPanel } from "@/components/orders/pos/PosCartPanel";
 import { PosCategoryNav } from "@/components/orders/pos/PosCategoryNav";
@@ -14,7 +13,6 @@ import { PosItemGrid } from "@/components/orders/pos/PosItemGrid";
 import { OrderReceiptModal } from "@/components/orders/OrderReceiptModal";
 import { PosSettleModal } from "@/components/orders/pos/PosSettleModal";
 import { PosTableFloor } from "@/components/orders/pos/PosTableFloor";
-import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
 import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -23,7 +21,7 @@ import {
   cartSubtotal,
   updateCartLineQty,
   type OrderCartLine,
-  type PricedRecipe,
+  type PricedProduct,
 } from "@/lib/order-cart";
 import { getStayOnPosAfterCheckout } from "@/lib/pos-preferences";
 import { formatFieldErrors } from "@/lib/format-field-errors";
@@ -36,10 +34,10 @@ import type { DiningTableOption } from "@/components/orders/pos/PosChannelTableP
 import type { OrderChannel } from "@prisma/client";
 
 function cartToStockLines(cart: OrderCartLine[]) {
-  return cart.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }));
+  return cart.map((l) => ({ productId: l.productId, quantity: l.quantity }));
 }
 
-type Recipe = PricedRecipe & { category: string; imageUrl?: string | null };
+type Product = PricedProduct & { category: string; imageUrl?: string | null };
 
 type CheckoutFields = {
   customerId: string;
@@ -55,7 +53,7 @@ type CheckoutFields = {
 type PosView = "menu" | "tables";
 
 type PosOrderScreenProps = {
-  recipes: Recipe[];
+  products: Product[];
   categories: string[];
   frequentIds: string[];
   customers: { id: string; name: string }[];
@@ -66,7 +64,7 @@ type PosOrderScreenProps = {
 };
 
 export function PosOrderScreen({
-  recipes,
+  products,
   categories,
   frequentIds,
   customers,
@@ -121,26 +119,17 @@ export function PosOrderScreen({
   const sendToKitchen =
     channel === "DINE_IN" && isPayAtClose(venue, "DINE_IN");
 
-  const addRecipe = useCallback((recipe: Recipe) => {
+  const addProduct = useCallback((product: Product) => {
     setCart((prev) => {
-      const { cart: next, error } = addToOrderCart(prev, recipe);
+      const { cart: next, error } = addToOrderCart(prev, product);
       if (error) {
         setScanHint(error);
         return prev;
       }
-      setScanHint(`${recipe.name} added`);
+      setScanHint(`${product.name} added`);
       return next;
     });
   }, []);
-
-  async function handleScan(barcode: string) {
-    const recipe = await getRecipeByBarcode(barcode);
-    if (!recipe) {
-      setScanHint("No recipe for that barcode.");
-      return;
-    }
-    addRecipe(recipe as Recipe);
-  }
 
   function resetTabState() {
     setActiveOrderId(null);
@@ -337,7 +326,7 @@ export function PosOrderScreen({
     onTableChange: setDiningTableId,
     onExternalRefChange: setExternalRef,
     onCheckout: openCheckout,
-    recipes,
+    products,
     activeOrderNumber,
     onSettleTab:
       activeOrderId && activeOrderNumber
@@ -346,8 +335,8 @@ export function PosOrderScreen({
   };
 
   const pricedCount = useMemo(
-    () => recipes.filter((r) => r.salePrice != null).length,
-    [recipes]
+    () => products.filter((r) => r.salePrice != null).length,
+    [products]
   );
 
   return (
@@ -413,8 +402,8 @@ export function PosOrderScreen({
       {pricedCount === 0 && view === "menu" && (
         <p className="shrink-0 bg-amber-50 px-4 py-2 text-sm text-amber-900">
           No menu prices — set sale prices on{" "}
-          <Link href="/recipes/pricing" className="font-medium underline">
-            Recipe pricing
+          <Link href="/products/pricing" className="font-medium underline">
+            Product pricing
           </Link>
           .
         </p>
@@ -455,9 +444,8 @@ export function PosOrderScreen({
                     variant="pills"
                   />
                 </div>
-                <BarcodeScanInput onScan={handleScan} disabled={isPending} />
                 <SmartSearchInput
-                  placeholder="Search menu by name, category, barcode..."
+                  placeholder="Search menu by name or category..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -470,11 +458,11 @@ export function PosOrderScreen({
 
               <div className="flex-1 overflow-y-auto p-3 md:p-4">
                 <PosItemGrid
-                  recipes={recipes}
+                  products={products}
                   frequentIds={frequentIds}
                   selectedCategory={selectedCategory}
                   search={search}
-                  onAdd={addRecipe}
+                  onAdd={addProduct}
                   disabled={isPending}
                 />
               </div>
@@ -511,7 +499,7 @@ export function PosOrderScreen({
         onClose={() => {
           if (!isPending) setCheckoutOpen(false);
         }}
-        recipes={recipes}
+        products={products}
       />
 
       <OrderReceiptModal

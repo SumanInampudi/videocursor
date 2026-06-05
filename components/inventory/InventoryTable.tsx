@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { deleteInventoryItem } from "@/app/actions/inventory";
+import { ProductThumbnail } from "@/components/products/ProductThumbnail";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { usableQuantity } from "@/lib/ingredient-wastage";
@@ -47,6 +48,35 @@ export function InventoryTable({ items }: InventoryTableProps) {
     );
   }
 
+  function renderStatusIcon(physical: number, lowStock: boolean, isActive: boolean) {
+    if (!isActive) {
+      return (
+        <span title="Inactive" aria-label="Inactive">
+          <Badge variant="default" className="px-2">⏸</Badge>
+        </span>
+      );
+    }
+    if (physical <= 0) {
+      return (
+        <span title="Out of stock" aria-label="Out of stock">
+          <Badge variant="danger" className="px-2">⛔</Badge>
+        </span>
+      );
+    }
+    if (lowStock) {
+      return (
+        <span title="Low stock" aria-label="Low stock">
+          <Badge variant="warning" className="px-2">⚠</Badge>
+        </span>
+      );
+    }
+    return (
+      <span title="In stock" aria-label="In stock">
+        <Badge variant="success" className="px-2">✅</Badge>
+      </span>
+    );
+  }
+
   return (
     <div className="table-panel">
       <table>
@@ -72,10 +102,15 @@ export function InventoryTable({ items }: InventoryTableProps) {
             return (
               <tr key={item.id}>
                 <td>
-                  <div className="font-semibold text-charcoal">{item.name}</div>
-                  {item.supplier && (
-                    <div className="text-xs text-gray-500">{item.supplier}</div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <ProductThumbnail name={item.name} imageUrl={item.imageUrl} size="sm" />
+                    <div>
+                      <div className="font-semibold text-charcoal">{item.name}</div>
+                      {item.supplier && (
+                        <div className="text-xs text-gray-500">{item.supplier}</div>
+                      )}
+                    </div>
+                  </div>
                 </td>
                 <td className="text-charcoal-muted">{item.sku}</td>
                 <td className="text-charcoal-muted">{item.category}</td>
@@ -92,11 +127,7 @@ export function InventoryTable({ items }: InventoryTableProps) {
                 <td className="text-charcoal-muted">{item.storageLocation || "—"}</td>
                 <td className="font-medium tabular-nums">{formatCurrency(Number(item.costPerUnit))}</td>
                 <td>
-                  <div className="badge-row">
-                    {lowStock && <Badge variant="danger">Low Stock</Badge>}
-                    {!item.isActive && <Badge variant="default">Inactive</Badge>}
-                    {!lowStock && item.isActive && <Badge variant="success">In Stock</Badge>}
-                  </div>
+                  {renderStatusIcon(physical, lowStock, item.isActive)}
                 </td>
                 <td className="text-right">
                   <div className="flex justify-end gap-2">

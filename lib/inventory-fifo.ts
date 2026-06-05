@@ -231,6 +231,113 @@ export async function createCostLayer(
   });
 }
 
+function costsDiffer(a: number, b: number) {
+  return Math.abs(a - b) > 0.0001;
+}
+
+/** On-hand value from FIFO layers, falling back to item snapshot when layers are empty. */
+async function onHandLayerValue(
+  tx: Prisma.TransactionClient,
+  inventoryItemId: string,
+  fallbackQty: number,
+  fallbackCost: number
+) {
+  const layers = await tx.inventoryCostLayer.findMany({
+    where: { inventoryItemId, quantityRemaining: { gt: 0 } },
+  });
+
+  let qty = 0;
+  let value = 0;
+  for (const layer of layers) {
+    const q = toNumber(layer.quantityRemaining);
+    qty += q;
+    value += q * toNumber(layer.costPerUnit);
+  }
+
+  if (qty <= 0.0001) {
+    return { qty: fallbackQty, value: fallbackQty * fallbackCost };
+  }
+
+  return { qty, value };
+}
+
+/**
+ * Restock cost layers: same unit cost → FIFO batch; price change → weighted average
+ * collapsed into a single layer.
+ */
+export async function receiveCostLayers(
+  tx: Prisma.TransactionClient,
+  input: {
+    inventoryItemId: string;
+    previousQty: number;
+    receiveQty: number;
+    unit: Unit;
+    previousCost: number;
+    receiveCost: number;
+    receiveBatchId?: string | null;
+  }
+): Promise<{ costPerUnit: number; usedAverage: boolean }> {
+  const {
+    inventoryItemId,
+    previousQty,
+    receiveQty,
+    unit,
+    previousCost,
+    receiveCost,
+    receiveBatchId,
+  } = input;
+
+  if (receiveQty <= 0) {
+    return { costPerUnit: previousCost, usedAverage: false };
+  }
+
+  const newTotalQty = previousQty + receiveQty;
+  const priceChanged = costsDiffer(previousCost, receiveCost);
+  const useAverage = priceChanged && previousQty > 0.0001;
+
+  if (!useAverage) {
+    await createCostLayer(tx, {
+      inventoryItemId,
+      quantity: receiveQty,
+      unit,
+      costPerUnit: receiveCost,
+      receiveBatchId,
+    });
+    await syncDisplayCostFromLayers(tx, inventoryItemId);
+    const item = await tx.inventoryItem.findUniqueOrThrow({
+      where: { id: inventoryItemId },
+      select: { costPerUnit: true },
+    });
+    return { costPerUnit: toNumber(item.costPerUnit), usedAverage: false };
+  }
+
+  const { qty: onHandQty, value: onHandValue } = await onHandLayerValue(
+    tx,
+    inventoryItemId,
+    previousQty,
+    previousCost
+  );
+  const averageCost = (onHandValue + receiveQty * receiveCost) / (onHandQty + receiveQty);
+
+  await tx.inventoryCostLayer.deleteMany({ where: { inventoryItemId } });
+  await tx.inventoryCostLayer.create({
+    data: {
+      inventoryItemId,
+      quantityRemaining: newTotalQty,
+      unit,
+      costPerUnit: averageCost,
+      receiveBatchId: receiveBatchId ?? null,
+    },
+  });
+
+  await tx.inventoryItem.update({
+    where: { id: inventoryItemId },
+    data: { costPerUnit: averageCost },
+  });
+
+  return { costPerUnit: averageCost, usedAverage: true };
+}
+
 export async function syncDisplayCostFromLayers(
   tx: Prisma.TransactionClient,
   inventoryItemId: string

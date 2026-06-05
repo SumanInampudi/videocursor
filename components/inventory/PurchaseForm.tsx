@@ -2,10 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { getInventoryItemForIngredientBarcode } from "@/app/actions/ingredients";
-import { BarcodeScanInput } from "@/components/ui/BarcodeScanInput";
 import { Button } from "@/components/ui/Button";
-import { useToast } from "@/components/ui/Toast";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -38,9 +35,7 @@ export function PurchaseForm({
   suppliers?: SupplierOption[];
 }) {
   const router = useRouter();
-  const { success, error: toastError } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [scanHint, setScanHint] = useState("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [paymentStatus, setPaymentStatus] = useState("PAID");
   const [selectedItem, setSelectedItem] = useState("");
@@ -75,27 +70,8 @@ export function PurchaseForm({
     });
   }
 
-  async function handleIngredientScan(barcode: string) {
-    const item = await getInventoryItemForIngredientBarcode(barcode);
-    if (!item) {
-      setScanHint("No stock SKU linked to this ingredient — create stock from Ingredients first.");
-      return;
-    }
-    setSelectedItem(item.id);
-    setScanHint(`Selected: ${item.name}`);
-    success(`Linked ${item.name}`);
-  }
-
   return (
     <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
-      <div>
-        <p className="mb-1 text-xs font-medium text-gray-500">Scan ingredient barcode</p>
-        <BarcodeScanInput
-          onScan={handleIngredientScan}
-          placeholder="Scan to select inventory item…"
-        />
-      </div>
-      {scanHint && <p className="text-xs text-gray-500">{scanHint}</p>}
       <Select
         name="inventoryItemId"
         label="Link to inventory item (optional)"

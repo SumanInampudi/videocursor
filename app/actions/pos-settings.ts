@@ -36,13 +36,13 @@ export async function getOrderedPosCategories(allCategories: string[]) {
 
 export async function getPosCategorySettings() {
   const { businessId } = await requireBusinessContext();
-  const recipes = await db.recipe.findMany({
+  const products = await db.product.findMany({
     where: { businessId },
     select: { category: true },
     distinct: ["category"],
     orderBy: { category: "asc" },
   });
-  const allCategories = recipes.map((r) => r.category);
+  const allCategories = products.map((r) => r.category);
   const savedOrder = await readCategoryOrder(businessId);
   const ordered = sortPosCategories(allCategories, savedOrder);
 

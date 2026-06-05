@@ -12,7 +12,7 @@ import {
 } from "@/lib/kitchen-kds";
 
 type KitchenLineRowProps = {
-  line: KitchenLineView & { recipe?: { name: string } | null };
+  line: KitchenLineView & { product?: { name: string } | null };
   order: {
     kitchenAcknowledgedAt?: Date | string | null;
     kitchenBumpedAt?: Date | string | null;
@@ -29,7 +29,7 @@ export function KitchenLineRow({ line, order, disabled }: KitchenLineRowProps) {
   const isNew = isKitchenLineNew(line, order);
   const pendingQty = kitchenPendingQty(line);
   const doneQty = line.quantity - pendingQty;
-  const label = line.recipe?.name ?? line.recipeName;
+  const label = line.product?.name ?? line.productName;
 
   function toggle() {
     if (disabled || isToggling) return;

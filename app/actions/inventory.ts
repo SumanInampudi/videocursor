@@ -116,6 +116,7 @@ export async function createInventoryItem(formData: FormData) {
           ingredientId: data.ingredientId || null,
           sku: data.sku,
           category: data.category,
+          imageUrl: data.imageUrl?.trim() || null,
           description: data.description || null,
           notes: data.notes || null,
           quantity: data.quantity,
@@ -147,7 +148,7 @@ export async function createInventoryItem(formData: FormData) {
   revalidatePath("/inventory");
   revalidatePath("/");
   revalidatePath("/yield");
-  revalidatePath("/recipes");
+  revalidatePath("/products");
   return { success: true };
 }
 
@@ -183,6 +184,7 @@ export async function updateInventoryItem(id: string, formData: FormData) {
           ingredientId: data.ingredientId || null,
           sku: data.sku,
           category: data.category,
+          imageUrl: data.imageUrl?.trim() || null,
           description: data.description || null,
           notes: data.notes || null,
           quantity: data.quantity,
@@ -271,17 +273,17 @@ export async function updateInventoryItem(id: string, formData: FormData) {
   revalidatePath("/inventory/receive/history");
   revalidatePath("/");
   revalidatePath("/yield");
-  revalidatePath("/recipes");
+  revalidatePath("/products");
   return { success: true };
 }
 
 export async function deleteInventoryItem(id: string) {
-  const inUse = await db.recipeIngredient.count({
+  const inUse = await db.productIngredient.count({
     where: { inventoryItemId: id },
   });
 
   if (inUse > 0) {
-    return { error: "Cannot delete item used in recipes. Deactivate it instead." };
+    return { error: "Cannot delete item used in products. Deactivate it instead." };
   }
 
   await db.inventoryItem.delete({ where: { id } });
@@ -289,7 +291,7 @@ export async function deleteInventoryItem(id: string) {
   revalidatePath("/inventory");
   revalidatePath("/");
   revalidatePath("/yield");
-  revalidatePath("/recipes");
+  revalidatePath("/products");
   return { success: true };
 }
 
@@ -332,12 +334,12 @@ export async function getDashboardStats() {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
   const summary = await getInventorySummary();
-  const recipeCount = await db.recipe.count({ where: { businessId } });
+  const productCount = await db.product.count({ where: { businessId } });
 
   return {
     totalItems: summary.activeItems,
     lowStockCount: summary.lowStockCount,
     totalValue: summary.totalStockValue,
-    recipeCount,
+    productCount,
   };
 }

@@ -43,13 +43,7 @@ export default async function InventoryPage({
         actions={
           <>
             <Link href="/inventory/receive">
-              <Button>Stock receive</Button>
-            </Link>
-            <Link href="/inventory/receive/history">
-              <Button variant="secondary">Receive history</Button>
-            </Link>
-            <Link href="/inventory/receive">
-              <Button variant="outline">Restock items</Button>
+              <Button>Receive / Restock</Button>
             </Link>
           </>
         }

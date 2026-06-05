@@ -3,7 +3,7 @@
 export type KitchenLineView = {
   id: string;
   quantity: number;
-  recipeName: string;
+  productName: string;
   addedAt: Date | string;
   kitchenDoneAt?: Date | string | null;
   kitchenDoneQty?: number;

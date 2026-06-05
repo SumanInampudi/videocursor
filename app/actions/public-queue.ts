@@ -51,7 +51,7 @@ export async function getPublicOrderQueue(businessSlug: string) {
         select: {
           quantity: true,
           kitchenDoneQty: true,
-          recipe: { select: { prepTimeMinutes: true } },
+          product: { select: { prepTimeMinutes: true } },
         },
       },
     },
@@ -60,7 +60,12 @@ export async function getPublicOrderQueue(businessSlug: string) {
 
   const tickets: PublicQueueTicket[] = [];
   for (const order of orders) {
-    const estimatedPrepMinutes = estimatePrepForLineItems(order.lineItems);
+    const estimatedPrepMinutes = estimatePrepForLineItems(
+      order.lineItems.map((line) => ({
+        quantity: line.quantity,
+        recipe: line.product,
+      }))
+    );
     const ticket = buildPublicQueueTicket({
       ...order,
       estimatedPrepMinutes,

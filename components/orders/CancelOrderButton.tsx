@@ -32,7 +32,7 @@ export function CancelOrderButton({
 
   function handleCancel() {
     const stockNote = cancelRequiresStockRestore(status)
-      ? "\n\nIngredient stock deducted at Ready will be restored."
+      ? "\n\nRaw material stock deducted at Ready will be restored."
       : "\n\nNo stock has been deducted yet.";
 
     if (

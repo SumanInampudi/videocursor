@@ -1,6 +1,6 @@
 "use client";
 
-import { RecipeMenuTile } from "@/components/recipes/RecipeMenuTile";
+import { ProductMenuTile } from "@/components/products/ProductMenuTile";
 
 type PosItemTileProps = {
   name: string;
@@ -12,7 +12,7 @@ type PosItemTileProps = {
 
 export function PosItemTile({ name, price, imageUrl, onAdd, disabled }: PosItemTileProps) {
   return (
-    <RecipeMenuTile
+    <ProductMenuTile
       name={name}
       price={price}
       imageUrl={imageUrl}

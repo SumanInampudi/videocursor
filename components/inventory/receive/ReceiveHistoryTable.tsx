@@ -47,7 +47,7 @@ export function ReceiveHistoryTable({ batches }: ReceiveHistoryTableProps) {
         <SmartSearchInput
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search supplier, invoice ref, ingredient, payment..."
+          placeholder="Search supplier, invoice ref, raw material, payment..."
           className="max-w-md"
         />
         <p className="text-xs text-gray-500">0 results</p>
@@ -63,7 +63,7 @@ export function ReceiveHistoryTable({ batches }: ReceiveHistoryTableProps) {
       <SmartSearchInput
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search supplier, invoice ref, ingredient, payment..."
+        placeholder="Search supplier, invoice ref, raw material, payment..."
         className="max-w-md"
       />
       <p className="text-xs text-gray-500">

@@ -8,13 +8,13 @@ import {
 import { OrderDiscountSection } from "@/components/orders/OrderDiscountSection";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import { RecipeThumbnail } from "@/components/recipes/RecipeThumbnail";
+import { ProductThumbnail } from "@/components/products/ProductThumbnail";
 import {
   PosChannelTablePicker,
   type DiningTableOption,
 } from "@/components/orders/pos/PosChannelTablePicker";
 import { OrderPrepEstimate } from "@/components/orders/OrderPrepEstimate";
-import type { OrderCartLine, PricedRecipe } from "@/lib/order-cart";
+import type { OrderCartLine, PricedProduct } from "@/lib/order-cart";
 import { isPayAtClose } from "@/lib/venue-settings";
 import type { VenuePosSettings } from "@/lib/venue-settings";
 import { formatCurrency } from "@/lib/units";
@@ -30,7 +30,7 @@ type PosCartPanelProps = {
   customers: CustomerOption[];
   isPending: boolean;
   errors: Record<string, string[]>;
-  onUpdateQty: (recipeId: string, qty: number) => void;
+  onUpdateQty: (productId: string, qty: number) => void;
   onClear: () => void;
   onDiscountApplied: (payload: { code: string; discountAmount: number } | null) => void;
   venue: VenuePosSettings;
@@ -52,7 +52,7 @@ type PosCartPanelProps = {
   }) => void;
   mobileCollapsed?: boolean;
   resetKey?: number;
-  recipes: PricedRecipe[];
+  products: PricedProduct[];
   activeOrderNumber?: string | null;
   onSettleTab?: () => void;
 };
@@ -79,7 +79,7 @@ export function PosCartPanel({
   onCheckout,
   mobileCollapsed = false,
   resetKey = 0,
-  recipes,
+  products,
   activeOrderNumber = null,
   onSettleTab,
 }: PosCartPanelProps) {
@@ -155,10 +155,10 @@ export function PosCartPanel({
           ) : (
             cart.map((line) => (
               <li
-                key={line.recipeId}
+                key={line.productId}
                 className="flex items-center gap-2 rounded-lg bg-gray-50 p-2"
               >
-                <RecipeThumbnail name={line.name} imageUrl={line.imageUrl} size="sm" />
+                <ProductThumbnail name={line.name} imageUrl={line.imageUrl} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{line.name}</p>
                   <p className="text-xs text-gray-500">
@@ -169,7 +169,7 @@ export function PosCartPanel({
                   <button
                     type="button"
                     className="touch-target flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold"
-                    onClick={() => onUpdateQty(line.recipeId, line.quantity - 1)}
+                    onClick={() => onUpdateQty(line.productId, line.quantity - 1)}
                   >
                     −
                   </button>
@@ -177,7 +177,7 @@ export function PosCartPanel({
                   <button
                     type="button"
                     className="touch-target flex h-10 w-10 items-center justify-center rounded-lg bg-servora-yellow text-lg font-bold text-white"
-                    onClick={() => onUpdateQty(line.recipeId, line.quantity + 1)}
+                    onClick={() => onUpdateQty(line.productId, line.quantity + 1)}
                   >
                     +
                   </button>
@@ -260,8 +260,8 @@ export function PosCartPanel({
 
           {cart.length > 0 && (
             <OrderPrepEstimate
-              lines={cart.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }))}
-              recipes={recipes}
+              lines={cart.map((l) => ({ productId: l.productId, quantity: l.quantity }))}
+              products={products}
             />
           )}
 

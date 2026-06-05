@@ -7,17 +7,17 @@ import {
 } from "@/lib/order-prep-time";
 
 type OrderPrepEstimateProps = {
-  lines: { recipeId: string; quantity: number }[];
-  recipes: { id: string; prepTimeMinutes?: number | null }[];
+  lines: { productId: string; quantity: number }[];
+  products: { id: string; prepTimeMinutes?: number | null }[];
   variant?: "banner" | "inline";
 };
 
-export function OrderPrepEstimate({ lines, recipes, variant = "banner" }: OrderPrepEstimateProps) {
-  const recipeMap = new Map(recipes.map((r) => [r.id, r.prepTimeMinutes]));
+export function OrderPrepEstimate({ lines, products, variant = "banner" }: OrderPrepEstimateProps) {
+  const productMap = new Map(products.map((r) => [r.id, r.prepTimeMinutes]));
   const minutes = estimateOrderPrepMinutes(
     lines.map((l) => ({
       quantity: l.quantity,
-      prepTimeMinutes: recipeMap.get(l.recipeId) ?? null,
+      prepTimeMinutes: productMap.get(l.productId) ?? null,
     }))
   );
 
@@ -26,8 +26,8 @@ export function OrderPrepEstimate({ lines, recipes, variant = "banner" }: OrderP
     return (
       <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
         Set <strong>Prep time (min)</strong> on{" "}
-        <a href="/recipes/pricing" className="link-brand">
-          recipe pricing
+        <a href="/products/pricing" className="link-brand">
+          product pricing
         </a>{" "}
         for kitchen ETA at checkout.
       </p>

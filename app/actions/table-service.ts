@@ -45,10 +45,10 @@ export async function findOpenOrderForTable(businessId: string, diningTableId: s
       lineItems: {
         select: {
           id: true,
-          recipeId: true,
+          productId: true,
           quantity: true,
           unitSalePrice: true,
-          recipeName: true,
+          productName: true,
         },
       },
     },
@@ -130,7 +130,7 @@ export async function getOrderForPosResume(orderId: string) {
     include: {
       lineItems: {
         include: {
-          recipe: {
+          product: {
             select: {
               id: true,
               name: true,
@@ -164,11 +164,11 @@ export async function getOrderForPosResume(orderId: string) {
       status: order.status,
     },
     cart: order.lineItems.map((line) => ({
-      recipeId: line.recipeId ?? "",
-      name: line.recipe?.name ?? line.recipeName,
+      productId: line.productId ?? "",
+      name: line.product?.name ?? line.productName,
       quantity: line.quantity,
       unitPrice: Number(line.unitSalePrice),
-      imageUrl: line.recipe?.imageUrl ?? null,
+      imageUrl: line.product?.imageUrl ?? null,
     })),
   });
 }
@@ -178,7 +178,7 @@ function parseLinesFromFormData(formData: FormData) {
   const lines = [];
   for (let i = 0; i < lineCount; i++) {
     lines.push({
-      recipeId: String(formData.get(`line_${i}_recipeId`) || ""),
+      productId: String(formData.get(`line_${i}_productId`) || ""),
       quantity: formData.get(`line_${i}_quantity`),
     });
   }
@@ -211,7 +211,7 @@ export async function addLinesToOpenOrder(formData: FormData) {
 
   const stockCheck = await validateOrderLinesStock(
     businessId,
-    parsed.data.lines.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity })),
+    parsed.data.lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
     { existingOrderId: order.id }
   );
   if (!stockCheck.ok) {
@@ -222,7 +222,7 @@ export async function addLinesToOpenOrder(formData: FormData) {
 
   await db.$transaction(async (tx) => {
     for (const payload of built.payloads) {
-      const existing = order.lineItems.find((l) => l.recipeId === payload.recipeId);
+      const existing = order.lineItems.find((l) => l.productId === payload.productId);
       if (existing) {
         const newQty = existing.quantity + payload.quantity;
         const revenue = Number(existing.unitSalePrice) * newQty;
@@ -237,8 +237,8 @@ export async function addLinesToOpenOrder(formData: FormData) {
         await tx.orderLineItem.create({
           data: {
             orderId: order.id,
-            recipeId: payload.recipeId,
-            recipeName: payload.recipeName,
+            productId: payload.productId,
+            productName: payload.productName,
             quantity: payload.quantity,
             unitSalePrice: payload.unitSalePrice,
             revenue: payload.revenue,
@@ -319,8 +319,8 @@ export async function settleOrderPayment(formData: FormData) {
   }
 
   const lineInputs = order.lineItems
-    .filter((l) => l.recipeId)
-    .map((l) => ({ recipeId: l.recipeId!, quantity: l.quantity }));
+    .filter((l) => l.productId)
+    .map((l) => ({ productId: l.productId!, quantity: l.quantity }));
 
   if (lineInputs.length === 0) {
     return { error: { lines: ["Add items before settling"] } };
@@ -341,7 +341,7 @@ export async function settleOrderPayment(formData: FormData) {
   }
 
   for (const line of order.lineItems) {
-    const match = discountResult.linePayloads.find((p) => p.recipeId === line.recipeId);
+    const match = discountResult.linePayloads.find((p) => p.productId === line.productId);
     if (match) {
       await db.orderLineItem.update({
         where: { id: line.id },

@@ -12,7 +12,7 @@ import { Unit } from "@prisma/client";
 
 type SupplierOption = { id: string; name: string };
 
-type IngredientOption = {
+type RawMaterialOption = {
   id: string;
   name: string;
   sku: string;
@@ -27,6 +27,7 @@ type InventoryFormProps = {
     name: string;
     sku: string;
     category: string;
+    imageUrl?: string | null;
     description: string | null;
     notes: string | null;
     quantity: number;
@@ -40,7 +41,7 @@ type InventoryFormProps = {
     batchNumber: string | null;
     isActive: boolean;
   };
-  ingredients?: IngredientOption[];
+  ingredients?: RawMaterialOption[];
   suppliers?: SupplierOption[];
   submitLabel?: string;
 };
@@ -55,7 +56,7 @@ export function InventoryForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errors, setErrors] = useState<Record<string, string[]>>({});
-  const [selectedIngredientId, setSelectedIngredientId] = useState(initialData?.ingredientId ?? "");
+  const [selectedRawMaterialId, setSelectedRawMaterialId] = useState(initialData?.ingredientId ?? "");
   const [catalogValues, setCatalogValues] = useState({
     name: initialData?.name ?? "",
     sku: initialData?.sku ?? "",
@@ -63,16 +64,16 @@ export function InventoryForm({
     unit: initialData?.unit ?? Unit.g,
   });
 
-  const selectedIngredient = ingredients.find(
-    (ingredient) => ingredient.id === selectedIngredientId
+  const selectedRawMaterial = ingredients.find(
+    (rawMaterial) => rawMaterial.id === selectedRawMaterialId
   );
 
   function handleSubmit(formData: FormData) {
-    if (selectedIngredient) {
-      formData.set("name", selectedIngredient.name);
-      formData.set("sku", selectedIngredient.sku);
-      formData.set("category", selectedIngredient.category);
-      formData.set("unit", selectedIngredient.defaultUnit);
+    if (selectedRawMaterial) {
+      formData.set("name", selectedRawMaterial.name);
+      formData.set("sku", selectedRawMaterial.sku);
+      formData.set("category", selectedRawMaterial.category);
+      formData.set("unit", selectedRawMaterial.defaultUnit);
     }
 
     startTransition(async () => {
@@ -87,22 +88,22 @@ export function InventoryForm({
   }
 
   const unitOptions = UNITS.map((u) => ({ value: u, label: u }));
-  const ingredientOptions = ingredients.map((ingredient) => ({
-    value: ingredient.id,
-    label: `${ingredient.name} (${ingredient.sku})`,
+  const rawMaterialOptions = ingredients.map((rawMaterial) => ({
+    value: rawMaterial.id,
+    label: `${rawMaterial.name} (${rawMaterial.sku})`,
   }));
 
-  function handleIngredientChange(ingredientId: string) {
-    setSelectedIngredientId(ingredientId);
-    const ingredient = ingredients.find((item) => item.id === ingredientId);
+  function handleRawMaterialChange(rawMaterialId: string) {
+    setSelectedRawMaterialId(rawMaterialId);
+    const rawMaterial = ingredients.find((item) => item.id === rawMaterialId);
 
-    if (!ingredient) return;
+    if (!rawMaterial) return;
 
     setCatalogValues({
-      name: ingredient.name,
-      sku: ingredient.sku,
-      category: ingredient.category,
-      unit: ingredient.defaultUnit,
+      name: rawMaterial.name,
+      sku: rawMaterial.sku,
+      category: rawMaterial.category,
+      unit: rawMaterial.defaultUnit,
     });
   }
 
@@ -115,11 +116,11 @@ export function InventoryForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Select
           name="ingredientId"
-          label="Master Ingredient"
-          value={selectedIngredientId}
-          onChange={(event) => handleIngredientChange(event.target.value)}
-          options={ingredientOptions}
-          placeholder="Link to ingredient catalog..."
+          label="Master Raw Material"
+          value={selectedRawMaterialId}
+          onChange={(event) => handleRawMaterialChange(event.target.value)}
+          options={rawMaterialOptions}
+          placeholder="Link to raw material catalog..."
           error={errors.ingredientId?.[0]}
         />
         <Input
@@ -128,8 +129,8 @@ export function InventoryForm({
           value={catalogValues.name}
           onChange={(event) => updateCatalogValue("name", event.target.value)}
           error={errors.name?.[0]}
-          readOnly={Boolean(selectedIngredient)}
-          className={selectedIngredient ? "bg-gray-50" : ""}
+          readOnly={Boolean(selectedRawMaterial)}
+          className={selectedRawMaterial ? "bg-gray-50" : ""}
           required
         />
         <Input
@@ -138,8 +139,8 @@ export function InventoryForm({
           value={catalogValues.sku}
           onChange={(event) => updateCatalogValue("sku", event.target.value)}
           error={errors.sku?.[0]}
-          readOnly={Boolean(selectedIngredient)}
-          className={selectedIngredient ? "bg-gray-50" : ""}
+          readOnly={Boolean(selectedRawMaterial)}
+          className={selectedRawMaterial ? "bg-gray-50" : ""}
           required
         />
         <Input
@@ -149,8 +150,8 @@ export function InventoryForm({
           onChange={(event) => updateCatalogValue("category", event.target.value)}
           error={errors.category?.[0]}
           placeholder="e.g. Dry Goods, Dairy, Meat"
-          readOnly={Boolean(selectedIngredient)}
-          className={selectedIngredient ? "bg-gray-50" : ""}
+          readOnly={Boolean(selectedRawMaterial)}
+          className={selectedRawMaterial ? "bg-gray-50" : ""}
           required
         />
         <Select
@@ -160,11 +161,11 @@ export function InventoryForm({
           onChange={(event) => updateCatalogValue("unit", event.target.value)}
           options={unitOptions}
           error={errors.unit?.[0]}
-          disabled={Boolean(selectedIngredient)}
+          disabled={Boolean(selectedRawMaterial)}
           required
         />
-        {selectedIngredient && (
-          <input type="hidden" name="unit" value={selectedIngredient.defaultUnit} />
+        {selectedRawMaterial && (
+          <input type="hidden" name="unit" value={selectedRawMaterial.defaultUnit} />
         )}
         <Input
           name="quantity"
@@ -226,6 +227,15 @@ export function InventoryForm({
           error={errors.batchNumber?.[0]}
         />
       </div>
+
+      <Textarea
+        name="imageUrl"
+        label="Image URL"
+        rows={2}
+        defaultValue={initialData?.imageUrl ?? ""}
+        error={errors.imageUrl?.[0]}
+        placeholder="https://... or /uploads/inventory/item.jpg"
+      />
 
       <Textarea
         name="description"

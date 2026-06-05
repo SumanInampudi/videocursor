@@ -27,7 +27,7 @@ export function ReceiveItemGrid({
     const q = search.trim();
     if (q) {
       list = list.filter((i) =>
-        smartMatches([i.name, i.sku, i.barcode, i.category, i.defaultUnit, i.aliases], q)
+        smartMatches([i.name, i.sku, i.category, i.defaultUnit, i.aliases], q)
       );
     } else if (selectedCategory === "frequent") {
       const idSet = new Set(frequentIds);
@@ -42,9 +42,9 @@ export function ReceiveItemGrid({
   if (items.length === 0) {
     return (
       <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
-        No active ingredients. Add ingredients under{" "}
-        <a href="/ingredients" className="font-medium underline">
-          Ingredients
+        No active raw materials. Add raw materials under{" "}
+        <a href="/raw-materials" className="font-medium underline">
+          Raw Materials
         </a>{" "}
         first.
       </p>
@@ -61,6 +61,7 @@ export function ReceiveItemGrid({
         <ReceiveItemTile
           key={item.id}
           name={item.name}
+          imageUrl={item.imageUrl}
           lastUnitCost={item.lastUnitCost}
           stockQty={item.stockQty}
           stockUnit={item.stockUnit}

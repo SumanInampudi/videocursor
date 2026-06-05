@@ -16,8 +16,8 @@ type OrderWithLines = {
     id: string;
     quantity: number;
     unitSalePrice: { toString(): string };
-    recipeName: string;
-    recipe: { name: string; yieldUnit: string } | null;
+    productName: string;
+    product: { name: string; yieldUnit: string } | null;
   }[];
 };
 

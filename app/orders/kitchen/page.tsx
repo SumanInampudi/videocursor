@@ -1,7 +1,7 @@
 import { getKdsThresholds } from "@/app/actions/kds";
 import { getOrdersByStatus } from "@/app/actions/orders";
 import { KitchenOrderBoard } from "@/components/orders/KitchenOrderBoard";
-import { filterKitchenLines } from "@/lib/recipe-fulfillment";
+import { filterKitchenLines } from "@/lib/product-fulfillment";
 import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";

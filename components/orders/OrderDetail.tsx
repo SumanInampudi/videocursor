@@ -17,7 +17,6 @@ import { isOpenTableOrder } from "@/lib/table-tabs";
 import { orderChannelLabel } from "@/lib/order-channel";
 import { formatDateTimeIST } from "@/lib/format";
 import { formatPaymentMethod } from "@/lib/pos-payment";
-import { RecipeBarcode } from "@/components/recipes/RecipeBarcode";
 import {
   OrderMetaBadges,
   computeOrderDisplayTotal,
@@ -69,8 +68,8 @@ type OrderDetailProps = {
       revenue: { toString(): string } | null;
       profit: { toString(): string } | null;
       processedAt: Date | null;
-      recipeName: string;
-      recipe: {
+      productName: string;
+      product: {
         id: string;
         name: string;
         barcode: string;
@@ -219,7 +218,7 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
       <div className="grid gap-4 sm:grid-cols-3">
         <SummaryCard label="Revenue" value={formatCurrency(displayRevenue)} />
         <SummaryCard
-          label="Ingredient cost"
+          label="Raw material cost"
           value={allProcessed ? formatCurrency(totalCost) : "Pending (at ready)"}
         />
         <SummaryCard
@@ -246,9 +245,9 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h3 className="font-semibold text-servora-charcoal">
-                    {line.quantity}× {line.recipe?.name ?? line.recipeName}
-                    {!line.recipe && (
-                      <span className="ml-1 text-xs text-gray-400">(recipe removed)</span>
+                    {line.quantity}× {line.product?.name ?? line.productName}
+                    {!line.product && (
+                      <span className="ml-1 text-xs text-gray-400">(product removed)</span>
                     )}
                   </h3>
                   <p className="text-sm text-gray-500">
@@ -257,7 +256,7 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
                   </p>
                   {unitCost != null && (
                     <p className="mt-1 text-sm text-gray-600">
-                      Unit ingredient cost: {formatCurrency(unitCost)} · Profit:{" "}
+                      Unit raw material cost: {formatCurrency(unitCost)} · Profit:{" "}
                       <span
                         className={
                           Number(line.profit ?? 0) < 0 ? "text-servora-red" : "text-green-700"
@@ -268,7 +267,6 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
                     </p>
                   )}
                 </div>
-                {line.recipe && <RecipeBarcode barcode={line.recipe.barcode} />}
               </div>
 
               {line.consumptions.length > 0 && (

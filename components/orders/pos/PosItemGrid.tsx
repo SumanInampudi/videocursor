@@ -3,26 +3,26 @@
 import { useMemo } from "react";
 import { PosItemTile } from "@/components/orders/pos/PosItemTile";
 import { smartMatches } from "@/lib/smart-search";
-import type { PricedRecipe } from "@/lib/order-cart";
+import type { PricedProduct } from "@/lib/order-cart";
 
-type Recipe = PricedRecipe & {
+type Product = PricedProduct & {
   category: string;
   imageUrl?: string | null;
-  recipeType?: "PREPARED" | "RETAIL";
+  productType?: "PREPARED" | "RETAIL";
   requiresKitchen?: boolean;
 };
 
 type PosItemGridProps = {
-  recipes: Recipe[];
+  products: Product[];
   frequentIds: string[];
   selectedCategory: string;
   search: string;
-  onAdd: (recipe: Recipe) => void;
+  onAdd: (product: Product) => void;
   disabled?: boolean;
 };
 
 export function PosItemGrid({
-  recipes,
+  products,
   frequentIds,
   selectedCategory,
   search,
@@ -30,8 +30,8 @@ export function PosItemGrid({
   disabled,
 }: PosItemGridProps) {
   const priced = useMemo(
-    () => recipes.filter((r) => r.salePrice != null),
-    [recipes]
+    () => products.filter((r) => r.salePrice != null),
+    [products]
   );
 
   const filtered = useMemo(() => {
@@ -43,8 +43,7 @@ export function PosItemGrid({
           [
             r.name,
             r.category,
-            r.barcode ?? "",
-            r.recipeType,
+            r.productType,
             r.requiresKitchen ? "kitchen" : "no kitchen",
           ],
           q
@@ -66,8 +65,8 @@ export function PosItemGrid({
     return (
       <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
         No priced items. Set sale prices on{" "}
-        <a href="/recipes/pricing" className="font-medium underline">
-          recipe pricing
+        <a href="/products/pricing" className="font-medium underline">
+          product pricing
         </a>{" "}
         first.
       </p>
@@ -86,13 +85,13 @@ export function PosItemGrid({
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-3">
-      {filtered.map((recipe) => (
+      {filtered.map((product) => (
         <PosItemTile
-          key={recipe.id}
-          name={recipe.name}
-          price={Number(recipe.salePrice)}
-          imageUrl={recipe.imageUrl}
-          onAdd={() => onAdd(recipe)}
+          key={product.id}
+          name={product.name}
+          price={Number(product.salePrice)}
+          imageUrl={product.imageUrl}
+          onAdd={() => onAdd(product)}
           disabled={disabled}
         />
       ))}

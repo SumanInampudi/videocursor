@@ -1,23 +1,23 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { checkStockForRecipes, type OrderLineStockInput } from "@/lib/order-stock-check";
+import { checkStockForProducts, type OrderLineStockInput } from "@/lib/order-stock-check";
 import {
   ingredientWithFifoStockInclude,
-  recipeIngredientsWithFifoStock,
+  productIngredientsWithFifoStock,
 } from "@/lib/inventory-stock-query";
 
-async function loadRecipesForStockCheck(businessId: string, recipeIds: string[]) {
-  if (recipeIds.length === 0) return [];
-  return db.recipe.findMany({
-    where: { id: { in: recipeIds }, businessId },
+async function loadProductsForStockCheck(businessId: string, productIds: string[]) {
+  if (productIds.length === 0) return [];
+  return db.product.findMany({
+    where: { id: { in: productIds }, businessId },
     select: {
       id: true,
       name: true,
-      recipeType: true,
+      productType: true,
       requiresKitchen: true,
       retailQuantityPerSale: true,
-      retailInventoryItem: recipeIngredientsWithFifoStock.retailInventoryItem,
+      retailInventoryItem: productIngredientsWithFifoStock.retailInventoryItem,
       ingredients: {
         include: {
           ingredient: ingredientWithFifoStockInclude,
@@ -41,25 +41,25 @@ export async function validateOrderLinesStock(
       include: {
         lineItems: {
           select: {
-            recipeId: true,
+            productId: true,
             quantity: true,
             processedAt: true,
-            recipeName: true,
+            productName: true,
           },
         },
       },
     });
     if (order) {
       const combined: OrderLineStockInput[] = order.lineItems
-        .filter((l) => l.recipeId && l.processedAt == null)
+        .filter((l) => l.productId && l.processedAt == null)
         .map((l) => ({
-          recipeId: l.recipeId!,
+          productId: l.productId!,
           quantity: l.quantity,
-          recipeName: l.recipeName,
+          productName: l.productName,
         }));
 
       for (const line of lines) {
-        const existing = combined.find((c) => c.recipeId === line.recipeId);
+        const existing = combined.find((c) => c.productId === line.productId);
         if (existing) {
           existing.quantity += line.quantity;
         } else {
@@ -70,7 +70,7 @@ export async function validateOrderLinesStock(
     }
   }
 
-  const recipeIds = [...new Set(linesToCheck.map((l) => l.recipeId))];
-  const recipes = await loadRecipesForStockCheck(businessId, recipeIds);
-  return checkStockForRecipes(recipes, linesToCheck);
+  const productIds = [...new Set(linesToCheck.map((l) => l.productId))];
+  const products = await loadProductsForStockCheck(businessId, productIds);
+  return checkStockForProducts(products, linesToCheck);
 }

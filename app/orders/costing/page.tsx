@@ -38,14 +38,14 @@ export default function OrderCostingGuidePage() {
 
         <section className="rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="section-title">
-            3. Recipe pricing page (estimates)
+            3. Product pricing page (estimates)
           </h2>
           <p className="mt-2 text-sm leading-relaxed">
             On{" "}
-            <Link href="/recipes/pricing" className="link-brand">
-              recipe pricing
+            <Link href="/products/pricing" className="link-brand">
+              product pricing
             </Link>
-            , estimated ingredient cost uses a <strong>weighted average</strong> of active
+            , estimated raw material cost uses a <strong>weighted average</strong> of active
             stock in the matching unit. That is a live estimate — not locked until an order
             ships.
           </p>

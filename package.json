@@ -17,14 +17,12 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
-    "jsbarcode": "^3.12.3",
     "next": "^16.2.6",
     "react": "^18",
     "react-dom": "^18",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/jsbarcode": "^3.11.4",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

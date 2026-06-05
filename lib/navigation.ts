@@ -49,9 +49,8 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Catalog",
     roles: ["owner", "manager"],
     items: [
-      { href: "/ingredients", label: "Ingredients" },
-      { href: "/recipes", label: "Recipes" },
-      { href: "/recipes/pricing", label: "Recipe pricing" },
+      { href: "/raw-materials", label: "Raw Materials" },
+      { href: "/products", label: "Products" },
     ],
   },
   {
@@ -60,8 +59,6 @@ export const NAV_SECTIONS: NavSection[] = [
     roles: ["owner", "manager"],
     items: [
       { href: "/inventory", label: "Stock" },
-      { href: "/inventory/receive", label: "Stock receive" },
-      { href: "/inventory/receive/history", label: "Receive history" },
       { href: "/suppliers", label: "Suppliers" },
       { href: "/inventory/payables", label: "Supplier payables" },
     ],
@@ -86,7 +83,6 @@ export const DASHBOARD_QUICK_ACTIONS = [
   { href: "/orders/new", label: "Simple order form", roles: ["owner", "manager"] as NavRole[] },
   { href: "/inventory/receive", label: "Stock receive", roles: ["owner", "manager"] as NavRole[] },
   { href: "/expenses/new", label: "Add expense", roles: ["owner", "manager"] as NavRole[] },
-  { href: "/ingredients/barcodes", label: "Print barcodes", roles: ["owner", "manager"] as NavRole[] },
 ];
 
 function canAccess(allowedRoles: NavRole[] | undefined, userRoles: NavRole[] | null): boolean {

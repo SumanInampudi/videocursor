@@ -4,7 +4,7 @@ export type ReceiveCatalogItem = {
   id: string;
   name: string;
   sku: string;
-  barcode: string;
+  imageUrl?: string | null;
   category: string;
   aliases?: string | null;
   defaultUnit: Unit;

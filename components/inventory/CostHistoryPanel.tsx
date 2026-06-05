@@ -15,7 +15,7 @@ export async function CostHistoryPanel({ inventoryItemId }: CostHistoryPanelProp
       </h2>
       <p className="mb-4 text-xs text-gray-500">
         Each time you change cost per unit on this item, a snapshot is recorded. When an
-        order is marked ready, ingredient costs use the current inventory price at that
+        order is marked ready, raw material costs use the current inventory price at that
         moment (stored on the order for profit reporting).
       </p>
 

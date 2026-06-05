@@ -27,14 +27,14 @@ export type OrderListRow = {
     id: string;
     quantity: number;
     unitSalePrice: number | { toString(): string };
-    recipeName: string;
-    recipe: { name: string; yieldUnit: string } | null;
+    productName: string;
+    product: { name: string; yieldUnit: string } | null;
   }[];
 };
 
 function formatItemsSummary(lineItems: OrderListRow["lineItems"], max = 2) {
   const parts = lineItems.map(
-    (line) => `${line.quantity}× ${line.recipe?.name ?? line.recipeName}`
+    (line) => `${line.quantity}× ${line.product?.name ?? line.productName}`
   );
   if (parts.length <= max) {
     return parts.join(", ");

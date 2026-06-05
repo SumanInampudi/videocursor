@@ -4,17 +4,17 @@ import { revalidatePath } from "next/cache";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
-import { estimateRecipeIngredientCost } from "@/lib/costing";
+import { estimateProductIngredientCost } from "@/lib/costing";
 import { smartMatches } from "@/lib/smart-search";
-import { recipePricingSchema } from "@/lib/validations";
+import { productPricingSchema } from "@/lib/validations";
 
-export async function updateRecipePricing(recipeId: string, formData: FormData) {
+export async function updateProductPricing(productId: string, formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
   const salePriceRaw = String(raw.salePrice ?? "").trim();
 
   const prepRaw = String(raw.prepTimeMinutes ?? "").trim();
 
-  const parsed = recipePricingSchema.safeParse({
+  const parsed = productPricingSchema.safeParse({
     salePrice: salePriceRaw === "" ? null : salePriceRaw,
     prepTimeMinutes: prepRaw === "" ? null : prepRaw,
   });
@@ -23,16 +23,16 @@ export async function updateRecipePricing(recipeId: string, formData: FormData) 
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  await db.recipe.update({
-    where: { id: recipeId },
+  await db.product.update({
+    where: { id: productId },
     data: {
       salePrice: parsed.data.salePrice,
       prepTimeMinutes: parsed.data.prepTimeMinutes,
     },
   });
 
-  revalidatePath("/recipes");
-  revalidatePath(`/recipes/${recipeId}/pricing`);
+  revalidatePath("/products");
+  revalidatePath(`/products/${productId}/pricing`);
   revalidatePath("/orders");
   revalidatePath("/orders/new");
   revalidatePath("/orders/pos");
@@ -40,9 +40,9 @@ export async function updateRecipePricing(recipeId: string, formData: FormData) 
   return { success: true };
 }
 
-export async function getRecipePricingDetail(recipeId: string) {
-  const recipe = await db.recipe.findUnique({
-    where: { id: recipeId },
+export async function getProductPricingDetail(productId: string) {
+  const product = await db.product.findUnique({
+    where: { id: productId },
     include: {
       retailInventoryItem: {
         include: {
@@ -73,16 +73,16 @@ export async function getRecipePricingDetail(recipeId: string) {
     },
   });
 
-  if (!recipe) return null;
+  if (!product) return null;
 
-  const costEstimate = estimateRecipeIngredientCost(recipe, 1);
+  const costEstimate = estimateProductIngredientCost(product, 1);
 
-  return serializeForClient({ recipe, costEstimate });
+  return serializeForClient({ product, costEstimate });
 }
 
-export async function getRecipesWithPricing(search?: string) {
+export async function getProductsWithPricing(search?: string) {
   const { businessId } = await requireBusinessContext();
-  const recipes = await db.recipe.findMany({
+  const products = await db.product.findMany({
     where: { businessId },
     include: {
       retailInventoryItem: {
@@ -115,9 +115,9 @@ export async function getRecipesWithPricing(search?: string) {
     orderBy: { name: "asc" },
   });
 
-  const rows = recipes.map((recipe) => ({
-    ...recipe,
-    costEstimate: estimateRecipeIngredientCost(recipe, 1),
+  const rows = products.map((product) => ({
+    ...product,
+    costEstimate: estimateProductIngredientCost(product, 1),
   }));
 
   if (!search?.trim()) {
@@ -125,9 +125,9 @@ export async function getRecipesWithPricing(search?: string) {
   }
 
   return serializeForClient(
-    rows.filter((recipe) =>
+    rows.filter((product) =>
       smartMatches(
-        [recipe.name, recipe.category, recipe.barcode, recipe.recipeType, recipe.description],
+        [product.name, product.category, product.productType, product.description],
         search
       )
     )

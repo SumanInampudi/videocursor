@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { RecipeThumbnail } from "@/components/recipes/RecipeThumbnail";
+import { ProductThumbnail } from "@/components/products/ProductThumbnail";
 import { OrderTotalsBreakdown } from "@/components/orders/OrderTotalsBreakdown";
 import { TipSelector } from "@/components/orders/TipSelector";
 import type { OrderCartLine } from "@/lib/order-cart";
@@ -16,7 +16,7 @@ import {
 } from "@/lib/pos-payment";
 import { OrderPrepEstimate } from "@/components/orders/OrderPrepEstimate";
 import { orderChannelLabel } from "@/lib/order-channel";
-import type { PricedRecipe } from "@/lib/order-cart";
+import type { PricedProduct } from "@/lib/order-cart";
 import { StockShortageAlert } from "@/components/orders/StockShortageAlert";
 import { formatFieldErrors } from "@/lib/format-field-errors";
 import { formatCurrency } from "@/lib/units";
@@ -49,7 +49,7 @@ type PosCheckoutModalProps = {
   sendToKitchen?: boolean;
   addingToOrder?: string | null;
   fields: CheckoutFields;
-  recipes: PricedRecipe[];
+  products: PricedProduct[];
 };
 
 export function PosCheckoutModal({
@@ -68,7 +68,7 @@ export function PosCheckoutModal({
   sendToKitchen = false,
   addingToOrder = null,
   fields,
-  recipes,
+  products,
 }: PosCheckoutModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod | null>(null);
 
@@ -141,8 +141,8 @@ export function PosCheckoutModal({
 
         <ul className="max-h-40 space-y-2 overflow-y-auto border-b border-gray-100 px-4 py-3">
           {cart.map((line) => (
-            <li key={line.recipeId} className="flex items-center gap-2 text-sm">
-              <RecipeThumbnail name={line.name} imageUrl={line.imageUrl} size="xs" />
+            <li key={line.productId} className="flex items-center gap-2 text-sm">
+              <ProductThumbnail name={line.name} imageUrl={line.imageUrl} size="xs" />
               <span className="flex-1 truncate">{line.quantity}× {line.name}</span>
               <span className="font-medium">{formatCurrency(line.unitPrice * line.quantity)}</span>
             </li>
@@ -151,8 +151,8 @@ export function PosCheckoutModal({
 
         <div className="space-y-2 border-b border-gray-100 px-4 py-2">
           <OrderPrepEstimate
-            lines={cart.map((l) => ({ recipeId: l.recipeId, quantity: l.quantity }))}
-            recipes={recipes}
+            lines={cart.map((l) => ({ productId: l.productId, quantity: l.quantity }))}
+            products={products}
           />
           <p className="text-sm font-medium text-servora-charcoal">
             {orderChannelLabel(fields.channel)}

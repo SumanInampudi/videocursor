@@ -1,12 +1,12 @@
 export type OrderCartLine = {
-  recipeId: string;
+  productId: string;
   name: string;
   quantity: number;
   unitPrice: number;
   imageUrl?: string | null;
 };
 
-export type PricedRecipe = {
+export type PricedProduct = {
   id: string;
   name: string;
   category?: string;
@@ -18,21 +18,21 @@ export type PricedRecipe = {
 
 export function addToOrderCart(
   cart: OrderCartLine[],
-  recipe: PricedRecipe,
+  product: PricedProduct,
   qty = 1
 ): { cart: OrderCartLine[]; error?: string } {
-  if (recipe.salePrice == null) {
+  if (product.salePrice == null) {
     return {
       cart,
-      error: `"${recipe.name}" has no sale price — set it on Recipe pricing first.`,
+      error: `"${product.name}" has no sale price — set it on Product pricing first.`,
     };
   }
-  const unitPrice = Number(recipe.salePrice);
-  const existing = cart.find((l) => l.recipeId === recipe.id);
+  const unitPrice = Number(product.salePrice);
+  const existing = cart.find((l) => l.productId === product.id);
   if (existing) {
     return {
       cart: cart.map((l) =>
-        l.recipeId === recipe.id ? { ...l, quantity: l.quantity + qty } : l
+        l.productId === product.id ? { ...l, quantity: l.quantity + qty } : l
       ),
     };
   }
@@ -40,11 +40,11 @@ export function addToOrderCart(
     cart: [
       ...cart,
       {
-        recipeId: recipe.id,
-        name: recipe.name,
+        productId: product.id,
+        name: product.name,
         quantity: qty,
         unitPrice,
-        imageUrl: recipe.imageUrl ?? null,
+        imageUrl: product.imageUrl ?? null,
       },
     ],
   };
@@ -52,11 +52,11 @@ export function addToOrderCart(
 
 export function updateCartLineQty(
   cart: OrderCartLine[],
-  recipeId: string,
+  productId: string,
   quantity: number
 ): OrderCartLine[] {
-  if (quantity < 1) return cart.filter((l) => l.recipeId !== recipeId);
-  return cart.map((l) => (l.recipeId === recipeId ? { ...l, quantity } : l));
+  if (quantity < 1) return cart.filter((l) => l.productId !== productId);
+  return cart.map((l) => (l.productId === productId ? { ...l, quantity } : l));
 }
 
 export function cartSubtotal(cart: OrderCartLine[]) {
@@ -99,7 +99,7 @@ export function buildOrderFormData(
   }
   formData.set("lineCount", String(cart.length));
   cart.forEach((line, i) => {
-    formData.set(`line_${i}_recipeId`, line.recipeId);
+    formData.set(`line_${i}_productId`, line.productId);
     formData.set(`line_${i}_quantity`, String(line.quantity));
   });
   return formData;

@@ -43,8 +43,8 @@ export function DataMigrationPanel() {
       <section className="card-padded">
         <h2 className="section-title">Choose data type</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Import in this order for a new restaurant: ingredients → inventory → recipes →
-          recipe BOM → customers → suppliers → discounts.
+          Import in this order for a new restaurant: raw materials → inventory → products →
+          product BOM → customers → suppliers → discounts.
         </p>
         <div className="mt-4 max-w-md">
           <Select
@@ -82,7 +82,7 @@ export function DataMigrationPanel() {
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <h3 className="font-semibold text-green-900">3. Import CSV</h3>
           <p className="mt-1 text-sm text-green-800/90">
-            Upserts rows (matches SKU, barcode, email, or code where applicable).
+            Upserts rows (matches SKU, email, or code where applicable).
           </p>
           <label className="mt-3 inline-flex cursor-pointer">
             <span className="inline-flex items-center rounded-md bg-servora-yellow px-4 py-2 text-sm font-medium text-white hover:bg-[#e09515]">

@@ -11,7 +11,7 @@ import {
   type DataExportType,
 } from "@/lib/data-migration/types";
 import { db } from "@/lib/db";
-import { generateIngredientBarcode, generateRecipeBarcode } from "@/lib/barcode";
+import { generateIngredientBarcode, generateProductBarcode } from "@/lib/barcode";
 import { ingredientSkuPrefix, normalizeIngredientName } from "@/lib/ingredients";
 import { DiscountType, Unit } from "@prisma/client";
 
@@ -70,7 +70,7 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
       ]);
     }
     case "recipes": {
-      const rows = await db.recipe.findMany({
+      const rows = await db.product.findMany({
         where: { businessId },
         orderBy: { name: "asc" },
       });
@@ -90,15 +90,15 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
       ]);
     }
     case "recipe_ingredients": {
-      const rows = await db.recipeIngredient.findMany({
-        where: { recipe: { businessId } },
-        include: { recipe: true, ingredient: true },
-        orderBy: { recipe: { name: "asc" } },
+      const rows = await db.productIngredient.findMany({
+        where: { product: { businessId } },
+        include: { product: true, ingredient: true },
+        orderBy: { product: { name: "asc" } },
       });
       return stringifyCsv([
         TEMPLATE_HEADERS.recipe_ingredients,
         ...rows.map((r) => [
-          r.recipe.name,
+          r.product.name,
           r.ingredient.name,
           String(r.quantityRequired),
           r.unit,
@@ -305,8 +305,8 @@ export async function importDataCsv(
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
-            const barcode = row.barcode?.trim() || generateRecipeBarcode(row.name);
-            const existing = await db.recipe.findFirst({
+            const barcode = row.barcode?.trim() || generateProductBarcode(row.name);
+            const existing = await db.product.findFirst({
               where: { businessId, barcode },
             });
             if (existing && existing.name !== row.name) {
@@ -314,7 +314,7 @@ export async function importDataCsv(
               continue;
             }
             if (existing) {
-              await db.recipe.update({
+              await db.product.update({
                 where: { id: existing.id },
                 data: {
                   name: row.name,
@@ -328,7 +328,7 @@ export async function importDataCsv(
                 },
               });
             } else {
-              await db.recipe.create({
+              await db.product.create({
                 data: {
                   businessId,
                   name: row.name,
@@ -360,7 +360,7 @@ export async function importDataCsv(
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
-            const recipe = await db.recipe.findFirst({
+            const product = await db.product.findFirst({
               where: { businessId, name: row.recipe_name },
             });
             const ingredient = await db.ingredient.findFirst({
@@ -369,17 +369,17 @@ export async function importDataCsv(
                 normalizedName: normalizeIngredientName(row.ingredient_name),
               },
             });
-            if (!recipe || !ingredient) {
+            if (!product || !ingredient) {
               errors.push(
-                `${row.recipe_name}/${row.ingredient_name}: recipe or ingredient not found`
+                `${row.recipe_name}/${row.ingredient_name}: product or ingredient not found`
               );
               continue;
             }
-            const existing = await db.recipeIngredient.findFirst({
-              where: { recipeId: recipe.id, ingredientId: ingredient.id },
+            const existing = await db.productIngredient.findFirst({
+              where: { productId: product.id, ingredientId: ingredient.id },
             });
             if (existing) {
-              await db.recipeIngredient.update({
+              await db.productIngredient.update({
                 where: { id: existing.id },
                 data: {
                   quantityRequired: Number(row.quantity_required) || 0,
@@ -387,9 +387,9 @@ export async function importDataCsv(
                 },
               });
             } else {
-              await db.recipeIngredient.create({
+              await db.productIngredient.create({
                 data: {
-                  recipeId: recipe.id,
+                  productId: product.id,
                   ingredientId: ingredient.id,
                   quantityRequired: Number(row.quantity_required) || 0,
                   unit: parseUnit(row.unit),
@@ -541,7 +541,7 @@ export async function importDataCsv(
     };
   }
 
-  for (const path of ["/", "/ingredients", "/recipes", "/inventory", "/customers", "/suppliers", "/discounts", "/orders/pos"]) {
+  for (const path of ["/", "/ingredients", "/raw-materials", "/products", "/inventory", "/customers", "/suppliers", "/discounts", "/orders/pos"]) {
     revalidatePath(path);
   }
 

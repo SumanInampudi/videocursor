@@ -61,7 +61,7 @@ export async function getOrderReceipt(
       include: {
         lineItems: {
           orderBy: { id: "asc" },
-          include: { recipe: { select: { name: true } } },
+          include: { product: { select: { name: true } } },
         },
       },
     }),
@@ -76,7 +76,7 @@ export async function getOrderReceipt(
     const lineTotal =
       line.revenue != null ? Number(line.revenue) : unitPrice * line.quantity;
     return {
-      name: line.recipe?.name ?? line.recipeName,
+      name: line.product?.name ?? line.productName,
       quantity: line.quantity,
       unitPrice,
       lineTotal,

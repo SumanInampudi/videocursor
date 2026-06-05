@@ -16,7 +16,7 @@ export function YieldCard({ result, rank }: YieldCardProps) {
               #{rank}
             </Badge>
           )}
-          <h3 className="text-lg font-bold text-charcoal">{result.recipeName}</h3>
+          <h3 className="text-lg font-bold text-charcoal">{result.productName}</h3>
           <p className="text-sm text-charcoal-muted">{result.category}</p>
         </div>
         {result.canMake ? (

@@ -1,9 +1,10 @@
 import { getSupplierOptions } from "@/app/actions/suppliers";
-import { getActiveIngredientsForRecipes } from "@/app/actions/recipes";
+import { getActiveIngredientsForProducts } from "@/app/actions/products";
 import { notFound } from "next/navigation";
 import { getInventoryItem, updateInventoryItem } from "@/app/actions/inventory";
 import { CostHistoryPanel } from "@/components/inventory/CostHistoryPanel";
 import { InventoryForm } from "@/components/inventory/InventoryForm";
+import { InventoryImageFields } from "@/components/inventory/InventoryImageFields";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function EditInventoryPage({ params }: Props) {
   const { id } = await params;
   const [item, ingredients, suppliers] = await Promise.all([
     getInventoryItem(id),
-    getActiveIngredientsForRecipes(),
+    getActiveIngredientsForProducts(),
     getSupplierOptions(),
   ]);
 
@@ -44,6 +45,7 @@ export default async function EditInventoryPage({ params }: Props) {
           name: item.name,
           sku: item.sku,
           category: item.category,
+          imageUrl: item.imageUrl,
           description: item.description,
           notes: item.notes,
           quantity: Number(item.quantity),
@@ -59,6 +61,7 @@ export default async function EditInventoryPage({ params }: Props) {
         }}
         submitLabel="Update Item"
       />
+      <InventoryImageFields inventoryItemId={id} itemName={item.name} imageUrl={item.imageUrl} />
       <CostHistoryPanel inventoryItemId={id} />
     </div>
   );

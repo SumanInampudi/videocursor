@@ -24,8 +24,8 @@ type OrderLine = {
   id: string;
   quantity: number;
   unitSalePrice: { toString(): string };
-  recipeName: string;
-  recipe: { name: string; yieldUnit: string } | null;
+  productName: string;
+  product: { name: string; yieldUnit: string } | null;
 };
 
 type OrderCardProps = {
@@ -125,7 +125,7 @@ export function OrderCard({ order, nextAction }: OrderCardProps) {
       <ul className="mb-3 space-y-1 text-sm text-gray-600">
         {order.lineItems.map((line) => (
           <li key={line.id}>
-            {line.quantity}× {line.recipe?.name ?? line.recipeName}
+            {line.quantity}× {line.product?.name ?? line.productName}
           </li>
         ))}
       </ul>

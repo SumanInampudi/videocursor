@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { getCustomerOptions } from "@/app/actions/customers";
-import { getRecipesForOrdering } from "@/app/actions/orders";
+import { getProductsForOrdering } from "@/app/actions/orders";
 import { OrderForm } from "@/components/orders/OrderForm";
 import { Button } from "@/components/ui/Button";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewOrderPage() {
-  const [recipes, customers] = await Promise.all([
-    getRecipesForOrdering(),
+  const [products, customers] = await Promise.all([
+    getProductsForOrdering(),
     getCustomerOptions(),
   ]);
 
@@ -22,8 +22,8 @@ export default async function NewOrderPage() {
           <div>
             <h1 className="page-title">Place order</h1>
             <p className="text-sm text-gray-500">
-              Simple form with thumbnails and barcode scan. For iPad / counter use, open
-              full-screen POS.
+              Simple form with thumbnails for quick ordering. For iPad / counter use, open
+              full-screen POS register.
             </p>
           </div>
           <Link href="/orders/pos">
@@ -31,7 +31,7 @@ export default async function NewOrderPage() {
           </Link>
         </div>
       </div>
-      <OrderForm recipes={recipes} customers={customers} />
+      <OrderForm products={products} customers={customers} />
     </div>
   );
 }

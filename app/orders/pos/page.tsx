@@ -19,7 +19,7 @@ export default async function PosOrderPage() {
 
   return (
     <PosOrderScreen
-      recipes={menu.recipes}
+      products={menu.products}
       categories={menu.categories}
       frequentIds={menu.frequentIds}
       customers={customers}

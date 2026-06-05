@@ -13,8 +13,8 @@ export const ingredientWithFifoStockInclude = {
   },
 } as const;
 
-/** Recipe → ingredients → stock (orders, pricing, previews). */
-export const recipeIngredientsWithFifoStock = {
+/** Product → ingredients → stock (orders, pricing, previews). */
+export const productIngredientsWithFifoStock = {
   retailInventoryItem: {
     include: {
       ingredient: { select: { wastagePercent: true } },

@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { UNITS } from "./units";
 
-export const RECIPE_TYPES = ["PREPARED", "RETAIL"] as const;
+export const PRODUCT_TYPES = ["PREPARED", "RETAIL"] as const;
 
 export const inventoryItemSchema = z.object({
   ingredientId: z.string().optional(),
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
   category: z.string().min(1, "Category is required"),
+  imageUrl: z.string().optional(),
   description: z.string().optional(),
   notes: z.string().optional(),
   quantity: z.coerce.number().min(0, "Quantity must be 0 or greater"),
@@ -37,31 +38,39 @@ export const ingredientSchema = z.object({
 
 export type IngredientInput = z.infer<typeof ingredientSchema>;
 
-export const recipeIngredientSchema = z.object({
+export const productIngredientSchema = z.object({
   ingredientId: z.string().min(1, "Ingredient is required"),
   quantityRequired: z.coerce.number().positive("Quantity must be greater than 0"),
   unit: z.enum(UNITS),
 });
 
-export const recipeSchema = z
+export const productSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
     category: z.string().min(1, "Category is required"),
     yieldQuantity: z.coerce.number().positive("Yield quantity must be greater than 0"),
     yieldUnit: z.string().min(1, "Yield unit is required"),
+    salePrice: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : val),
+      z.union([z.null(), z.coerce.number().min(0, "Price must be 0 or greater")])
+    ),
+    prepTimeMinutes: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : val),
+      z.union([z.null(), z.coerce.number().int().min(1, "Prep time must be at least 1 minute")])
+    ),
     instructions: z.string().optional(),
-    recipeType: z.enum(RECIPE_TYPES).default("PREPARED"),
+    productType: z.enum(PRODUCT_TYPES).default("PREPARED"),
     requiresKitchen: z
       .union([z.boolean(), z.literal("true"), z.literal("false"), z.literal("on")])
       .transform((v) => v === true || v === "true" || v === "on")
       .default(true),
     retailInventoryItemId: z.string().optional(),
     retailQuantityPerSale: z.coerce.number().optional(),
-    ingredients: z.array(recipeIngredientSchema).default([]),
+    ingredients: z.array(productIngredientSchema).default([]),
   })
   .superRefine((data, ctx) => {
-    if (data.recipeType === "RETAIL") {
+    if (data.productType === "RETAIL") {
       if (!data.retailInventoryItemId?.trim()) {
         ctx.addIssue({
           code: "custom",
@@ -100,9 +109,9 @@ export const recipeSchema = z
     });
   });
 
-export type RecipeInput = z.infer<typeof recipeSchema>;
+export type ProductInput = z.infer<typeof productSchema>;
 
-export const recipePricingSchema = z.object({
+export const productPricingSchema = z.object({
   salePrice: z.preprocess(
     (val) => (val === "" || val === null || val === undefined ? null : val),
     z.union([z.null(), z.coerce.number().min(0, "Price must be 0 or greater")])
@@ -117,7 +126,7 @@ export const recipePricingSchema = z.object({
 });
 
 export const orderLineSchema = z.object({
-  recipeId: z.string().min(1, "Recipe is required"),
+  productId: z.string().min(1, "Product is required"),
   quantity: z.coerce.number().int().positive("Quantity must be at least 1"),
 });
 

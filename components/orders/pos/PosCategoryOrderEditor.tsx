@@ -48,7 +48,7 @@ export function PosCategoryOrderEditor({
   }
 
   if (allCategories.length === 0) {
-    return <p className="text-sm text-gray-500">Add recipes with categories first.</p>;
+    return <p className="text-sm text-gray-500">Add products with categories first.</p>;
   }
 
   return (

@@ -9,10 +9,9 @@ import {
   parseCalendarDateString,
   toDateInputValue,
 } from "@/lib/dates";
-import { STARTER_INGREDIENTS, normalizeIngredientName } from "@/lib/ingredients";
 import { serializeForClient } from "@/lib/serialize";
 import type { ReceiveCatalogItem } from "@/lib/stock-receive-cart";
-import { createCostLayer, syncDisplayCostFromLayers } from "@/lib/inventory-fifo";
+import { receiveCostLayers } from "@/lib/inventory-fifo";
 import { recordStockReceiveExpense } from "@/lib/stock-receive-finance";
 import {
   groupPurchasesIntoBatches,
@@ -29,8 +28,9 @@ const REVALIDATE_PATHS = [
   "/inventory/receive/history",
   "/inventory/payables",
   "/ingredients",
+  "/raw-materials",
   "/yield",
-  "/recipes",
+  "/products",
   "/expenses",
   "/reports",
 ];
@@ -71,11 +71,11 @@ async function ensureInventoryItem(
   businessId: string,
   ingredientId: string
 ) {
-  const ingredient = await tx.ingredient.findFirst({
+  const rawMaterial = await tx.ingredient.findFirst({
     where: { id: ingredientId, businessId, isActive: true },
   });
-  if (!ingredient) {
-    throw new Error("Ingredient not found");
+  if (!rawMaterial) {
+    throw new Error("Raw material not found");
   }
 
   let item = await tx.inventoryItem.findFirst({
@@ -87,11 +87,11 @@ async function ensureInventoryItem(
       data: {
         businessId,
         ingredientId,
-        name: ingredient.name,
-        sku: `${ingredient.sku}-STK`,
-        category: ingredient.category,
+        name: rawMaterial.name,
+        sku: `${rawMaterial.sku}-STK`,
+        category: rawMaterial.category,
         quantity: 0,
-        unit: ingredient.defaultUnit,
+        unit: rawMaterial.defaultUnit,
         reorderLevel: 0,
         costPerUnit: 0,
         isActive: true,
@@ -100,7 +100,7 @@ async function ensureInventoryItem(
     await recordCostHistory(tx, item.id, 0, null, "Initial cost");
   }
 
-  return { ingredient, item };
+  return { rawMaterial, item };
 }
 
 export async function getReceiveCatalog() {
@@ -143,17 +143,7 @@ export async function getReceiveCatalog() {
     }
   }
 
-  const starterNames = new Set(
-    STARTER_INGREDIENTS.map((s) => normalizeIngredientName(s.name))
-  );
-  const starterIds = ingredients
-    .filter((i) => starterNames.has(i.normalizedName))
-    .map((i) => i.id);
-
-  const frequentIds = [
-    ...frequentFromPurchases,
-    ...starterIds.filter((id) => !seenFreq.has(id)),
-  ].slice(0, 24);
+  const frequentIds = frequentFromPurchases.slice(0, 24);
 
   const categories = [...new Set(ingredients.map((i) => i.category))].sort();
 
@@ -163,7 +153,7 @@ export async function getReceiveCatalog() {
       id: ing.id,
       name: ing.name,
       sku: ing.sku,
-      barcode: ing.barcode,
+      imageUrl: stock?.imageUrl ?? null,
       category: ing.category,
       aliases: ing.aliases,
       defaultUnit: ing.defaultUnit,
@@ -297,7 +287,7 @@ export async function postStockReceive(formData: FormData) {
   try {
     await db.$transaction(async (tx) => {
       for (const line of data.lines) {
-        const { ingredient, item } = await ensureInventoryItem(
+        const { rawMaterial, item } = await ensureInventoryItem(
           tx,
           businessId,
           line.ingredientId
@@ -316,23 +306,32 @@ export async function postStockReceive(formData: FormData) {
           data: {
             quantity: newQty,
             unit: receiveUnit,
-            costPerUnit: newCost,
             ...(supplierId ? { supplierId } : {}),
             ...(supplierName ? { supplier: supplierName } : {}),
           },
+        });
+
+        const { costPerUnit: effectiveCost, usedAverage } = await receiveCostLayers(tx, {
+          inventoryItemId: item.id,
+          previousQty,
+          receiveQty: line.quantity,
+          unit: receiveUnit,
+          previousCost,
+          receiveCost: newCost,
+          receiveBatchId,
         });
 
         if (costChanged) {
           await recordCostHistory(
             tx,
             item.id,
-            newCost,
+            effectiveCost,
             previousCost,
-            "Stock receive"
+            usedAverage ? "Stock receive (weighted average)" : "Stock receive"
           );
         }
 
-        const description = `Receive: ${ingredient.name} (${line.quantity} ${receiveUnit})`;
+        const description = `Receive: ${rawMaterial.name} (${line.quantity} ${receiveUnit})`;
         const lineAmountPaid =
           status === "PAID"
             ? lineTotal
@@ -343,21 +342,12 @@ export async function postStockReceive(formData: FormData) {
                 : 0;
 
         receiptLines.push({
-          name: ingredient.name,
+          name: rawMaterial.name,
           quantity: line.quantity,
           unit: receiveUnit,
           unitCost: line.unitCost,
           lineTotal,
         });
-
-        await createCostLayer(tx, {
-          inventoryItemId: item.id,
-          quantity: line.quantity,
-          unit: receiveUnit,
-          costPerUnit: newCost,
-          receiveBatchId,
-        });
-        await syncDisplayCostFromLayers(tx, item.id);
 
         await tx.inventoryPurchase.create({
           data: {

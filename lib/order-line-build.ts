@@ -3,11 +3,11 @@ import "server-only";
 import { calculateDiscountAmount, isDiscountValid } from "@/lib/discount-calc";
 import { db } from "@/lib/db";
 
-export type LineInput = { recipeId: string; quantity: number };
+export type LineInput = { productId: string; quantity: number };
 
 export type BuiltLinePayload = {
-  recipeId: string;
-  recipeName: string;
+  productId: string;
+  productName: string;
   quantity: number;
   unitSalePrice: number;
   revenue: number;
@@ -20,31 +20,31 @@ export async function buildLinePayloadsForBusiness(
   | { error: { lines: string[] } }
   | { payloads: BuiltLinePayload[]; subtotal: number }
 > {
-  const recipeIds = lines.map((l) => l.recipeId);
-  const recipes = await db.recipe.findMany({
-    where: { id: { in: recipeIds }, businessId },
+  const productIds = lines.map((l) => l.productId);
+  const products = await db.product.findMany({
+    where: { id: { in: productIds }, businessId },
     select: { id: true, salePrice: true, name: true },
   });
-  const recipeMap = new Map(recipes.map((r) => [r.id, r]));
+  const productMap = new Map(products.map((p) => [p.id, p]));
 
   for (const line of lines) {
-    const recipe = recipeMap.get(line.recipeId);
-    if (!recipe) {
-      return { error: { lines: ["One or more recipes were not found"] } };
+    const product = productMap.get(line.productId);
+    if (!product) {
+      return { error: { lines: ["One or more products were not found"] } };
     }
-    if (recipe.salePrice == null) {
+    if (product.salePrice == null) {
       return {
-        error: { lines: [`Set a sale price for "${recipe.name}" before ordering`] },
+        error: { lines: [`Set a sale price for "${product.name}" before ordering`] },
       };
     }
   }
 
   const payloads: BuiltLinePayload[] = lines.map((line) => {
-    const recipe = recipeMap.get(line.recipeId)!;
-    const unitSalePrice = Number(recipe.salePrice);
+    const product = productMap.get(line.productId)!;
+    const unitSalePrice = Number(product.salePrice);
     return {
-      recipeId: line.recipeId,
-      recipeName: recipe.name,
+      productId: line.productId,
+      productName: product.name,
       quantity: line.quantity,
       unitSalePrice,
       revenue: unitSalePrice * line.quantity,

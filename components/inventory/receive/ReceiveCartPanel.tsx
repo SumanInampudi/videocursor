@@ -22,8 +22,8 @@ type ReceiveCartPanelProps = {
   suppliers: SupplierOption[];
   isPending: boolean;
   errors: Record<string, string[]>;
-  onUpdateQty: (ingredientId: string, qty: number) => void;
-  onUpdateUnitCost: (ingredientId: string, unitCost: number) => void;
+  onUpdateQty: (rawMaterialId: string, qty: number) => void;
+  onUpdateUnitCost: (rawMaterialId: string, unitCost: number) => void;
   onClear: () => void;
   onPost: (fields: {
     supplierId: string;
@@ -82,7 +82,7 @@ export function ReceiveCartPanel({
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
         {cart.length === 0 ? (
-          <p className="text-sm text-gray-500">Tap ingredients to add them here.</p>
+          <p className="text-sm text-gray-500">Tap raw materials to add them here.</p>
         ) : (
           cart.map((line) => (
             <div

@@ -27,11 +27,11 @@ type KitchenOrder = {
   lineItems: {
     id: string;
     quantity: number;
-    recipeName: string;
+    productName: string;
     addedAt: Date | string;
     kitchenDoneAt?: Date | string | null;
     kitchenDoneQty?: number;
-    recipe: { name: string; yieldUnit: string } | null;
+    product: { name: string; yieldUnit: string } | null;
   }[];
 };
 
