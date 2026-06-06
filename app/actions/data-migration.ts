@@ -204,7 +204,7 @@ export async function importDataCsv(
                 normalizedName: normalized,
                 sku,
                 barcode,
-                category: row.category || "General",
+                category: row.category || "Uncategorized",
                 defaultUnit: parseUnit(row.default_unit || "pcs"),
                 aliases: row.aliases || null,
                 notes: row.notes || null,
@@ -212,7 +212,7 @@ export async function importDataCsv(
               },
               update: {
                 name,
-                category: row.category || "General",
+                category: row.category || "Uncategorized",
                 defaultUnit: parseUnit(row.default_unit || "pcs"),
                 aliases: row.aliases || null,
                 notes: row.notes || null,
@@ -267,7 +267,7 @@ export async function importDataCsv(
                 businessId,
                 name: row.name,
                 sku: row.sku.trim(),
-                category: row.category || "General",
+                category: row.category || "Uncategorized",
                 ingredientId,
                 supplierId,
                 quantity: Number(row.quantity) || 0,
@@ -280,7 +280,7 @@ export async function importDataCsv(
               },
               update: {
                 name: row.name,
-                category: row.category || "General",
+                category: row.category || "Uncategorized",
                 ingredientId,
                 supplierId,
                 quantity: Number(row.quantity) || 0,
@@ -317,7 +317,7 @@ export async function importDataCsv(
                 where: { id: existing.id },
                 data: {
                   name: row.name,
-                  category: row.category || "General",
+                  category: row.category || "Uncategorized",
                   description: row.description || null,
                   yieldQuantity: Number(row.yield_quantity) || 1,
                   yieldUnit: row.yield_unit || "pcs",
@@ -331,7 +331,7 @@ export async function importDataCsv(
                 data: {
                   businessId,
                   name: row.name,
-                  category: row.category || "General",
+                  category: row.category || "Uncategorized",
                   description: row.description || null,
                   yieldQuantity: Number(row.yield_quantity) || 1,
                   yieldUnit: row.yield_unit || "pcs",

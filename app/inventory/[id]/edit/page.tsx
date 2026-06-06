@@ -1,7 +1,11 @@
 import { getSupplierOptions } from "@/app/actions/suppliers";
 import { getActiveIngredientsForProducts } from "@/app/actions/products";
 import { notFound } from "next/navigation";
-import { getInventoryItem, updateInventoryItem } from "@/app/actions/inventory";
+import {
+  getInventoryCatalogCategories,
+  getInventoryItem,
+  updateInventoryItem,
+} from "@/app/actions/inventory";
 import { CostHistoryPanel } from "@/components/inventory/CostHistoryPanel";
 import { InventoryForm } from "@/components/inventory/InventoryForm";
 import { InventoryImageFields } from "@/components/inventory/InventoryImageFields";
@@ -14,10 +18,11 @@ type Props = {
 
 export default async function EditInventoryPage({ params }: Props) {
   const { id } = await params;
-  const [item, ingredients, suppliers] = await Promise.all([
+  const [item, ingredients, suppliers, categories] = await Promise.all([
     getInventoryItem(id),
     getActiveIngredientsForProducts(),
     getSupplierOptions(),
+    getInventoryCatalogCategories(),
   ]);
 
   if (!item) notFound();
@@ -40,6 +45,7 @@ export default async function EditInventoryPage({ params }: Props) {
         action={updateAction}
         ingredients={ingredients}
         suppliers={suppliers}
+        categories={categories}
         initialData={{
           ingredientId: item.ingredientId,
           name: item.name,

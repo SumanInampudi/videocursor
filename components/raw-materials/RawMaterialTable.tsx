@@ -6,6 +6,7 @@ import { updateRawMaterial } from "@/app/actions/ingredients";
 import { CreateStockButton } from "@/components/ingredients/CreateStockButton";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { UNITS } from "@/lib/units";
@@ -15,7 +16,13 @@ type RawMaterialWithInventory = Ingredient & {
   inventoryItems?: InventoryItem[];
 };
 
-export function RawMaterialTable({ ingredients }: { ingredients: RawMaterialWithInventory[] }) {
+export function RawMaterialTable({
+  ingredients,
+  categories,
+}: {
+  ingredients: RawMaterialWithInventory[];
+  categories: string[];
+}) {
   const router = useRouter();
   const [editingId, setEditingId] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -83,7 +90,14 @@ export function RawMaterialTable({ ingredients }: { ingredients: RawMaterialWith
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_150px_180px_100px_1fr_120px]">
                         <Input name="name" label="Name *" defaultValue={ingredient.name} error={errors.name?.[0]} required />
                         <Input name="sku" label="SKU *" defaultValue={ingredient.sku} error={errors.sku?.[0]} required />
-                        <Input name="category" label="Category *" defaultValue={ingredient.category} error={errors.category?.[0]} required />
+                        <CategoryCombobox
+                          name="category"
+                          label="Category"
+                          categories={categories}
+                          defaultValue={ingredient.category}
+                          error={errors.category?.[0]}
+                          required
+                        />
                         <Select name="defaultUnit" label="Unit *" defaultValue={ingredient.defaultUnit} options={unitOptions} error={errors.defaultUnit?.[0]} required />
                         <Input
                           name="wastagePercent"

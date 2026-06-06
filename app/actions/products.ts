@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { resolveCategory } from "@/lib/category-resolve";
 import { generateProductBarcode } from "@/lib/barcode";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
@@ -152,6 +153,18 @@ export async function getActiveIngredientsForProducts() {
   return serializeForClient(rows);
 }
 
+export async function getProductCategories() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const products = await db.product.findMany({
+    where: { businessId },
+    select: { category: true },
+    distinct: ["category"],
+    orderBy: { category: "asc" },
+  });
+  return products.map((product) => product.category);
+}
+
 export async function getInventoryItemsForRetailMenu() {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
@@ -188,6 +201,13 @@ export async function createProduct(formData: FormData) {
   const data = parsed.data;
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
+
+  const existingCategories = await getProductCategories();
+  const categoryResult = resolveCategory(data.category, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+  data.category = categoryResult.category;
 
   if (data.productType === "RETAIL" && data.retailInventoryItemId) {
     const item = await db.inventoryItem.findFirst({
@@ -247,6 +267,13 @@ export async function updateProduct(id: string, formData: FormData) {
   const data = parsed.data;
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
+
+  const existingCategories = await getProductCategories();
+  const categoryResult = resolveCategory(data.category, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+  data.category = categoryResult.category;
 
   if (data.productType === "RETAIL" && data.retailInventoryItemId) {
     const item = await db.inventoryItem.findFirst({

@@ -3,6 +3,7 @@ import {
   getActiveIngredientsForProducts,
   getInventoryItemsForRetailMenu,
   getProduct,
+  getProductCategories,
   updateProduct,
 } from "@/app/actions/products";
 import { getProductPricingDetail } from "@/app/actions/pricing";
@@ -17,11 +18,12 @@ type Props = {
 
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
-  const [product, ingredients, inventoryItems, pricing] = await Promise.all([
+  const [product, ingredients, inventoryItems, pricing, categories] = await Promise.all([
     getProduct(id),
     getActiveIngredientsForProducts(),
     getInventoryItemsForRetailMenu(),
     getProductPricingDetail(id),
+    getProductCategories(),
   ]);
 
   if (!product) notFound();
@@ -61,6 +63,7 @@ export default async function EditProductPage({ params }: Props) {
           })),
         }}
         estimatedRawMaterialCostPerSale={pricing?.costEstimate?.unitIngredientCost ?? null}
+        categories={categories}
         submitLabel="Update product"
       />
       <div className="mt-8">

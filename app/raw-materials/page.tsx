@@ -29,11 +29,11 @@ export default async function RawMaterialsPage({ searchParams }: { searchParams:
         </div>
       </div>
 
-      <RawMaterialSetup />
+      <RawMaterialSetup categories={categories} />
 
       <RawMaterialsFilters categories={categories} />
 
-      <RawMaterialTable ingredients={ingredients} />
+      <RawMaterialTable ingredients={ingredients} categories={categories} />
     </div>
   );
 }

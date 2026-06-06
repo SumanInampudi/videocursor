@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -43,6 +44,7 @@ type InventoryFormProps = {
   };
   ingredients?: RawMaterialOption[];
   suppliers?: SupplierOption[];
+  categories?: string[];
   submitLabel?: string;
 };
 
@@ -51,6 +53,7 @@ export function InventoryForm({
   initialData,
   ingredients = [],
   suppliers = [],
+  categories = [],
   submitLabel = "Save Item",
 }: InventoryFormProps) {
   const router = useRouter();
@@ -143,15 +146,15 @@ export function InventoryForm({
           className={selectedRawMaterial ? "bg-gray-50" : ""}
           required
         />
-        <Input
+        <CategoryCombobox
           name="category"
-          label="Category *"
+          label="Category"
+          categories={categories}
           value={catalogValues.category}
-          onChange={(event) => updateCatalogValue("category", event.target.value)}
+          onChange={(value) => updateCatalogValue("category", value)}
           error={errors.category?.[0]}
           placeholder="e.g. Dry Goods, Dairy, Meat"
           readOnly={Boolean(selectedRawMaterial)}
-          className={selectedRawMaterial ? "bg-gray-50" : ""}
           required
         />
         <Select

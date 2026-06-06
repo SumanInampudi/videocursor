@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
+import { resolveCategory } from "@/lib/category-resolve";
 import { generateIngredientBarcode } from "@/lib/barcode";
 import { ingredientSkuPrefix, normalizeIngredientName } from "@/lib/ingredients";
 import { smartMatches } from "@/lib/smart-search";
@@ -77,7 +78,11 @@ async function ensureZeroStockForRawMaterial(
   });
 }
 
-async function createRawMaterialFromName(name: string, category = "General", defaultUnit: Unit = Unit.g) {
+async function createRawMaterialFromName(
+  name: string,
+  category = "Uncategorized",
+  defaultUnit: Unit = Unit.g
+) {
   const normalizedName = normalizeIngredientName(name);
   if (!normalizedName) return { skipped: name };
 
@@ -170,6 +175,13 @@ export async function createRawMaterial(formData: FormData): Promise<RawMaterial
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
 
+  const existingCategories = await getRawMaterialCategories();
+  const categoryResult = resolveCategory(data.category, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+  data.category = categoryResult.category;
+
   const duplicate = await db.ingredient.findFirst({
     where: { businessId, normalizedName },
   });
@@ -247,6 +259,13 @@ export async function updateRawMaterial(id: string, formData: FormData): Promise
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
 
+  const existingCategories = await getRawMaterialCategories();
+  const categoryResult = resolveCategory(data.category, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+  data.category = categoryResult.category;
+
   const duplicateName = await db.ingredient.findFirst({
     where: {
       businessId,
@@ -289,13 +308,20 @@ export async function updateRawMaterial(id: string, formData: FormData): Promise
 
 export async function bulkCreateRawMaterials(formData: FormData): Promise<RawMaterialResult> {
   const text = String(formData.get("items") || "");
-  const category = String(formData.get("category") || "General").trim() || "General";
+  const categoryInput = String(formData.get("category") || "").trim();
   const defaultUnit = String(formData.get("defaultUnit") || "g") as Unit;
   const names = parseBulkText(text);
 
   if (names.length === 0) {
     return { error: { items: ["Add at least one raw material name"] } };
   }
+
+  const existingCategories = await getRawMaterialCategories();
+  const categoryResult = resolveCategory(categoryInput, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+  const category = categoryResult.category;
 
   let created = 0;
   const skipped: string[] = [];

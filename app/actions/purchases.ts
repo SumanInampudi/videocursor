@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { resolveCategory } from "@/lib/category-resolve";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import {
@@ -146,16 +147,24 @@ export async function createInventoryPurchase(formData: FormData) {
   } else if (data.createNewItem) {
     const sku = data.newItemSku?.trim();
     const name = data.newItemName?.trim();
-    const category = data.newItemCategory?.trim();
+    const categoryInput = data.newItemCategory?.trim();
     const unit = data.newItemUnit;
 
-    if (!sku || !name || !category || !unit) {
+    if (!sku || !name || !categoryInput || !unit) {
       return {
         error: {
           newItemName: ["Fill all new SKU fields to create inline"],
         },
       };
     }
+
+    const { getInventoryCatalogCategories } = await import("@/app/actions/inventory");
+    const existingCategories = await getInventoryCatalogCategories();
+    const categoryResult = resolveCategory(categoryInput, existingCategories);
+    if (!categoryResult.ok) {
+      return { error: { newItemCategory: [categoryResult.message] } };
+    }
+    const category = categoryResult.category;
 
     const existingSku = await db.inventoryItem.findFirst({
       where: { businessId, sku },

@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { createQuickRawMaterial } from "@/app/actions/ingredients";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -67,6 +68,7 @@ type ProductFormProps = {
   };
   submitLabel?: string;
   estimatedRawMaterialCostPerSale?: number | null;
+  categories?: string[];
 };
 
 export function ProductForm({
@@ -76,6 +78,7 @@ export function ProductForm({
   initialData,
   submitLabel = "Save Product",
   estimatedRawMaterialCostPerSale = null,
+  categories = [],
 }: ProductFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -415,9 +418,10 @@ export function ProductForm({
           error={errors.name?.[0]}
           required
         />
-        <Input
+        <CategoryCombobox
           name="category"
-          label="Category *"
+          label="Category"
+          categories={categories}
           defaultValue={initialData?.category}
           error={errors.category?.[0]}
           placeholder="e.g. Pizza, Curry, Appetizer"

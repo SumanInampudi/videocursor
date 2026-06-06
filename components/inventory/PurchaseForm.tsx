@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -29,10 +30,12 @@ export function PurchaseForm({
   action,
   items,
   suppliers = [],
+  categories = [],
 }: {
   action: (formData: FormData) => Promise<{ error?: Record<string, string[]>; success?: boolean }>;
   items: ItemOption[];
   suppliers?: SupplierOption[];
+  categories?: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -110,11 +113,13 @@ export function PurchaseForm({
             placeholder="e.g. SPRITE-300"
             error={errors.newItemSku?.[0]}
           />
-          <Input
+          <CategoryCombobox
             name="newItemCategory"
-            label="Category *"
+            label="Category"
+            categories={categories}
             placeholder="e.g. Beverages"
             error={errors.newItemCategory?.[0]}
+            required
           />
           <Select
             name="newItemUnit"

@@ -3,12 +3,13 @@
 import { ChangeEvent, useRef, useState, useTransition } from "react";
 import { bulkCreateRawMaterials, createRawMaterial } from "@/app/actions/ingredients";
 import { Button } from "@/components/ui/Button";
+import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { UNITS } from "@/lib/units";
 
-export function RawMaterialSetup() {
+export function RawMaterialSetup({ categories }: { categories: string[] }) {
   const [isPending, startTransition] = useTransition();
   const [singleErrors, setSingleErrors] = useState<Record<string, string[]>>({});
   const [bulkErrors, setBulkErrors] = useState<Record<string, string[]>>({});
@@ -76,7 +77,13 @@ export function RawMaterialSetup() {
         <div className="grid gap-3 sm:grid-cols-2">
           <Input name="name" label="Name *" error={singleErrors.name?.[0]} required />
           <Input name="sku" label="SKU" error={singleErrors.sku?.[0]} placeholder="Auto" />
-          <Input name="category" label="Category *" defaultValue="General" error={singleErrors.category?.[0]} required />
+          <CategoryCombobox
+            name="category"
+            label="Category"
+            categories={categories}
+            error={singleErrors.category?.[0]}
+            required
+          />
           <Select name="defaultUnit" label="Default Unit *" defaultValue="g" options={unitOptions} error={singleErrors.defaultUnit?.[0]} required />
           <Input
             name="wastagePercent"
@@ -114,7 +121,13 @@ export function RawMaterialSetup() {
           </label>
         </div>
         <div className="mb-3 grid gap-3 sm:grid-cols-2">
-          <Input name="category" label="Category for Imported Items" defaultValue="General" />
+          <CategoryCombobox
+            name="category"
+            label="Category for Imported Items"
+            categories={categories}
+            error={bulkErrors.category?.[0]}
+            required
+          />
           <Select name="defaultUnit" label="Default Unit" defaultValue="g" options={unitOptions} />
         </div>
         <Textarea

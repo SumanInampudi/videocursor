@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { mergeUniqueCategories, resolveCategory } from "@/lib/category-resolve";
 import { db } from "@/lib/db";
 import {
   applyFifoConsumptions,
@@ -86,6 +87,16 @@ export async function getInventoryCategories() {
   return items.map((item) => item.category);
 }
 
+/** Raw material + inventory categories for stock item forms. */
+export async function getInventoryCatalogCategories() {
+  const { getRawMaterialCategories } = await import("@/app/actions/raw-materials");
+  const [rawMaterialCategories, inventoryCategories] = await Promise.all([
+    getRawMaterialCategories(),
+    getInventoryCategories(),
+  ]);
+  return mergeUniqueCategories(rawMaterialCategories, inventoryCategories);
+}
+
 export async function getInventoryItem(id: string) {
   const item = await db.inventoryItem.findUnique({ where: { id } });
   return item ? serializeForClient(item) : null;
@@ -106,6 +117,13 @@ export async function createInventoryItem(formData: FormData) {
 
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
+
+  const existingCategories = await getInventoryCatalogCategories();
+  const categoryResult = resolveCategory(data.category, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+  data.category = categoryResult.category;
 
   try {
     await db.$transaction(async (tx) => {
@@ -164,6 +182,13 @@ export async function updateInventoryItem(id: string, formData: FormData) {
   }
 
   const data = parsed.data;
+
+  const existingCategories = await getInventoryCatalogCategories();
+  const categoryResult = resolveCategory(data.category, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+  data.category = categoryResult.category;
 
   try {
     const existing = await db.inventoryItem.findUnique({ where: { id } });
