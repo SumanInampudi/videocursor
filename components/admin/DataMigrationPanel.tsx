@@ -16,7 +16,7 @@ const TYPE_OPTIONS = DATA_EXPORT_TYPES.map((t) => ({
 }));
 
 export function DataMigrationPanel() {
-  const [type, setType] = useState<DataExportType>("ingredients");
+  const [type, setType] = useState<DataExportType>("raw_materials");
   const [result, setResult] = useState<{
     imported: number;
     errors: string[];

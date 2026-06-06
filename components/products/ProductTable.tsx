@@ -86,7 +86,15 @@ export function ProductTable({ products }: ProductTableProps) {
                   : `${product.ingredients?.length ?? 0} items`}
               </td>
               <td>
-                {product.yieldResult.canMake ? (
+                {product.yieldResult.canSell ? (
+                  <Badge variant="success">
+                    {product.yieldResult.availableYield ?? product.yieldResult.maxYield}{" "}
+                    {product.yieldUnit}
+                  </Badge>
+                ) : product.yieldResult.canMake &&
+                  (product.yieldResult.committedQty ?? 0) > 0 ? (
+                  <Badge variant="warning">Committed</Badge>
+                ) : product.yieldResult.canMake ? (
                   <Badge variant="success">
                     {product.yieldResult.maxYield} {product.yieldUnit}
                   </Badge>

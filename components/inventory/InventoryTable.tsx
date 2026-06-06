@@ -40,7 +40,10 @@ export function InventoryTable({ items }: InventoryTableProps) {
   if (items.length === 0) {
     return (
       <div className="empty-state">
-        <p className="empty-state-text">No inventory items found.</p>
+        <p className="empty-state-text">No stock on hand yet.</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Add raw materials first, then use Receive / Restock to record quantities.
+        </p>
         <Link href="/inventory/receive" className="mt-4 inline-block">
           <Button>Receive your first stock</Button>
         </Link>

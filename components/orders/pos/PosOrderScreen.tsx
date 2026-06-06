@@ -23,6 +23,10 @@ import {
   type OrderCartLine,
   type PricedProduct,
 } from "@/lib/order-cart";
+import {
+  cartExceedsAvailability,
+  type PosProductAvailability,
+} from "@/lib/pos-stock-status";
 import { getStayOnPosAfterCheckout } from "@/lib/pos-preferences";
 import { formatFieldErrors } from "@/lib/format-field-errors";
 import { validatePosCheckout } from "@/lib/pos-checkout-validation";
@@ -56,6 +60,7 @@ type PosOrderScreenProps = {
   products: Product[];
   categories: string[];
   frequentIds: string[];
+  availability?: Record<string, PosProductAvailability>;
   customers: { id: string; name: string }[];
   venue: VenuePosSettings;
   tables: DiningTableOption[];
@@ -67,6 +72,7 @@ export function PosOrderScreen({
   products,
   categories,
   frequentIds,
+  availability = {},
   customers,
   venue,
   tables,
@@ -119,17 +125,34 @@ export function PosOrderScreen({
   const sendToKitchen =
     channel === "DINE_IN" && isPayAtClose(venue, "DINE_IN");
 
-  const addProduct = useCallback((product: Product) => {
-    setCart((prev) => {
-      const { cart: next, error } = addToOrderCart(prev, product);
-      if (error) {
-        setScanHint(error);
-        return prev;
+  const addProduct = useCallback(
+    (product: Product) => {
+      const avail = availability[product.id];
+      if (avail?.status === "out" || avail?.status === "unavailable") {
+        setScanHint(`${product.name} is out of stock`);
+        return;
       }
-      setScanHint(`${product.name} added`);
-      return next;
-    });
-  }, []);
+      setCart((prev) => {
+        const currentQty = prev.find((l) => l.productId === product.id)?.quantity ?? 0;
+        if (avail && cartExceedsAvailability(currentQty, avail.maxServings, 1)) {
+          setScanHint(
+            avail.maxServings <= 0
+              ? `${product.name} is out of stock`
+              : `Only ${avail.maxServings} ${product.name} available`
+          );
+          return prev;
+        }
+        const { cart: next, error } = addToOrderCart(prev, product);
+        if (error) {
+          setScanHint(error);
+          return prev;
+        }
+        setScanHint(`${product.name} added`);
+        return next;
+      });
+    },
+    [availability]
+  );
 
   function resetTabState() {
     setActiveOrderId(null);
@@ -309,8 +332,15 @@ export function PosOrderScreen({
     isPending,
     errors,
     resetKey: checkoutKey,
-    onUpdateQty: (id: string, qty: number) =>
-      setCart((prev) => updateCartLineQty(prev, id, qty)),
+    onUpdateQty: (id: string, qty: number) => {
+      const avail = availability[id];
+      if (avail && qty > 0 && avail.maxServings > 0 && qty > avail.maxServings) {
+        setScanHint(`Only ${avail.maxServings} available for this item`);
+        return;
+      }
+      setCart((prev) => updateCartLineQty(prev, id, qty));
+    },
+    availability,
     onClear: () => {
       setCart([]);
       setDiscountAmount(0);
@@ -402,8 +432,8 @@ export function PosOrderScreen({
       {pricedCount === 0 && view === "menu" && (
         <p className="shrink-0 bg-amber-50 px-4 py-2 text-sm text-amber-900">
           No menu prices — set sale prices on{" "}
-          <Link href="/products/pricing" className="font-medium underline">
-            Product pricing
+          <Link href="/products" className="font-medium underline">
+            Products
           </Link>
           .
         </p>
@@ -464,6 +494,7 @@ export function PosOrderScreen({
                   search={search}
                   onAdd={addProduct}
                   disabled={isPending}
+                  availability={availability}
                 />
               </div>
             </main>

@@ -1,7 +1,9 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { ACTIVE_ORDER_STATUSES } from "@/lib/order-pipeline";
 import { checkStockForProducts, type OrderLineStockInput } from "@/lib/order-stock-check";
+import { demandLinesWithCommitments } from "@/lib/order-stock-commitments";
 import {
   ingredientWithFifoStockInclude,
   productIngredientsWithFifoStock,
@@ -27,7 +29,36 @@ async function loadProductsForStockCheck(businessId: string, productIds: string[
   });
 }
 
-/** Validate lines against current inventory (merges open-tab lines when adding). */
+/**
+ * Quantities on active pipeline orders not yet deducted (processedAt is null).
+ * Optionally exclude one order when recalculating that tab's cart.
+ */
+export async function getCommittedProductQuantities(
+  businessId: string,
+  excludeOrderId?: string
+): Promise<Map<string, number>> {
+  const lines = await db.orderLineItem.findMany({
+    where: {
+      processedAt: null,
+      productId: { not: null },
+      order: {
+        businessId,
+        status: { in: ACTIVE_ORDER_STATUSES },
+        ...(excludeOrderId ? { id: { not: excludeOrderId } } : {}),
+      },
+    },
+    select: { productId: true, quantity: true },
+  });
+
+  const map = new Map<string, number>();
+  for (const line of lines) {
+    if (!line.productId) continue;
+    map.set(line.productId, (map.get(line.productId) ?? 0) + line.quantity);
+  }
+  return map;
+}
+
+/** Validate lines against inventory minus servings already committed on other open orders. */
 export async function validateOrderLinesStock(
   businessId: string,
   lines: OrderLineStockInput[],
@@ -70,7 +101,13 @@ export async function validateOrderLinesStock(
     }
   }
 
-  const productIds = [...new Set(linesToCheck.map((l) => l.productId))];
+  const committed = await getCommittedProductQuantities(
+    businessId,
+    options?.existingOrderId
+  );
+  const demandLines = demandLinesWithCommitments(linesToCheck, committed);
+
+  const productIds = [...new Set(demandLines.map((l) => l.productId))];
   const products = await loadProductsForStockCheck(businessId, productIds);
-  return checkStockForProducts(products, linesToCheck);
+  return checkStockForProducts(products, demandLines);
 }

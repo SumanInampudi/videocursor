@@ -1,8 +1,8 @@
 export const DATA_EXPORT_TYPES = [
-  "ingredients",
+  "raw_materials",
   "inventory",
-  "recipes",
-  "recipe_ingredients",
+  "products",
+  "product_ingredients",
   "customers",
   "suppliers",
   "discounts",
@@ -10,23 +10,36 @@ export const DATA_EXPORT_TYPES = [
 
 export type DataExportType = (typeof DATA_EXPORT_TYPES)[number];
 
+/** Legacy template URLs from before the products / raw materials rename. */
+export const LEGACY_DATA_EXPORT_ALIASES: Record<string, DataExportType> = {
+  ingredients: "raw_materials",
+  recipes: "products",
+  recipe_ingredients: "product_ingredients",
+};
+
+export function normalizeDataExportType(type: string): DataExportType | null {
+  if (DATA_EXPORT_TYPES.includes(type as DataExportType)) {
+    return type as DataExportType;
+  }
+  return LEGACY_DATA_EXPORT_ALIASES[type] ?? null;
+}
+
 export const DATA_TYPE_LABELS: Record<DataExportType, string> = {
-  ingredients: "Ingredients",
+  raw_materials: "Raw materials",
   inventory: "Inventory stock",
-  recipes: "Recipes (menu items)",
-  recipe_ingredients: "Recipe BOM (ingredients per recipe)",
+  products: "Products (menu items)",
+  product_ingredients: "Product BOM (raw materials per product)",
   customers: "Customers",
   suppliers: "Suppliers",
   discounts: "Discount codes",
 };
 
 export const TEMPLATE_HEADERS: Record<DataExportType, string[]> = {
-  ingredients: [
+  raw_materials: [
     "name",
     "category",
     "default_unit",
     "sku",
-    "barcode",
     "aliases",
     "notes",
     "is_active",
@@ -35,7 +48,7 @@ export const TEMPLATE_HEADERS: Record<DataExportType, string[]> = {
     "name",
     "sku",
     "category",
-    "ingredient_name",
+    "raw_material_name",
     "quantity",
     "unit",
     "reorder_level",
@@ -44,18 +57,17 @@ export const TEMPLATE_HEADERS: Record<DataExportType, string[]> = {
     "storage_location",
     "is_active",
   ],
-  recipes: [
+  products: [
     "name",
     "category",
     "description",
     "yield_quantity",
     "yield_unit",
     "sale_price",
-    "barcode",
     "image_url",
     "instructions",
   ],
-  recipe_ingredients: ["recipe_name", "ingredient_name", "quantity_required", "unit"],
+  product_ingredients: ["product_name", "raw_material_name", "quantity_required", "unit"],
   customers: ["name", "phone", "email", "notes"],
   suppliers: ["name", "contact_phone", "email", "address", "notes", "is_active"],
   discounts: [
@@ -71,16 +83,7 @@ export const TEMPLATE_HEADERS: Record<DataExportType, string[]> = {
 };
 
 export const TEMPLATE_EXAMPLE_ROW: Record<DataExportType, string[]> = {
-  ingredients: [
-    "Mozzarella",
-    "Dairy",
-    "kg",
-    "MOZZ-001",
-    "8901234567890",
-    "mozzarella cheese",
-    "",
-    "true",
-  ],
+  raw_materials: ["Mozzarella", "Dairy", "kg", "MOZZ-001", "mozzarella cheese", "", "true"],
   inventory: [
     "Mozzarella Block 1kg",
     "MOZZ-STK-001",
@@ -94,18 +97,17 @@ export const TEMPLATE_EXAMPLE_ROW: Record<DataExportType, string[]> = {
     "Cold room A",
     "true",
   ],
-  recipes: [
+  products: [
     "Margherita Pizza",
     "Pizza",
     "Classic tomato and cheese",
     "1",
     "pcs",
     "299",
-    "8901234567891",
     "",
     "Bake 12 min",
   ],
-  recipe_ingredients: ["Margherita Pizza", "Mozzarella", "0.15", "kg"],
+  product_ingredients: ["Margherita Pizza", "Mozzarella", "0.15", "kg"],
   customers: ["Rahul Sharma", "9876543210", "rahul@example.com", "Regular"],
   suppliers: ["Fresh Farms", "9123456780", "orders@freshfarms.com", "Pune", "", "true"],
   discounts: ["WELCOME10", "Welcome 10%", "PERCENT", "10", "200", "true", "", ""],

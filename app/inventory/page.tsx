@@ -39,7 +39,7 @@ export default async function InventoryPage({
     <div>
       <PageHeader
         title="Inventory"
-        subtitle="Manage stock — quantities, locations, suppliers, FIFO layers, and wastage"
+        subtitle="Manage stock — quantities, locations, suppliers, cost layers, and wastage"
         actions={
           <>
             <Link href="/inventory/receive">

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { PosItemTile } from "@/components/orders/pos/PosItemTile";
 import { smartMatches } from "@/lib/smart-search";
 import type { PricedProduct } from "@/lib/order-cart";
+import type { PosProductAvailability } from "@/lib/pos-stock-status";
 
 type Product = PricedProduct & {
   category: string;
@@ -19,6 +20,7 @@ type PosItemGridProps = {
   search: string;
   onAdd: (product: Product) => void;
   disabled?: boolean;
+  availability?: Record<string, PosProductAvailability>;
 };
 
 export function PosItemGrid({
@@ -28,6 +30,7 @@ export function PosItemGrid({
   search,
   onAdd,
   disabled,
+  availability = {},
 }: PosItemGridProps) {
   const priced = useMemo(
     () => products.filter((r) => r.salePrice != null),
@@ -63,13 +66,15 @@ export function PosItemGrid({
 
   if (priced.length === 0) {
     return (
-      <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
-        No priced items. Set sale prices on{" "}
-        <a href="/products/pricing" className="font-medium underline">
-          product pricing
-        </a>{" "}
-        first.
-      </p>
+      <div className="empty-state rounded-lg bg-amber-50 p-6">
+        <p className="empty-state-text text-amber-900">
+          No priced products yet. Create menu items and set sale prices on{" "}
+          <a href="/products" className="font-medium underline">
+            Products
+          </a>{" "}
+          first.
+        </p>
+      </div>
     );
   }
 
@@ -93,6 +98,7 @@ export function PosItemGrid({
           imageUrl={product.imageUrl}
           onAdd={() => onAdd(product)}
           disabled={disabled}
+          availability={availability[product.id]}
         />
       ))}
     </div>

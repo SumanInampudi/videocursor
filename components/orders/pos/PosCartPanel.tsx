@@ -19,6 +19,7 @@ import { isPayAtClose } from "@/lib/venue-settings";
 import type { VenuePosSettings } from "@/lib/venue-settings";
 import { formatCurrency } from "@/lib/units";
 import type { OrderChannel } from "@prisma/client";
+import type { PosProductAvailability } from "@/lib/pos-stock-status";
 
 type CustomerOption = { id: string; name: string };
 
@@ -53,6 +54,7 @@ type PosCartPanelProps = {
   mobileCollapsed?: boolean;
   resetKey?: number;
   products: PricedProduct[];
+  availability?: Record<string, PosProductAvailability>;
   activeOrderNumber?: string | null;
   onSettleTab?: () => void;
 };
@@ -80,6 +82,7 @@ export function PosCartPanel({
   mobileCollapsed = false,
   resetKey = 0,
   products,
+  availability = {},
   activeOrderNumber = null,
   onSettleTab,
 }: PosCartPanelProps) {
@@ -153,10 +156,18 @@ export function PosCartPanel({
               Tap menu items to add · then Checkout
             </li>
           ) : (
-            cart.map((line) => (
+            cart.map((line) => {
+              const avail = availability[line.productId];
+              const overStock =
+                avail != null &&
+                avail.maxServings > 0 &&
+                line.quantity > avail.maxServings;
+              return (
               <li
                 key={line.productId}
-                className="flex items-center gap-2 rounded-lg bg-gray-50 p-2"
+                className={`flex items-center gap-2 rounded-lg p-2 ${
+                  overStock ? "bg-red-50 ring-1 ring-red-200" : "bg-gray-50"
+                }`}
               >
                 <ProductThumbnail name={line.name} imageUrl={line.imageUrl} size="sm" />
                 <div className="min-w-0 flex-1">
@@ -164,6 +175,14 @@ export function PosCartPanel({
                   <p className="text-xs text-gray-500">
                     {formatCurrency(line.unitPrice)} × {line.quantity}
                   </p>
+                  {overStock && (
+                    <p className="text-xs text-red-700">
+                      Exceeds stock — max {avail.maxServings}
+                    </p>
+                  )}
+                  {avail?.status === "low" && !overStock && avail.label && (
+                    <p className="text-xs text-amber-700">{avail.label}</p>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <button
@@ -183,7 +202,8 @@ export function PosCartPanel({
                   </button>
                 </div>
               </li>
-            ))
+            );
+            })
           )}
         </ul>
 

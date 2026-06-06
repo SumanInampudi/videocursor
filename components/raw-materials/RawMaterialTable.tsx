@@ -48,7 +48,11 @@ export function RawMaterialTable({ ingredients }: { ingredients: RawMaterialWith
   if (ingredients.length === 0) {
     return (
       <div className="empty-state">
-        <p className="text-sm text-gray-500">No raw materials found.</p>
+        <p className="empty-state-text">No raw materials yet.</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Use Quick Add above to create your first raw material — a zero-quantity stock line is
+          created automatically.
+        </p>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { getLowStockItems } from "@/app/actions/dashboard";
+import { getSetupProgress } from "@/app/actions/setup";
 import {
   getDailyProfitHistory,
   getProfitLossComparison,
@@ -9,6 +10,7 @@ import {
 import { DashboardPayables } from "@/components/dashboard/DashboardPayables";
 import { DashboardLowStock } from "@/components/dashboard/DashboardLowStock";
 import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
+import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
 import { DateRangePicker } from "@/components/dashboard/DateRangePicker";
 import { ProrateToggle } from "@/components/dashboard/ProrateToggle";
 import { ProfitComparison } from "@/components/dashboard/ProfitComparison";
@@ -39,11 +41,12 @@ export default async function DashboardPage({
   const prorate = params.prorate === "1";
   const { roles } = await getAuthContext();
 
-  const [summary, history, comparison, lowStock] = await Promise.all([
+  const [summary, history, comparison, lowStock, setup] = await Promise.all([
     getProfitLossSummary(from, to, prorate),
     getDailyProfitHistory(from, to),
     getProfitLossComparison(from, to, prorate),
     getLowStockItems(),
+    getSetupProgress(),
   ]);
 
   const isCurrentMonth =
@@ -71,6 +74,14 @@ export default async function DashboardPage({
       />
 
       <DashboardQuickActions userRoles={roles} />
+
+      {!setup.isComplete && (
+        <SetupChecklist
+          steps={setup.steps}
+          completedCount={setup.completedCount}
+          totalCount={setup.totalCount}
+        />
+      )}
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

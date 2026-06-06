@@ -8,71 +8,59 @@ export default function OrderCostingGuidePage() {
         ← Back to orders
       </Link>
 
-      <h1 className="mt-4 page-title">
-        Inventory pricing & order profit
-      </h1>
+      <h1 className="mt-4 page-title">Inventory pricing & order profit</h1>
 
       <div className="prose prose-sm mt-6 space-y-6 text-gray-700">
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="section-title">
-            1. Current cost on inventory items
-          </h2>
+          <h2 className="section-title">1. Current cost on inventory items</h2>
           <p className="mt-2 text-sm leading-relaxed">
-            Each inventory item has a <strong>cost per unit</strong> field (e.g. $/g). This
-            is the price you use for planning and is updated when suppliers change rates.
-            The dashboard total inventory value uses quantity × current cost.
+            Each stock line has a <strong>cost per unit</strong> (e.g. ₹/g). The dashboard
+            inventory value uses quantity × this cost. Compatible units convert automatically
+            (e.g. kg stock for a g recipe).
           </p>
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="section-title">
-            2. Cost history when prices change
-          </h2>
+          <h2 className="section-title">2. Restock & manual stock-in</h2>
           <p className="mt-2 text-sm leading-relaxed">
-            When you edit an item and change <strong>cost per unit</strong>, the app appends
-            a row to <strong>cost price history</strong> (see any inventory edit page). That
-            gives you an audit trail of supplier price increases over time without rewriting
-            past orders.
+            When you <strong>receive / restock</strong> or increase quantity from the inventory
+            form:
+          </p>
+          <ul className="mt-2 list-inside list-disc text-sm leading-relaxed">
+            <li>
+              <strong>Same unit cost</strong> — new stock is tracked as a FIFO batch layer.
+            </li>
+            <li>
+              <strong>Different unit cost</strong> — on-hand and new stock merge into one{" "}
+              <strong>weighted average</strong> layer.
+            </li>
+          </ul>
+          <p className="mt-2 text-sm leading-relaxed">
+            Cost-only edits (no quantity change) revalue remaining stock at the new rate. Every
+            change is recorded in <strong>cost price history</strong> on the inventory edit page.
           </p>
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="section-title">
-            3. Product pricing page (estimates)
-          </h2>
+          <h2 className="section-title">3. Product margin estimates</h2>
           <p className="mt-2 text-sm leading-relaxed">
             On{" "}
-            <Link href="/products/pricing" className="link-brand">
-              product pricing
+            <Link href="/products" className="link-brand">
+              products
             </Link>
-            , estimated raw material cost uses a <strong>weighted average</strong> of active
-            stock in the matching unit. That is a live estimate — not locked until an order
-            ships.
+            , create/edit shows a live margin preview from current stock costs (including wastage
+            %). That is an estimate until an order is fulfilled.
           </p>
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="section-title">
-            4. Orders lock cost at fulfillment
-          </h2>
+          <h2 className="section-title">4. Orders lock cost at fulfillment</h2>
           <p className="mt-2 text-sm leading-relaxed">
-            Sale price is snapshotted when the order is placed. When you move an order from{" "}
-            <strong>Processing → Ready</strong>, the app deducts inventory and records each
-            deduction with the <strong>cost per unit at that moment</strong>. Line profit =
-            revenue − sum(deduction costs). Future price changes do not alter completed
-            orders.
-          </p>
-        </section>
-
-        <section className="rounded-lg border border-gray-200 bg-amber-50 p-5">
-          <h2 className="section-title">
-            Advanced: FIFO / batches (future)
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed">
-            This MVP uses current average cost and deducts from the largest stock lots first.
-            For strict FIFO or batch-level costing, you would add purchase receipts per batch
-            and consume oldest batches first — the order consumption table is designed to
-            store per-deduction costs for that extension.
+            Sale price is snapshotted when the order is placed. When inventory is deducted
+            (processing → ready), each line records the <strong>cost at that moment</strong> using
+            FIFO layers (same-price batches) or the averaged layer after a price change. Line
+            profit = revenue − ingredient cost. Completed orders are not rewritten when supplier
+            prices change later.
           </p>
         </section>
       </div>
@@ -81,8 +69,8 @@ export default function OrderCostingGuidePage() {
         <Link href="/orders/new">
           <Button>Place order</Button>
         </Link>
-        <Link href="/inventory">
-          <Button variant="secondary">Manage inventory</Button>
+        <Link href="/inventory/receive">
+          <Button variant="secondary">Receive stock</Button>
         </Link>
       </div>
     </div>

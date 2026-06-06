@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { Unit } from "@prisma/client";
 import { effectiveCostPerUnit, normalizeWastagePercent, usableQuantity } from "@/lib/ingredient-wastage";
+import { convertUnits, sumQuantityInUnit } from "@/lib/unit-conversion";
 
 export type CostLayerSnapshot = {
   id: string;
@@ -59,9 +60,14 @@ export function physicalQuantityForUnit(
   items: { unit: Unit; quantity: { toString(): string } | number; isActive: boolean }[],
   unit: Unit
 ): number {
-  return items
-    .filter((i) => i.isActive && i.unit === unit)
-    .reduce((sum, i) => sum + toNumber(i.quantity), 0);
+  return sumQuantityInUnit(
+    items.map((i) => ({
+      quantity: i.quantity,
+      unit: i.unit,
+      isActive: i.isActive,
+    })),
+    unit
+  );
 }
 
 /** Simulate FIFO deduction; returns slices with wastage-inflated line costs. */
@@ -80,7 +86,11 @@ export function planFifoConsumption(input: {
 }): { ok: true; consumptions: FifoConsumptionSlice[]; totalCost: number } | { ok: false; error: string } {
   const waste = normalizeWastagePercent(input.wastagePercent);
   const matching = input.inventoryItems
-    .filter((i) => i.isActive && i.unit === input.unit)
+    .filter(
+      (i) =>
+        i.isActive &&
+        (i.unit === input.unit || convertUnits(1, i.unit, input.unit) != null)
+    )
     .sort((a, b) => toNumber(b.quantity) - toNumber(a.quantity));
 
   const physical = physicalQuantityForUnit(matching, input.unit);
@@ -102,10 +112,14 @@ export function planFifoConsumption(input: {
     const layers = layersForItem(item);
     for (const layer of layers) {
       if (remaining <= 0.0001) break;
-      if (layer.unit !== input.unit) continue;
+      const availableRaw = toNumber(layer.quantityRemaining);
+      if (availableRaw <= 0) continue;
 
-      const available = toNumber(layer.quantityRemaining);
-      if (available <= 0) continue;
+      const available =
+        layer.unit === input.unit
+          ? availableRaw
+          : convertUnits(availableRaw, layer.unit, input.unit);
+      if (available == null || available <= 0) continue;
 
       const take = Math.min(available, remaining);
       const baseCost = toNumber(layer.costPerUnit);
@@ -338,6 +352,71 @@ export async function receiveCostLayers(
   return { costPerUnit: averageCost, usedAverage: true };
 }
 
+/** Manual inventory edit: stock-in uses receive rules; cost-only change revalues layers. */
+export async function applyManualInventoryCostUpdate(
+  tx: Prisma.TransactionClient,
+  input: {
+    inventoryItemId: string;
+    previousQty: number;
+    previousCost: number;
+    newQty: number;
+    newCost: number;
+    unit: Unit;
+  }
+): Promise<{ costPerUnit: number; usedAverage: boolean; note?: string }> {
+  const { inventoryItemId, previousQty, previousCost, newQty, newCost, unit } = input;
+  const qtyDelta = newQty - previousQty;
+  const costChanged = costsDiffer(previousCost, newCost);
+
+  if (qtyDelta > 0.0001) {
+    const result = await receiveCostLayers(tx, {
+      inventoryItemId,
+      previousQty,
+      receiveQty: qtyDelta,
+      unit,
+      previousCost,
+      receiveCost: newCost,
+    });
+    return {
+      costPerUnit: result.costPerUnit,
+      usedAverage: result.usedAverage,
+      note: result.usedAverage
+        ? "Updated from inventory form (weighted average)"
+        : "Updated from inventory form",
+    };
+  }
+
+  if (costChanged) {
+    await tx.inventoryCostLayer.deleteMany({ where: { inventoryItemId } });
+    if (newQty > 0.0001) {
+      await tx.inventoryCostLayer.create({
+        data: {
+          inventoryItemId,
+          quantityRemaining: newQty,
+          unit,
+          costPerUnit: newCost,
+        },
+      });
+    }
+    await tx.inventoryItem.update({
+      where: { id: inventoryItemId },
+      data: { costPerUnit: newCost },
+    });
+    return {
+      costPerUnit: newCost,
+      usedAverage: false,
+      note: "Updated from inventory form (cost revaluation)",
+    };
+  }
+
+  await syncDisplayCostFromLayers(tx, inventoryItemId);
+  const item = await tx.inventoryItem.findUniqueOrThrow({
+    where: { id: inventoryItemId },
+    select: { costPerUnit: true },
+  });
+  return { costPerUnit: toNumber(item.costPerUnit), usedAverage: false };
+}
+
 export async function syncDisplayCostFromLayers(
   tx: Prisma.TransactionClient,
   inventoryItemId: string
@@ -364,16 +443,38 @@ export async function syncDisplayCostFromLayers(
   });
 }
 
+function deductInUnit(
+  amount: number,
+  from: Unit,
+  to: Unit,
+  context: string
+): number {
+  if (from === to) return amount;
+  const converted = convertUnits(amount, from, to);
+  if (converted == null) {
+    throw new Error(`Unit conversion failed for ${context}: ${from} → ${to}`);
+  }
+  return converted;
+}
+
 export async function applyFifoConsumptions(
   tx: Prisma.TransactionClient,
   consumptions: FifoConsumptionSlice[]
 ) {
+  const itemQtyDeducted = new Map<string, number>();
+
   for (const c of consumptions) {
     if (c.costLayerId) {
       const layer = await tx.inventoryCostLayer.findUniqueOrThrow({
         where: { id: c.costLayerId },
       });
-      const remaining = toNumber(layer.quantityRemaining) - c.quantityDeducted;
+      const deductFromLayer = deductInUnit(
+        c.quantityDeducted,
+        c.unit,
+        layer.unit,
+        `layer ${c.costLayerId}`
+      );
+      const remaining = toNumber(layer.quantityRemaining) - deductFromLayer;
       if (remaining < -0.0001) {
         throw new Error("FIFO layer quantity conflict");
       }
@@ -386,10 +487,26 @@ export async function applyFifoConsumptions(
     const item = await tx.inventoryItem.findUniqueOrThrow({
       where: { id: c.inventoryItemId },
     });
-    const newQty = toNumber(item.quantity) - c.quantityDeducted;
+    const deductFromItem = deductInUnit(
+      c.quantityDeducted,
+      c.unit,
+      item.unit,
+      `item ${c.inventoryItemId}`
+    );
+    itemQtyDeducted.set(
+      c.inventoryItemId,
+      (itemQtyDeducted.get(c.inventoryItemId) ?? 0) + deductFromItem
+    );
+  }
+
+  for (const [inventoryItemId, totalDeducted] of itemQtyDeducted) {
+    const item = await tx.inventoryItem.findUniqueOrThrow({
+      where: { id: inventoryItemId },
+    });
+    const newQty = toNumber(item.quantity) - totalDeducted;
     if (newQty < -0.0001) throw new Error("Stock quantity conflict");
     await tx.inventoryItem.update({
-      where: { id: c.inventoryItemId },
+      where: { id: inventoryItemId },
       data: { quantity: Math.max(0, newQty) },
     });
   }

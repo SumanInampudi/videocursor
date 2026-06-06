@@ -7,17 +7,21 @@ export const dynamic = "force-dynamic";
 
 export default async function YieldPage() {
   const results = await getYieldResults();
-  const canMake = results.filter((r) => r.canMake);
+  const available = results.filter((r) => r.canSell);
+  const fullyCommitted = results.filter(
+    (r) => r.canMake && (r.availableYield ?? 0) <= 0 && r.maxYield > 0
+  );
   const cannotMake = results.filter((r) => !r.canMake);
 
   return (
     <div>
       <PageHeader
         title="Yield Calculator"
-        subtitle="How many portions you can make using usable stock (after raw material wastage %). Product cost on pricing includes wastage and FIFO."
+        subtitle="On-hand capacity from stock and BOM, minus portions already on active kitchen orders (until deducted or cancelled)."
         badge={
           <Badge variant="primary">
-            {canMake.length} ready · {cannotMake.length} blocked
+            {available.length} available · {fullyCommitted.length} committed · {cannotMake.length}{" "}
+            blocked
           </Badge>
         }
       />
@@ -30,15 +34,32 @@ export default async function YieldPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {canMake.length > 0 && (
+          {available.length > 0 && (
             <section>
               <h2 className="section-title mb-4 flex items-center gap-2">
-                Can Make
-                <Badge variant="success">{canMake.length}</Badge>
+                Available to sell
+                <Badge variant="success">{available.length}</Badge>
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {canMake.map((result, index) => (
+                {available.map((result, index) => (
                   <YieldCard key={result.productId} result={result} rank={index + 1} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {fullyCommitted.length > 0 && (
+            <section>
+              <h2 className="section-title mb-4 flex items-center gap-2 text-amber-800">
+                Fully committed
+                <Badge variant="warning">{fullyCommitted.length}</Badge>
+              </h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Stock on hand, but every portion is reserved on open kitchen orders.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {fullyCommitted.map((result) => (
+                  <YieldCard key={result.productId} result={result} />
                 ))}
               </div>
             </section>
@@ -47,7 +68,7 @@ export default async function YieldPage() {
           {cannotMake.length > 0 && (
             <section>
               <h2 className="section-title mb-4 flex items-center gap-2 text-danger">
-                Cannot Make
+                Cannot make
                 <Badge variant="danger">{cannotMake.length}</Badge>
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,5 +1,6 @@
 import { getCustomerOptions } from "@/app/actions/customers";
 import { getPosMenuData } from "@/app/actions/orders";
+import { getProductAvailabilityMap } from "@/app/actions/products";
 import { getTaxSettingsSerialized } from "@/app/actions/tax-settings";
 import { getPosRegisterData } from "@/app/actions/venue";
 import { PosOrderScreen } from "@/components/orders/pos/PosOrderScreen";
@@ -9,12 +10,13 @@ import { isAdminRole } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 export default async function PosOrderPage() {
-  const [menu, customers, register, taxSettings, auth] = await Promise.all([
+  const [menu, customers, register, taxSettings, auth, availability] = await Promise.all([
     getPosMenuData(),
     getCustomerOptions(),
     getPosRegisterData(),
     getTaxSettingsSerialized(),
     getAuthContext(),
+    getProductAvailabilityMap(),
   ]);
 
   return (
@@ -22,6 +24,7 @@ export default async function PosOrderPage() {
       products={menu.products}
       categories={menu.categories}
       frequentIds={menu.frequentIds}
+      availability={availability}
       customers={customers}
       venue={register.venue}
       tables={register.tables}

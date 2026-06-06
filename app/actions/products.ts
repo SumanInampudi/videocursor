@@ -6,6 +6,9 @@ import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
 import { smartMatches } from "@/lib/smart-search";
 import { productSchema } from "@/lib/validations";
+import { enrichYieldsWithCommitments } from "@/lib/order-stock-commitments";
+import { getCommittedProductQuantities } from "@/lib/order-stock-server";
+import { posAvailabilityFromMaxYield } from "@/lib/pos-stock-status";
 import { calculateAllYields } from "@/lib/yield";
 import { ProductType, Unit } from "@prisma/client";
 
@@ -83,7 +86,12 @@ export async function getProducts(search?: string) {
     orderBy: { updatedAt: "desc" },
   });
 
-  const yields = calculateAllYields(products as never[]);
+  const { getCommittedProductQuantities } = await import("@/lib/order-stock-server");
+  const committed = await getCommittedProductQuantities(businessId);
+  const yields = enrichYieldsWithCommitments(
+    calculateAllYields(products as never[]),
+    committed
+  );
   const rows = products.map((product) => ({
     ...product,
     yieldResult: yields.find((y) => y.productId === product.id)!,
@@ -333,10 +341,30 @@ export async function deleteProduct(id: string) {
 export async function getYieldResults() {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
-  const products = await db.product.findMany({
-    where: { businessId },
-    include: productStockInclude,
-  });
+  const [products, committed] = await Promise.all([
+    db.product.findMany({
+      where: { businessId },
+      include: productStockInclude,
+    }),
+    getCommittedProductQuantities(businessId),
+  ]);
 
-  return calculateAllYields(products as never[]);
+  return enrichYieldsWithCommitments(
+    calculateAllYields(products as never[]),
+    committed
+  ).sort((a, b) => (b.availableYield ?? b.maxYield) - (a.availableYield ?? a.maxYield));
+}
+
+export async function getProductAvailabilityMap() {
+  const yields = await getYieldResults();
+
+  return Object.fromEntries(
+    yields.map((y) => [
+      y.productId,
+      posAvailabilityFromMaxYield(
+        y.availableYield ?? y.maxYield,
+        y.canSell ?? y.canMake
+      ),
+    ])
+  );
 }

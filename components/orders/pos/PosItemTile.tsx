@@ -1,6 +1,7 @@
 "use client";
 
 import { ProductMenuTile } from "@/components/products/ProductMenuTile";
+import type { PosProductAvailability } from "@/lib/pos-stock-status";
 
 type PosItemTileProps = {
   name: string;
@@ -8,17 +9,46 @@ type PosItemTileProps = {
   imageUrl?: string | null;
   onAdd: () => void;
   disabled?: boolean;
+  availability?: PosProductAvailability;
 };
 
-export function PosItemTile({ name, price, imageUrl, onAdd, disabled }: PosItemTileProps) {
+export function PosItemTile({
+  name,
+  price,
+  imageUrl,
+  onAdd,
+  disabled,
+  availability,
+}: PosItemTileProps) {
+  const outOfStock = availability?.status === "out" || availability?.status === "unavailable";
+  const stockLabel = availability?.label;
+
   return (
-    <ProductMenuTile
-      name={name}
-      price={price}
-      imageUrl={imageUrl}
-      onClick={onAdd}
-      disabled={disabled}
-      variant="pos"
-    />
+    <div className="relative">
+      {availability && availability.status !== "ok" && (
+        <span
+          className={`absolute right-1.5 top-1.5 z-10 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            outOfStock
+              ? "bg-red-600 text-white"
+              : "bg-amber-500 text-white"
+          }`}
+        >
+          {outOfStock ? "Out" : stockLabel ?? "Low"}
+        </span>
+      )}
+      <ProductMenuTile
+        name={name}
+        price={price}
+        imageUrl={imageUrl}
+        onClick={onAdd}
+        disabled={disabled || outOfStock}
+        variant="pos"
+        subtitle={
+          availability?.status === "low" && !outOfStock ? (
+            <span className="text-amber-700">{stockLabel}</span>
+          ) : undefined
+        }
+      />
+    </div>
   );
 }

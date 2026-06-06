@@ -27,19 +27,18 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
   const { businessId } = await requireBusinessContext();
 
   switch (type) {
-    case "ingredients": {
+    case "raw_materials": {
       const rows = await db.ingredient.findMany({
         where: { businessId },
         orderBy: { name: "asc" },
       });
       return stringifyCsv([
-        TEMPLATE_HEADERS.ingredients,
+        TEMPLATE_HEADERS.raw_materials,
         ...rows.map((r) => [
           r.name,
           r.category,
           r.defaultUnit,
           r.sku,
-          r.barcode,
           r.aliases ?? "",
           r.notes ?? "",
           String(r.isActive),
@@ -69,13 +68,13 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
         ]),
       ]);
     }
-    case "recipes": {
+    case "products": {
       const rows = await db.product.findMany({
         where: { businessId },
         orderBy: { name: "asc" },
       });
       return stringifyCsv([
-        TEMPLATE_HEADERS.recipes,
+        TEMPLATE_HEADERS.products,
         ...rows.map((r) => [
           r.name,
           r.category,
@@ -83,20 +82,19 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
           String(r.yieldQuantity),
           r.yieldUnit,
           r.salePrice != null ? String(r.salePrice) : "",
-          r.barcode,
           r.imageUrl ?? "",
           r.instructions ?? "",
         ]),
       ]);
     }
-    case "recipe_ingredients": {
+    case "product_ingredients": {
       const rows = await db.productIngredient.findMany({
         where: { product: { businessId } },
         include: { product: true, ingredient: true },
         orderBy: { product: { name: "asc" } },
       });
       return stringifyCsv([
-        TEMPLATE_HEADERS.recipe_ingredients,
+        TEMPLATE_HEADERS.product_ingredients,
         ...rows.map((r) => [
           r.product.name,
           r.ingredient.name,
@@ -181,7 +179,7 @@ export async function importDataCsv(
 
   try {
     switch (type) {
-      case "ingredients": {
+      case "raw_materials": {
         const { data, error } = rowsToObjects<Record<string, string>>(rows, [
           "name",
           "category",
@@ -195,8 +193,7 @@ export async function importDataCsv(
             const sku =
               row.sku?.trim() ||
               `${ingredientSkuPrefix(name)}-001`;
-            const barcode =
-              row.barcode?.trim() || generateIngredientBarcode(name);
+            const barcode = generateIngredientBarcode(name);
             await db.ingredient.upsert({
               where: {
                 businessId_normalizedName: { businessId, normalizedName: normalized },
@@ -239,12 +236,14 @@ export async function importDataCsv(
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
+            const rawMaterialName =
+              row.raw_material_name?.trim() || row.ingredient_name?.trim() || "";
             let ingredientId: string | undefined;
-            if (row.ingredient_name?.trim()) {
+            if (rawMaterialName) {
               const ing = await db.ingredient.findFirst({
                 where: {
                   businessId,
-                  normalizedName: normalizeIngredientName(row.ingredient_name),
+                  normalizedName: normalizeIngredientName(rawMaterialName),
                 },
               });
               ingredientId = ing?.id;
@@ -300,7 +299,7 @@ export async function importDataCsv(
         }
         break;
       }
-      case "recipes": {
+      case "products": {
         const { data, error } = rowsToObjects<Record<string, string>>(rows, ["name", "category"]);
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
@@ -350,28 +349,43 @@ export async function importDataCsv(
         }
         break;
       }
-      case "recipe_ingredients": {
+      case "product_ingredients": {
+        const bomHeaders = rows[0]?.map((h) => h.trim().toLowerCase()) ?? [];
+        const hasProductCol =
+          bomHeaders.includes("product_name") || bomHeaders.includes("recipe_name");
+        const hasMaterialCol =
+          bomHeaders.includes("raw_material_name") || bomHeaders.includes("ingredient_name");
+        if (!hasProductCol || !hasMaterialCol || !bomHeaders.includes("quantity_required")) {
+          return {
+            success: false,
+            imported: 0,
+            errors: [
+              "Missing columns: need product_name (or recipe_name), raw_material_name (or ingredient_name), quantity_required, unit",
+            ],
+          };
+        }
         const { data, error } = rowsToObjects<Record<string, string>>(rows, [
-          "recipe_name",
-          "ingredient_name",
           "quantity_required",
           "unit",
         ]);
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
+            const productName = row.product_name?.trim() || row.recipe_name?.trim() || "";
+            const rawMaterialName =
+              row.raw_material_name?.trim() || row.ingredient_name?.trim() || "";
             const product = await db.product.findFirst({
-              where: { businessId, name: row.recipe_name },
+              where: { businessId, name: productName },
             });
             const ingredient = await db.ingredient.findFirst({
               where: {
                 businessId,
-                normalizedName: normalizeIngredientName(row.ingredient_name),
+                normalizedName: normalizeIngredientName(rawMaterialName),
               },
             });
             if (!product || !ingredient) {
               errors.push(
-                `${row.recipe_name}/${row.ingredient_name}: product or ingredient not found`
+                `${productName}/${rawMaterialName}: product or raw material not found`
               );
               continue;
             }
@@ -399,7 +413,7 @@ export async function importDataCsv(
             imported++;
           } catch (e) {
             errors.push(
-              `${row.recipe_name}: ${e instanceof Error ? e.message : "failed"}`
+              `${row.product_name ?? row.recipe_name}: ${e instanceof Error ? e.message : "failed"}`
             );
           }
         }

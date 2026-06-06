@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
   applyFifoConsumptions,
+  applyManualInventoryCostUpdate,
   createCostLayer,
   planFifoConsumption,
-  syncDisplayCostFromLayers,
 } from "@/lib/inventory-fifo";
 import { recordManualInventoryAdjustment } from "@/lib/inventory-adjustment-log";
 import { serializeForClient } from "@/lib/serialize";
@@ -177,48 +177,30 @@ export async function updateInventoryItem(id: string, formData: FormData) {
     const qtyChanged = Math.abs(previousQty - data.quantity) > 0.0001;
 
     await db.$transaction(async (tx) => {
-      await tx.inventoryItem.update({
-        where: { id },
-        data: {
-          name: data.name,
-          ingredientId: data.ingredientId || null,
-          sku: data.sku,
-          category: data.category,
-          imageUrl: data.imageUrl?.trim() || null,
-          description: data.description || null,
-          notes: data.notes || null,
-          quantity: data.quantity,
-          unit: data.unit as Unit,
-          reorderLevel: data.reorderLevel,
-          costPerUnit: data.costPerUnit,
-          supplierId: data.supplierId || null,
-          supplier: data.supplier || null,
-          storageLocation: data.storageLocation || null,
-          expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
-          batchNumber: data.batchNumber || null,
-          isActive: data.isActive,
-        },
-      });
-
-      if (costChanged) {
-        await recordCostHistory(
-          tx,
-          id,
-          data.costPerUnit,
-          previousCost,
-          "Updated from inventory form"
-        );
-      }
-
       const qtyDelta = data.quantity - previousQty;
-      if (qtyDelta > 0.0001) {
-        await createCostLayer(tx, {
-          inventoryItemId: id,
-          quantity: qtyDelta,
-          unit: data.unit as Unit,
-          costPerUnit: data.costPerUnit,
+      const itemFields = {
+        name: data.name,
+        ingredientId: data.ingredientId || null,
+        sku: data.sku,
+        category: data.category,
+        imageUrl: data.imageUrl?.trim() || null,
+        description: data.description || null,
+        notes: data.notes || null,
+        unit: data.unit as Unit,
+        reorderLevel: data.reorderLevel,
+        supplierId: data.supplierId || null,
+        supplier: data.supplier || null,
+        storageLocation: data.storageLocation || null,
+        expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+        batchNumber: data.batchNumber || null,
+        isActive: data.isActive,
+      };
+
+      if (qtyDelta < -0.0001) {
+        await tx.inventoryItem.update({
+          where: { id },
+          data: { ...itemFields, quantity: previousQty },
         });
-      } else if (qtyDelta < -0.0001) {
         const layers = await tx.inventoryCostLayer.findMany({
           where: { inventoryItemId: id, quantityRemaining: { gt: 0 } },
           orderBy: { createdAt: "asc" },
@@ -232,7 +214,7 @@ export async function updateInventoryItem(id: string, formData: FormData) {
               id,
               quantity: previousQty,
               unit: data.unit as Unit,
-              costPerUnit: data.costPerUnit,
+              costPerUnit: previousCost,
               isActive: true,
               costLayers: layers.map((l) => ({
                 id: l.id,
@@ -246,9 +228,31 @@ export async function updateInventoryItem(id: string, formData: FormData) {
         if (plan.ok) {
           await applyFifoConsumptions(tx, plan.consumptions);
         }
+      } else {
+        await tx.inventoryItem.update({
+          where: { id },
+          data: { ...itemFields, quantity: data.quantity },
+        });
       }
 
-      await syncDisplayCostFromLayers(tx, id);
+      const costResult = await applyManualInventoryCostUpdate(tx, {
+        inventoryItemId: id,
+        previousQty: qtyDelta > 0.0001 ? previousQty : data.quantity,
+        previousCost,
+        newQty: data.quantity,
+        newCost: data.costPerUnit,
+        unit: data.unit as Unit,
+      });
+
+      if (costChanged || qtyDelta > 0.0001) {
+        await recordCostHistory(
+          tx,
+          id,
+          costResult.costPerUnit,
+          previousCost,
+          costResult.note ?? "Updated from inventory form"
+        );
+      }
 
       if (qtyChanged || costChanged) {
         await recordManualInventoryAdjustment(tx, {
@@ -258,7 +262,7 @@ export async function updateInventoryItem(id: string, formData: FormData) {
           previousQty,
           newQty: data.quantity,
           previousCost,
-          newCost: data.costPerUnit,
+          newCost: costResult.costPerUnit,
           supplierId: data.supplierId || null,
           supplierName: data.supplier || null,
         });

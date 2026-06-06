@@ -2,6 +2,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { ProductType } from "@prisma/client";
 import { normalizeWastagePercent, usableQuantity } from "@/lib/ingredient-wastage";
 import { isRetailProduct } from "@/lib/product-fulfillment";
+import { sumQuantityInUnit, unitsAreCompatible } from "@/lib/unit-conversion";
 
 type IngredientWithItem = {
   quantityRequired: Decimal | number;
@@ -45,12 +46,20 @@ export type YieldResult = {
   productName: string;
   category: string;
   yieldUnit: string;
+  /** Max portions from physical stock (before kitchen commitments). */
   maxYield: number;
   bottleneckIngredient: string | null;
   /** Human-readable stock note for the limiting raw material (includes wastage). */
   bottleneckNote: string | null;
   missingIngredients: string[];
+  /** True when stock/BOM allows at least one portion from on-hand inventory. */
   canMake: boolean;
+  /** Servings on active orders not yet deducted at kitchen. */
+  committedQty?: number;
+  /** Portions still available to sell (maxYield − committed). */
+  availableYield?: number;
+  /** True when canMake and availableYield > 0. */
+  canSell?: boolean;
 };
 
 function toNumber(value: Decimal | number | string): number {
@@ -141,16 +150,13 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
       continue;
     }
 
-    const matchingItems = ingredient.inventoryItems.filter(
-      (item) => item.isActive && item.unit === unit
+    const activeItems = ingredient.inventoryItems.filter((item) => item.isActive);
+    const compatibleItems = activeItems.filter((item) =>
+      unitsAreCompatible(item.unit as never, unit as never)
     );
 
-    const mismatchedItems = ingredient.inventoryItems.filter(
-      (item) => item.isActive && item.unit !== unit
-    );
-
-    if (matchingItems.length === 0 && mismatchedItems.length > 0) {
-      const units = Array.from(new Set(mismatchedItems.map((item) => item.unit))).join(", ");
+    if (compatibleItems.length === 0 && activeItems.length > 0) {
+      const units = Array.from(new Set(activeItems.map((item) => item.unit))).join(", ");
       missingIngredients.push(
         `${ingredient.name} (unit mismatch: need ${unit}, have ${units})`
       );
@@ -158,7 +164,14 @@ export function calculateRecipeYield(recipe: RecipeWithIngredients): YieldResult
       continue;
     }
 
-    const physical = matchingItems.reduce((sum, item) => sum + toNumber(item.quantity), 0);
+    const physical = sumQuantityInUnit(
+      compatibleItems.map((item) => ({
+        quantity: item.quantity,
+        unit: item.unit as never,
+        isActive: true,
+      })),
+      unit as never
+    );
     const available = usableQuantity(physical, waste);
     const required = toNumber(recipeIngredient.quantityRequired);
 
