@@ -44,6 +44,14 @@ export const productIngredientSchema = z.object({
   unit: z.enum(UNITS),
 });
 
+export const productInclusionSchema = z.object({
+  includedProductId: z.string().min(1, "Select an included product"),
+  quantityPerParent: z.coerce
+    .number()
+    .int()
+    .positive("Quantity per portion must be at least 1"),
+});
+
 export const productSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
@@ -59,6 +67,13 @@ export const productSchema = z
       (val) => (val === "" || val === null || val === undefined ? null : val),
       z.union([z.null(), z.coerce.number().int().min(1, "Prep time must be at least 1 minute")])
     ),
+    posCode: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : val),
+      z.union([
+        z.null(),
+        z.coerce.number().int().min(1, "POS code must be at least 1").max(9999, "POS code too large"),
+      ])
+    ),
     instructions: z.string().optional(),
     productType: z.enum(PRODUCT_TYPES).default("PREPARED"),
     requiresKitchen: z
@@ -68,6 +83,7 @@ export const productSchema = z
     retailInventoryItemId: z.string().optional(),
     retailQuantityPerSale: z.coerce.number().optional(),
     ingredients: z.array(productIngredientSchema).default([]),
+    inclusions: z.array(productInclusionSchema).default([]),
   })
   .superRefine((data, ctx) => {
     if (data.productType === "RETAIL") {
@@ -106,6 +122,18 @@ export const productSchema = z
         });
       }
       seen.add(ingredient.ingredientId);
+    });
+
+    const seenInclusions = new Set<string>();
+    data.inclusions.forEach((row, index) => {
+      if (seenInclusions.has(row.includedProductId)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Do not add the same included product twice",
+          path: ["inclusions", index, "includedProductId"],
+        });
+      }
+      seenInclusions.add(row.includedProductId);
     });
   });
 
@@ -241,23 +269,62 @@ export const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().optional(),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
+  dateOfBirth: z.string().optional(),
   notes: z.string().optional(),
 });
 
 export const discountSchema = z.object({
   code: z.string().min(2, "Code is required").transform((c) => c.toUpperCase().trim()),
   name: z.string().min(1, "Name is required"),
-  type: z.enum(["PERCENT", "FIXED"]),
+  kind: z.enum([
+    "CHECK_PERCENT",
+    "CHECK_FIXED",
+    "ITEM_PERCENT",
+    "ITEM_FIXED",
+    "BOGO",
+    "COMBO_PRICE",
+    "TIERED_SPEND",
+    "TIERED_QUANTITY",
+    "CUSTOMER_SEGMENT",
+  ]),
+  application: z.enum(["CODE", "AUTO", "PAYMENT_METHOD"]).default("CODE"),
   value: z.coerce.number().positive("Value must be greater than 0"),
   minOrderAmount: z.coerce.number().min(0).optional().or(z.literal("")),
+  maxDiscountAmount: z.coerce.number().min(0).optional().or(z.literal("")),
   isActive: z.boolean().default(true),
   validFrom: z.string().optional(),
   validTo: z.string().optional(),
+  channelDineIn: z.boolean().optional(),
+  channelOnline: z.boolean().optional(),
+  targetType: z.enum(["ALL_PRODUCTS", "CATEGORY", "PRODUCT"]).optional(),
+  targetCategories: z.string().optional(),
+  targetProductIds: z.string().optional(),
+  scheduleEnabled: z.boolean().optional(),
+  scheduleDays: z.string().optional(),
+  scheduleStart: z.string().optional(),
+  scheduleEnd: z.string().optional(),
+  bogoBuyQuantity: z.coerce.number().int().min(1).optional(),
+  bogoGetQuantity: z.coerce.number().int().min(1).optional(),
+  bogoApplyToCheapest: z.boolean().optional(),
+  tiersJson: z.string().optional(),
+  customerSegment: z.enum(["FIRST_ORDER", "BIRTHDAY_MONTH", "RETURNING"]).optional(),
+  segmentValueType: z.enum(["PERCENT", "FIXED"]).optional(),
+  segmentMinVisitCount: z.coerce.number().int().min(1).optional(),
+  paymentCash: z.boolean().optional(),
+  paymentCard: z.boolean().optional(),
+  paymentPhonePe: z.boolean().optional(),
 });
 
 const orderPaymentMethods = ["CASH", "CARD", "PHONEPE"] as const;
 
 const orderChannels = ["DINE_IN", "ONLINE"] as const;
+
+const managerDiscountFields = {
+  managerDiscountMode: z.enum(["FIXED", "PERCENT"]).optional(),
+  managerDiscountValue: z.coerce.number().min(0).optional(),
+  managerDiscountReason: z.string().optional(),
+  compLinesJson: z.string().optional(),
+};
 
 export const createOrderSchema = z.object({
   customerId: z.string().optional(),
@@ -269,6 +336,7 @@ export const createOrderSchema = z.object({
   diningTableId: z.string().optional(),
   externalRef: z.string().optional(),
   lines: z.array(orderLineSchema).min(1, "Add at least one item"),
+  ...managerDiscountFields,
 });
 
 const tipAmountField = z.coerce.number().min(0, "Tip cannot be negative").optional();
@@ -289,6 +357,7 @@ export const settleOrderSchema = z.object({
   paymentMethod: z.enum(orderPaymentMethods, { message: "Select a payment method" }),
   discountCode: z.string().optional(),
   tipAmount: tipAmountField,
+  ...managerDiscountFields,
 });
 
 export const addOrderLinesSchema = z.object({

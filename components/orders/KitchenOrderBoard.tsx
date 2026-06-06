@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { KitchenOrderCard } from "@/components/orders/KitchenOrderCard";
+import { KitchenPrepAggregatePanel } from "@/components/kitchen/KitchenPrepAggregatePanel";
 import { useKitchenChime } from "@/components/kitchen/useKitchenChime";
 import type { KdsThresholds } from "@/lib/kds-timers";
 import { getKitchenNextAction } from "@/lib/order-pipeline";
@@ -31,7 +32,7 @@ type KitchenOrder = {
     addedAt: Date | string;
     kitchenDoneAt?: Date | string | null;
     kitchenDoneQty?: number;
-    product: { name: string; yieldUnit: string } | null;
+    product: { id: string; name: string; yieldUnit: string } | null;
   }[];
 };
 
@@ -109,10 +110,16 @@ export function KitchenOrderBoard({ grouped, thresholds }: KitchenOrderBoardProp
     return () => clearInterval(id);
   }, [router]);
 
+  const prepOrders = useMemo(
+    () => [...grouped.NEW, ...grouped.PROCESSING],
+    [grouped.NEW, grouped.PROCESSING]
+  );
+
   const activeTotal = activeOrders.length;
 
   return (
     <div className="space-y-3">
+      <KitchenPrepAggregatePanel orders={prepOrders} />
       <p className="text-sm text-gray-500">
         {activeTotal} active today · tap lines when done · updated orders bump to top · refreshes
         every {REFRESH_MS / 1000}s

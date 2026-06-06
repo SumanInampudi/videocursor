@@ -6,6 +6,7 @@ import type { PosProductAvailability } from "@/lib/pos-stock-status";
 type PosItemTileProps = {
   name: string;
   price: number;
+  posCode?: number | null;
   imageUrl?: string | null;
   onAdd: () => void;
   disabled?: boolean;
@@ -15,6 +16,7 @@ type PosItemTileProps = {
 export function PosItemTile({
   name,
   price,
+  posCode,
   imageUrl,
   onAdd,
   disabled,
@@ -25,6 +27,11 @@ export function PosItemTile({
 
   return (
     <div className="relative">
+      {posCode != null && (
+        <span className="absolute left-1.5 top-1.5 z-10 flex h-6 min-w-6 items-center justify-center rounded bg-servora-charcoal px-1 text-[11px] font-bold tabular-nums text-white">
+          {posCode}
+        </span>
+      )}
       {availability && availability.status !== "ok" && (
         <span
           className={`absolute right-1.5 top-1.5 z-10 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${

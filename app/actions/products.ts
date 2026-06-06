@@ -24,6 +24,15 @@ function parseProductFormData(raw: Record<string, FormDataEntryValue>) {
     });
   }
 
+  const inclusionCount = parseInt(String(raw.inclusionCount || "0"), 10);
+  const inclusions = [];
+  for (let i = 0; i < inclusionCount; i++) {
+    inclusions.push({
+      includedProductId: String(raw[`inclusion_${i}_includedProductId`] || ""),
+      quantityPerParent: raw[`inclusion_${i}_quantityPerParent`],
+    });
+  }
+
   const productType = raw.productType === "RETAIL" ? "RETAIL" : "PREPARED";
   const requiresKitchen =
     raw.requiresKitchen === "true" || raw.requiresKitchen === "on"
@@ -40,13 +49,47 @@ function parseProductFormData(raw: Record<string, FormDataEntryValue>) {
     yieldUnit: raw.yieldUnit,
     salePrice: raw.salePrice,
     prepTimeMinutes: raw.prepTimeMinutes,
+    posCode: raw.posCode,
     instructions: raw.instructions,
     productType,
     requiresKitchen: productType === "RETAIL" ? requiresKitchen : requiresKitchen,
     retailInventoryItemId: String(raw.retailInventoryItemId || "").trim() || undefined,
     retailQuantityPerSale: raw.retailQuantityPerSale,
     ingredients,
+    inclusions,
   });
+}
+
+async function assertPosCodeAvailable(
+  businessId: string,
+  posCode: number | null | undefined,
+  excludeProductId?: string
+): Promise<{ error: { posCode: string[] } } | null> {
+  if (posCode == null) return null;
+  const existing = await db.product.findFirst({
+    where: {
+      businessId,
+      posCode,
+      ...(excludeProductId ? { id: { not: excludeProductId } } : {}),
+    },
+    select: { name: true },
+  });
+  if (existing) {
+    return {
+      error: { posCode: [`POS code ${posCode} is already used by "${existing.name}"`] },
+    };
+  }
+  return null;
+}
+
+export async function getSuggestedPosCode() {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const agg = await db.product.aggregate({
+    where: { businessId, posCode: { not: null } },
+    _max: { posCode: true },
+  });
+  return (agg._max.posCode ?? 0) + 1;
 }
 
 const productStockInclude = {
@@ -125,6 +168,12 @@ export async function getProduct(id: string) {
       ingredients: {
         include: { ingredient: true },
       },
+      includedSides: {
+        include: {
+          includedProduct: { select: { id: true, name: true, category: true } },
+        },
+        orderBy: { includedProduct: { name: "asc" } },
+      },
       retailInventoryItem: {
         select: { id: true, name: true, unit: true, sku: true },
       },
@@ -132,6 +181,26 @@ export async function getProduct(id: string) {
   });
 
   return product ? serializeForClient(product) : null;
+}
+
+export async function getPreparedProductsForInclusions(excludeProductId?: string) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+  const rows = await db.product.findMany({
+    where: {
+      businessId,
+      productType: ProductType.PREPARED,
+      ...(excludeProductId ? { id: { not: excludeProductId } } : {}),
+    },
+    select: { id: true, name: true, category: true, salePrice: true },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+  });
+  return serializeForClient(
+    rows.map((row) => ({
+      ...row,
+      salePrice: row.salePrice != null ? Number(row.salePrice) : null,
+    }))
+  );
 }
 
 export async function getActiveIngredientsForProducts() {
@@ -218,6 +287,19 @@ export async function createProduct(formData: FormData) {
     }
   }
 
+  if (data.productType === "PREPARED" && data.inclusions.length > 0) {
+    const inclusionIds = data.inclusions.map((row) => row.includedProductId);
+    const found = await db.product.count({
+      where: { businessId, id: { in: inclusionIds }, productType: ProductType.PREPARED },
+    });
+    if (found !== inclusionIds.length) {
+      return { error: { inclusions: ["One or more included products were not found"] } };
+    }
+  }
+
+  const posCodeConflict = await assertPosCodeAvailable(businessId, data.posCode);
+  if (posCodeConflict) return posCodeConflict;
+
   await db.product.create({
     data: {
       businessId,
@@ -228,6 +310,7 @@ export async function createProduct(formData: FormData) {
       yieldUnit: data.yieldUnit,
       salePrice: data.salePrice,
       prepTimeMinutes: data.prepTimeMinutes,
+      posCode: data.posCode,
       instructions: data.instructions || null,
       barcode: generateProductBarcode(data.name),
       productType: data.productType as ProductType,
@@ -243,6 +326,15 @@ export async function createProduct(formData: FormData) {
                 ingredientId: ing.ingredientId,
                 quantityRequired: ing.quantityRequired,
                 unit: ing.unit as Unit,
+              })),
+            }
+          : undefined,
+      includedSides:
+        data.productType === "PREPARED" && data.inclusions.length > 0
+          ? {
+              create: data.inclusions.map((row) => ({
+                includedProductId: row.includedProductId,
+                quantityPerParent: row.quantityPerParent,
               })),
             }
           : undefined,
@@ -284,8 +376,25 @@ export async function updateProduct(id: string, formData: FormData) {
     }
   }
 
+  if (data.productType === "PREPARED" && data.inclusions.length > 0) {
+    const inclusionIds = data.inclusions.map((row) => row.includedProductId);
+    if (inclusionIds.includes(id)) {
+      return { error: { inclusions: ["A product cannot include itself"] } };
+    }
+    const found = await db.product.count({
+      where: { businessId, id: { in: inclusionIds }, productType: ProductType.PREPARED },
+    });
+    if (found !== inclusionIds.length) {
+      return { error: { inclusions: ["One or more included products were not found"] } };
+    }
+  }
+
+  const posCodeConflict = await assertPosCodeAvailable(businessId, data.posCode, id);
+  if (posCodeConflict) return posCodeConflict;
+
   await db.$transaction([
     db.productIngredient.deleteMany({ where: { productId: id } }),
+    db.productInclusion.deleteMany({ where: { parentProductId: id } }),
     db.product.update({
       where: { id },
       data: {
@@ -296,6 +405,7 @@ export async function updateProduct(id: string, formData: FormData) {
         yieldUnit: data.yieldUnit,
         salePrice: data.salePrice,
         prepTimeMinutes: data.prepTimeMinutes,
+        posCode: data.posCode,
         instructions: data.instructions || null,
         productType: data.productType as ProductType,
         requiresKitchen: data.requiresKitchen,
@@ -310,6 +420,15 @@ export async function updateProduct(id: string, formData: FormData) {
                   ingredientId: ing.ingredientId,
                   quantityRequired: ing.quantityRequired,
                   unit: ing.unit as Unit,
+                })),
+              }
+            : undefined,
+        includedSides:
+          data.productType === "PREPARED" && data.inclusions.length > 0
+            ? {
+                create: data.inclusions.map((row) => ({
+                  includedProductId: row.includedProductId,
+                  quantityPerParent: row.quantityPerParent,
                 })),
               }
             : undefined,

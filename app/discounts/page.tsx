@@ -14,7 +14,8 @@ export default async function DiscountsPage() {
         <div>
           <h1 className="page-title">Discounts</h1>
           <p className="text-sm text-gray-500">
-            Promo codes applied when placing orders. Percent or fixed amount off subtotal.
+            Promo codes for checkout. Phase 1 supports percent or fixed amount off the bill, with
+            per-order audit trail and impact estimates.
           </p>
         </div>
         <Link href="/discounts/new">

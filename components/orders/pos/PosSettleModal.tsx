@@ -10,6 +10,7 @@ type PosSettleModalProps = {
   subtotal: number;
   taxSettings: TaxSettings;
   discountCode?: string | null;
+  canManageDiscounts?: boolean;
   onClose: () => void;
   onSettled: (orderId: string) => void;
 };
@@ -21,6 +22,7 @@ export function PosSettleModal({
   subtotal,
   taxSettings,
   discountCode,
+  canManageDiscounts = false,
   onClose,
   onSettled,
 }: PosSettleModalProps) {
@@ -45,6 +47,7 @@ export function PosSettleModal({
           subtotal={subtotal}
           taxSettings={taxSettings}
           discountCode={discountCode}
+          canManageDiscounts={canManageDiscounts}
           compact
           onSuccess={(id) => {
             onSettled(id);

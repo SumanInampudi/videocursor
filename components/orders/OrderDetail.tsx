@@ -21,6 +21,7 @@ import {
   OrderMetaBadges,
   computeOrderDisplayTotal,
 } from "@/components/orders/OrderMetaBadges";
+import { OrderPromotionsBreakdown } from "@/components/orders/OrderPromotionsBreakdown";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -41,6 +42,18 @@ type OrderDetailProps = {
     customer?: { id: string; name: string } | null;
     discountCode?: string | null;
     discountTotal?: number | { toString(): string } | null;
+    appliedPromotions?: {
+      id: string;
+      name: string;
+      code: string | null;
+      kind: string;
+      discountAmount: number | { toString(): string };
+      lineDiscounts?: {
+        discountAmount: number | { toString(): string };
+        grossRevenue: number | { toString(): string };
+        orderLineItem: { productName: string };
+      }[];
+    }[];
     subtotal?: number | { toString(): string } | null;
     grandTotal?: number | { toString(): string } | null;
     taxTotal?: number | { toString(): string } | null;
@@ -69,6 +82,7 @@ type OrderDetailProps = {
       profit: { toString(): string } | null;
       processedAt: Date | null;
       productName: string;
+      productId?: string | null;
       product: {
         id: string;
         name: string;
@@ -184,6 +198,13 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
             subtotal={subtotal}
             taxSettings={taxSettings}
             discountCode={order.discountCode}
+            channel={order.channel}
+            cartLines={order.lineItems
+              .filter((line) => line.productId)
+              .map((line) => ({
+                productId: line.productId!,
+                quantity: line.quantity,
+              }))}
             onSuccess={() => setReceiptOpen(true)}
           />
         </div>
@@ -204,6 +225,11 @@ export function OrderDetail({ order, taxSettings }: OrderDetailProps) {
       {order.notes && (
         <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{order.notes}</p>
       )}
+
+      <OrderPromotionsBreakdown
+        promotions={order.appliedPromotions ?? []}
+        discountTotal={discount}
+      />
 
       <OrderTaxSummary order={order} />
 

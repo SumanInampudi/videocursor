@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { getVenuePosSettings } from "@/app/actions/venue";
 import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import { assertManagerPromotionAccess } from "@/lib/manager-access";
 import {
-  applyDiscountToLines,
+  applyOrderPromotions,
   buildLinePayloadsForBusiness,
   recalculateOrderSubtotalFromLines,
 } from "@/lib/order-line-build";
+import { parseManagerAdjustmentsFromForm } from "@/lib/promotion-engine/manager";
 import { validateOrderLinesStock } from "@/lib/order-stock-server";
 import { parseTipFromForm, buildOrderTaxFields } from "@/lib/apply-order-tax";
 import { serializeForClient } from "@/lib/serialize";
@@ -163,13 +165,15 @@ export async function getOrderForPosResume(orderId: string) {
       notes: order.notes,
       status: order.status,
     },
-    cart: order.lineItems.map((line) => ({
-      productId: line.productId ?? "",
-      name: line.product?.name ?? line.productName,
-      quantity: line.quantity,
-      unitPrice: Number(line.unitSalePrice),
-      imageUrl: line.product?.imageUrl ?? null,
-    })),
+    cart: order.lineItems
+      .filter((line) => !line.isIncluded)
+      .map((line) => ({
+        productId: line.productId ?? "",
+        name: line.product?.name ?? line.productName,
+        quantity: line.quantity,
+        unitPrice: Number(line.unitSalePrice),
+        imageUrl: line.product?.imageUrl ?? null,
+      })),
   });
 }
 
@@ -211,7 +215,11 @@ export async function addLinesToOpenOrder(formData: FormData) {
 
   const stockCheck = await validateOrderLinesStock(
     businessId,
-    parsed.data.lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+    built.payloads.map((l) => ({
+      productId: l.productId,
+      quantity: l.quantity,
+      productName: l.productName,
+    })),
     { existingOrderId: order.id }
   );
   if (!stockCheck.ok) {
@@ -222,7 +230,10 @@ export async function addLinesToOpenOrder(formData: FormData) {
 
   await db.$transaction(async (tx) => {
     for (const payload of built.payloads) {
-      const existing = order.lineItems.find((l) => l.productId === payload.productId);
+      const isIncluded = payload.isIncluded ?? false;
+      const existing = order.lineItems.find(
+        (l) => l.productId === payload.productId && l.isIncluded === isIncluded
+      );
       if (existing) {
         const newQty = existing.quantity + payload.quantity;
         const revenue = Number(existing.unitSalePrice) * newQty;
@@ -242,6 +253,7 @@ export async function addLinesToOpenOrder(formData: FormData) {
             quantity: payload.quantity,
             unitSalePrice: payload.unitSalePrice,
             revenue: payload.revenue,
+            isIncluded,
             addedAt: bumpedAt,
           },
         });
@@ -296,6 +308,10 @@ export async function settleOrderPayment(formData: FormData) {
     paymentMethod: formData.get("paymentMethod"),
     discountCode: formData.get("discountCode") || undefined,
     tipAmount: formData.get("tipAmount") || undefined,
+    managerDiscountMode: formData.get("managerDiscountMode") || undefined,
+    managerDiscountValue: formData.get("managerDiscountValue") || undefined,
+    managerDiscountReason: formData.get("managerDiscountReason") || undefined,
+    compLinesJson: formData.get("compLinesJson") || undefined,
   });
 
   if (!parsed.success) {
@@ -319,7 +335,7 @@ export async function settleOrderPayment(formData: FormData) {
   }
 
   const lineInputs = order.lineItems
-    .filter((l) => l.productId)
+    .filter((l) => l.productId && !l.isIncluded)
     .map((l) => ({ productId: l.productId!, quantity: l.quantity }));
 
   if (lineInputs.length === 0) {
@@ -329,11 +345,35 @@ export async function settleOrderPayment(formData: FormData) {
   const built = await buildLinePayloadsForBusiness(businessId, lineInputs);
   if ("error" in built) return { error: built.error };
 
-  const discountResult = await applyDiscountToLines(
+  const managerAdjustments = parseManagerAdjustmentsFromForm({
+    managerDiscountMode: parsed.data.managerDiscountMode,
+    managerDiscountValue: parsed.data.managerDiscountValue,
+    managerDiscountReason: parsed.data.managerDiscountReason,
+    compLinesJson: parsed.data.compLinesJson,
+  });
+
+  let appliedByUserId: string | null = null;
+  if (managerAdjustments.openDiscount || managerAdjustments.compLines?.length) {
+    const access = await assertManagerPromotionAccess();
+    if ("error" in access) {
+      return { error: { managerDiscount: [access.error] } };
+    }
+    appliedByUserId = access.userId;
+  }
+
+  const discountResult = await applyOrderPromotions(
     businessId,
     parsed.data.discountCode ?? order.discountCode ?? undefined,
     built.subtotal,
-    built.payloads
+    built.payloads,
+    {
+      channel: order.channel,
+      includeAuto: true,
+      customerId: order.customerId,
+      paymentMethod: parsed.data.paymentMethod,
+      managerAdjustments,
+      appliedByUserId,
+    }
   );
 
   if ("error" in discountResult) {
@@ -341,7 +381,10 @@ export async function settleOrderPayment(formData: FormData) {
   }
 
   for (const line of order.lineItems) {
-    const match = discountResult.linePayloads.find((p) => p.productId === line.productId);
+    const match = discountResult.linePayloads.find(
+      (p) =>
+        p.productId === line.productId && (p.isIncluded ?? false) === line.isIncluded
+    );
     if (match) {
       await db.orderLineItem.update({
         where: { id: line.id },
@@ -364,6 +407,17 @@ export async function settleOrderPayment(formData: FormData) {
   );
 
   const now = new Date();
+  await db.orderAppliedPromotion.deleteMany({ where: { orderId: order.id } });
+
+  if (discountResult.appliedPromotions.length > 0) {
+    const { persistOrderAppliedPromotions } = await import("@/lib/promotion-persist");
+    await persistOrderAppliedPromotions(
+      order.id,
+      order.lineItems.map((line) => ({ id: line.id, productId: line.productId })),
+      discountResult.appliedPromotions
+    );
+  }
+
   await db.order.update({
     where: { id: order.id },
     data: {

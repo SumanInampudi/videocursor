@@ -5,7 +5,10 @@ import {
   getStayOnPosAfterCheckout,
   setStayOnPosAfterCheckout,
 } from "@/lib/pos-preferences";
-import { OrderDiscountSection } from "@/components/orders/OrderDiscountSection";
+import { ManagerPromotionsPanel } from "@/components/orders/ManagerPromotionsPanel";
+import { OrderPromotionsPanel } from "@/components/orders/OrderPromotionsPanel";
+import { serializeManagerAdjustmentsForForm } from "@/lib/promotion-engine/manager";
+import type { ManagerAdjustmentsInput } from "@/lib/promotion-engine/types";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { ProductThumbnail } from "@/components/products/ProductThumbnail";
@@ -25,6 +28,8 @@ type CustomerOption = { id: string; name: string };
 
 type PosCartPanelProps = {
   cart: OrderCartLine[];
+  /** Paid lines plus auto-included companions for display. */
+  displayLines?: OrderCartLine[];
   subtotal: number;
   discountAmount: number;
   total: number;
@@ -33,6 +38,7 @@ type PosCartPanelProps = {
   errors: Record<string, string[]>;
   onUpdateQty: (productId: string, qty: number) => void;
   onClear: () => void;
+  canManageDiscounts?: boolean;
   onDiscountApplied: (payload: { code: string; discountAmount: number } | null) => void;
   venue: VenuePosSettings;
   tables: DiningTableOption[];
@@ -50,6 +56,10 @@ type PosCartPanelProps = {
     channel: OrderChannel;
     diningTableId: string;
     externalRef: string;
+    managerDiscountMode?: string;
+    managerDiscountValue?: string;
+    managerDiscountReason?: string;
+    compLinesJson?: string;
   }) => void;
   mobileCollapsed?: boolean;
   resetKey?: number;
@@ -61,6 +71,7 @@ type PosCartPanelProps = {
 
 export function PosCartPanel({
   cart,
+  displayLines,
   subtotal,
   discountAmount,
   total,
@@ -70,6 +81,7 @@ export function PosCartPanel({
   onUpdateQty,
   onClear,
   onDiscountApplied,
+  canManageDiscounts = false,
   venue,
   tables,
   channel,
@@ -86,12 +98,16 @@ export function PosCartPanel({
   activeOrderNumber = null,
   onSettleTab,
 }: PosCartPanelProps) {
+  const lines = displayLines ?? cart;
   const sendToKitchen =
     channel === "DINE_IN" && isPayAtClose(venue, "DINE_IN");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [discountCode, setDiscountCode] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [managerDiscount, setManagerDiscount] = useState(0);
+  const [managerAdjustments, setManagerAdjustments] = useState<ManagerAdjustmentsInput>({});
   const [notes, setNotes] = useState("");
   const [stayOnPos, setStayOnPos] = useState(true);
 
@@ -103,6 +119,9 @@ export function PosCartPanel({
     setCustomerId("");
     setCustomerName("");
     setDiscountCode("");
+    setPromoDiscount(0);
+    setManagerDiscount(0);
+    setManagerAdjustments({});
     setNotes("");
   }, [resetKey]);
 
@@ -126,6 +145,7 @@ export function PosCartPanel({
       channel,
       diningTableId,
       externalRef,
+      ...serializeManagerAdjustmentsForForm(managerAdjustments),
     });
   }
 
@@ -151,29 +171,36 @@ export function PosCartPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ul className="space-y-2 p-3 md:p-4">
-          {cart.length === 0 ? (
+          {lines.length === 0 ? (
             <li className="py-8 text-center text-sm text-gray-400">
               Tap menu items to add · then Checkout
             </li>
           ) : (
-            cart.map((line) => {
-              const avail = availability[line.productId];
+            lines.map((line) => {
+              const isIncluded = line.isIncluded === true;
+              const avail = isIncluded ? undefined : availability[line.productId];
               const overStock =
+                !isIncluded &&
                 avail != null &&
                 avail.maxServings > 0 &&
                 line.quantity > avail.maxServings;
               return (
               <li
-                key={line.productId}
+                key={`${line.productId}-${isIncluded ? "inc" : "paid"}`}
                 className={`flex items-center gap-2 rounded-lg p-2 ${
-                  overStock ? "bg-red-50 ring-1 ring-red-200" : "bg-gray-50"
+                  isIncluded
+                    ? "bg-emerald-50/80 ring-1 ring-emerald-100"
+                    : overStock
+                      ? "bg-red-50 ring-1 ring-red-200"
+                      : "bg-gray-50"
                 }`}
               >
                 <ProductThumbnail name={line.name} imageUrl={line.imageUrl} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{line.name}</p>
                   <p className="text-xs text-gray-500">
-                    {formatCurrency(line.unitPrice)} × {line.quantity}
+                    {isIncluded ? "Included · free" : `${formatCurrency(line.unitPrice)} × ${line.quantity}`}
+                    {isIncluded ? ` · × ${line.quantity}` : ""}
                   </p>
                   {overStock && (
                     <p className="text-xs text-red-700">
@@ -184,23 +211,25 @@ export function PosCartPanel({
                     <p className="text-xs text-amber-700">{avail.label}</p>
                   )}
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    className="touch-target flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold"
-                    onClick={() => onUpdateQty(line.productId, line.quantity - 1)}
-                  >
-                    −
-                  </button>
-                  <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
-                  <button
-                    type="button"
-                    className="touch-target flex h-10 w-10 items-center justify-center rounded-lg bg-servora-yellow text-lg font-bold text-white"
-                    onClick={() => onUpdateQty(line.productId, line.quantity + 1)}
-                  >
-                    +
-                  </button>
-                </div>
+                {!isIncluded && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      className="touch-target flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold"
+                      onClick={() => onUpdateQty(line.productId, line.quantity - 1)}
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
+                    <button
+                      type="button"
+                      className="touch-target flex h-10 w-10 items-center justify-center rounded-lg bg-servora-yellow text-lg font-bold text-white"
+                      onClick={() => onUpdateQty(line.productId, line.quantity + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
               </li>
             );
             })
@@ -240,11 +269,46 @@ export function PosCartPanel({
             onChange={(e) => setCustomerName(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
           />
-          <OrderDiscountSection
+          <OrderPromotionsPanel
             subtotal={subtotal}
+            channel={channel}
+            customerId={customerId || undefined}
+            cartLines={cart.map((line) => ({
+              productId: line.productId,
+              quantity: line.quantity,
+            }))}
             onApplied={(payload) => {
-              onDiscountApplied(payload);
+              const promoAmount = payload?.discountAmount ?? 0;
+              setPromoDiscount(promoAmount);
               setDiscountCode(payload?.code ?? "");
+              const combined = promoAmount + managerDiscount;
+              onDiscountApplied(
+                combined > 0
+                  ? { code: payload?.code ?? "", discountAmount: combined }
+                  : null
+              );
+            }}
+          />
+          <ManagerPromotionsPanel
+            canManageDiscounts={canManageDiscounts}
+            cartLines={cart}
+            promoDiscountTotal={promoDiscount}
+            onAdjustmentsChange={(payload) => {
+              if (!payload) {
+                setManagerAdjustments({});
+                setManagerDiscount(0);
+                const combined = promoDiscount;
+                onDiscountApplied(
+                  combined > 0 ? { code: discountCode, discountAmount: combined } : null
+                );
+                return;
+              }
+              setManagerAdjustments(payload.adjustments);
+              setManagerDiscount(payload.managerDiscountTotal);
+              const combined = promoDiscount + payload.managerDiscountTotal;
+              onDiscountApplied(
+                combined > 0 ? { code: discountCode, discountAmount: combined } : null
+              );
             }}
           />
           <textarea

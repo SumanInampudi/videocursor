@@ -2,18 +2,23 @@ import {
   createProduct,
   getActiveIngredientsForProducts,
   getInventoryItemsForRetailMenu,
+  getPreparedProductsForInclusions,
   getProductCategories,
+  getSuggestedPosCode,
 } from "@/app/actions/products";
 import { ProductForm } from "@/components/products/ProductForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewProductPage() {
-  const [ingredients, inventoryItems, categories] = await Promise.all([
-    getActiveIngredientsForProducts(),
-    getInventoryItemsForRetailMenu(),
-    getProductCategories(),
-  ]);
+  const [ingredients, inventoryItems, categories, inclusionCandidates, suggestedPosCode] =
+    await Promise.all([
+      getActiveIngredientsForProducts(),
+      getInventoryItemsForRetailMenu(),
+      getProductCategories(),
+      getPreparedProductsForInclusions(),
+      getSuggestedPosCode(),
+    ]);
 
   return (
     <div>
@@ -29,6 +34,8 @@ export default async function NewProductPage() {
         ingredients={ingredients}
         inventoryItems={inventoryItems}
         categories={categories}
+        inclusionCandidates={inclusionCandidates}
+        suggestedPosCode={suggestedPosCode}
         submitLabel="Create product"
       />
     </div>

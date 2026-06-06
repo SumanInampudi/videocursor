@@ -1,5 +1,7 @@
 /** Kitchen display helpers (client + server safe). */
 
+import type { OrderStatus } from "@prisma/client";
+
 export type KitchenLineView = {
   id: string;
   quantity: number;
@@ -107,4 +109,83 @@ export function sortKitchenBoardOrders<
   T extends KitchenOrderView & { createdAt: Date | string },
 >(orders: T[]): T[] {
   return [...orders].sort(compareKitchenBoardOrder);
+}
+
+export type KitchenPrepAggregateInputOrder = {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  lineItems: (KitchenLineView & {
+    productId?: string | null;
+    product?: { id: string; name: string } | null;
+  })[];
+};
+
+export type KitchenPrepAggregateTicket = {
+  orderId: string;
+  orderNumber: string;
+  status: OrderStatus;
+  pendingQty: number;
+};
+
+export type KitchenPrepAggregateRow = {
+  key: string;
+  productName: string;
+  pendingQty: number;
+  tickets: KitchenPrepAggregateTicket[];
+};
+
+/** Roll up pending kitchen qty across New + Cooking tickets (batch prep view). */
+export function buildKitchenPrepAggregate(
+  orders: KitchenPrepAggregateInputOrder[]
+): KitchenPrepAggregateRow[] {
+  const map = new Map<
+    string,
+    { productName: string; pendingQty: number; tickets: KitchenPrepAggregateTicket[] }
+  >();
+
+  for (const order of orders) {
+    for (const line of order.lineItems) {
+      const pending = kitchenPendingQty(line);
+      if (pending <= 0) continue;
+
+      const productId = line.product?.id ?? line.productId ?? null;
+      const productName = line.product?.name ?? line.productName;
+      const key = productId ?? productName;
+
+      const row = map.get(key) ?? {
+        productName,
+        pendingQty: 0,
+        tickets: [],
+      };
+
+      row.pendingQty += pending;
+
+      const existingTicket = row.tickets.find((t) => t.orderId === order.id);
+      if (existingTicket) {
+        existingTicket.pendingQty += pending;
+      } else {
+        row.tickets.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          pendingQty: pending,
+        });
+      }
+
+      map.set(key, row);
+    }
+  }
+
+  return [...map.entries()]
+    .map(([key, row]) => ({
+      key,
+      productName: row.productName,
+      pendingQty: row.pendingQty,
+      tickets: row.tickets.sort((a, b) => a.orderNumber.localeCompare(b.orderNumber)),
+    }))
+    .sort((a, b) => {
+      if (b.pendingQty !== a.pendingQty) return b.pendingQty - a.pendingQty;
+      return a.productName.localeCompare(b.productName);
+    });
 }

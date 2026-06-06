@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import {
   getActiveIngredientsForProducts,
   getInventoryItemsForRetailMenu,
+  getPreparedProductsForInclusions,
   getProduct,
   getProductCategories,
   updateProduct,
@@ -18,13 +19,15 @@ type Props = {
 
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
-  const [product, ingredients, inventoryItems, pricing, categories] = await Promise.all([
-    getProduct(id),
-    getActiveIngredientsForProducts(),
-    getInventoryItemsForRetailMenu(),
-    getProductPricingDetail(id),
-    getProductCategories(),
-  ]);
+  const [product, ingredients, inventoryItems, pricing, categories, inclusionCandidates] =
+    await Promise.all([
+      getProduct(id),
+      getActiveIngredientsForProducts(),
+      getInventoryItemsForRetailMenu(),
+      getProductPricingDetail(id),
+      getProductCategories(),
+      getPreparedProductsForInclusions(id),
+    ]);
 
   if (!product) notFound();
 
@@ -47,6 +50,7 @@ export default async function EditProductPage({ params }: Props) {
           yieldQuantity: Number(product.yieldQuantity),
           yieldUnit: product.yieldUnit,
           salePrice: product.salePrice != null ? Number(product.salePrice) : null,
+          posCode: product.posCode ?? null,
           prepTimeMinutes: product.prepTimeMinutes ?? null,
           instructions: product.instructions,
           productType: product.productType,
@@ -61,9 +65,14 @@ export default async function EditProductPage({ params }: Props) {
             quantityRequired: Number(ing.quantityRequired),
             unit: ing.unit,
           })),
+          inclusions: product.includedSides.map((row) => ({
+            includedProductId: row.includedProductId,
+            quantityPerParent: row.quantityPerParent,
+          })),
         }}
         estimatedRawMaterialCostPerSale={pricing?.costEstimate?.unitIngredientCost ?? null}
         categories={categories}
+        inclusionCandidates={inclusionCandidates}
         submitLabel="Update product"
       />
       <div className="mt-8">

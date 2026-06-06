@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { createOrder, previewCartStock } from "@/app/actions/orders";
 import { OrderCustomerSection } from "@/components/orders/OrderCustomerSection";
-import { OrderDiscountSection } from "@/components/orders/OrderDiscountSection";
+import { OrderPromotionsPanel } from "@/components/orders/OrderPromotionsPanel";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { ProductMenuTile } from "@/components/products/ProductMenuTile";
@@ -204,8 +204,13 @@ export function OrderForm({ products, customers = [] }: OrderFormProps) {
         )}
       </div>
 
-      <OrderDiscountSection
+      <OrderPromotionsPanel
         subtotal={subtotal}
+        channel="DINE_IN"
+        cartLines={cart.map((line) => ({
+          productId: line.productId,
+          quantity: line.quantity,
+        }))}
         onApplied={(payload) => setDiscountAmount(payload?.discountAmount ?? 0)}
       />
 

@@ -4,6 +4,8 @@ export type OrderCartLine = {
   quantity: number;
   unitPrice: number;
   imageUrl?: string | null;
+  /** Display-only companion line (not sent to checkout). */
+  isIncluded?: boolean;
 };
 
 export type PricedProduct = {
@@ -11,6 +13,7 @@ export type PricedProduct = {
   name: string;
   category?: string;
   salePrice: { toString(): string } | number | null;
+  posCode?: number | null;
   prepTimeMinutes?: number | null;
   barcode?: string;
   imageUrl?: string | null;
@@ -79,6 +82,10 @@ export function buildOrderFormData(
     posFlow?: boolean;
     covers?: number;
     tipAmount?: number;
+    managerDiscountMode?: string;
+    managerDiscountValue?: string;
+    managerDiscountReason?: string;
+    compLinesJson?: string;
   }
 ): FormData {
   const formData = new FormData();
@@ -97,8 +104,21 @@ export function buildOrderFormData(
   if (fields.tipAmount != null && fields.tipAmount > 0) {
     formData.set("tipAmount", String(fields.tipAmount));
   }
-  formData.set("lineCount", String(cart.length));
-  cart.forEach((line, i) => {
+  if (fields.managerDiscountMode) {
+    formData.set("managerDiscountMode", fields.managerDiscountMode);
+  }
+  if (fields.managerDiscountValue) {
+    formData.set("managerDiscountValue", fields.managerDiscountValue);
+  }
+  if (fields.managerDiscountReason) {
+    formData.set("managerDiscountReason", fields.managerDiscountReason);
+  }
+  if (fields.compLinesJson) {
+    formData.set("compLinesJson", fields.compLinesJson);
+  }
+  const paidLines = cart.filter((line) => !line.isIncluded);
+  formData.set("lineCount", String(paidLines.length));
+  paidLines.forEach((line, i) => {
     formData.set(`line_${i}_productId`, line.productId);
     formData.set(`line_${i}_quantity`, String(line.quantity));
   });

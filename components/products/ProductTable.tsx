@@ -13,6 +13,7 @@ type ProductWithYield = {
   id: string;
   name: string;
   imageUrl?: string | null;
+  posCode?: number | null;
   category: string;
   yieldUnit: string;
   productType?: "PREPARED" | "RETAIL";
@@ -58,6 +59,7 @@ export function ProductTable({ products }: ProductTableProps) {
         <thead>
           <tr>
             <th>Product</th>
+            <th>POS</th>
             <th>Category</th>
             <th>Raw Materials</th>
             <th>Max Yield</th>
@@ -78,6 +80,9 @@ export function ProductTable({ products }: ProductTableProps) {
                     </Badge>
                   )}
                 </div>
+              </td>
+              <td className="tabular-nums text-charcoal-muted">
+                {product.posCode ?? "—"}
               </td>
               <td className="text-charcoal-muted">{product.category}</td>
               <td className="text-charcoal-muted">

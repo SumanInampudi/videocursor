@@ -27,6 +27,18 @@ type RawMaterialRow = {
   unit: string;
 };
 
+type InclusionCandidate = {
+  id: string;
+  name: string;
+  category: string;
+  salePrice: number | string | null;
+};
+
+type InclusionRow = {
+  includedProductId: string;
+  quantityPerParent: string;
+};
+
 type ParsedBulkLine = {
   raw: string;
   name: string;
@@ -54,6 +66,7 @@ type ProductFormProps = {
     yieldQuantity: number;
     yieldUnit: string;
     salePrice?: number | null;
+    posCode?: number | null;
     prepTimeMinutes?: number | null;
     instructions: string | null;
     productType?: "PREPARED" | "RETAIL";
@@ -65,10 +78,16 @@ type ProductFormProps = {
       quantityRequired: number;
       unit: string;
     }[];
+    inclusions?: {
+      includedProductId: string;
+      quantityPerParent: number;
+    }[];
   };
   submitLabel?: string;
   estimatedRawMaterialCostPerSale?: number | null;
   categories?: string[];
+  inclusionCandidates?: InclusionCandidate[];
+  suggestedPosCode?: number | null;
 };
 
 export function ProductForm({
@@ -79,6 +98,8 @@ export function ProductForm({
   submitLabel = "Save Product",
   estimatedRawMaterialCostPerSale = null,
   categories = [],
+  inclusionCandidates = [],
+  suggestedPosCode = null,
 }: ProductFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -114,11 +135,28 @@ export function ProductForm({
   const [salePrice, setSalePrice] = useState(
     initialData?.salePrice != null ? String(initialData.salePrice) : ""
   );
+  const [posCode, setPosCode] = useState(
+    initialData?.posCode != null
+      ? String(initialData.posCode)
+      : suggestedPosCode != null
+        ? String(suggestedPosCode)
+        : ""
+  );
   const [prepTimeMinutes, setPrepTimeMinutes] = useState(
     initialData?.prepTimeMinutes != null ? String(initialData.prepTimeMinutes) : ""
   );
+  const [inclusions, setInclusions] = useState<InclusionRow[]>(
+    initialData?.inclusions?.map((row) => ({
+      includedProductId: row.includedProductId,
+      quantityPerParent: String(row.quantityPerParent),
+    })) ?? []
+  );
 
   const unitOptions = UNITS.map((u) => ({ value: u, label: u }));
+  const selectedInclusionIds = useMemo(
+    () => new Set(inclusions.map((row) => row.includedProductId).filter(Boolean)),
+    [inclusions]
+  );
 
   const selectedRawMaterialIds = useMemo(
     () => new Set(rawMaterials.map((rawMaterial) => rawMaterial.rawMaterialId)),
@@ -329,6 +367,7 @@ export function ProductForm({
       formData.set("retailInventoryItemId", retailInventoryItemId);
       formData.set("retailQuantityPerSale", retailQuantityPerSale);
       formData.set("ingredientCount", "0");
+      formData.set("inclusionCount", "0");
       setBuilderError("");
     } else {
       if (rawMaterials.length === 0) {
@@ -349,6 +388,19 @@ export function ProductForm({
         formData.set(`ingredient_${i}_ingredientId`, ing.rawMaterialId);
         formData.set(`ingredient_${i}_quantityRequired`, ing.quantityRequired);
         formData.set(`ingredient_${i}_unit`, ing.unit);
+      });
+
+      const validInclusions = inclusions.filter((row) => row.includedProductId);
+      for (const row of validInclusions) {
+        if (!row.quantityPerParent || Number(row.quantityPerParent) < 1) {
+          setBuilderError("Each included side needs quantity per portion of at least 1.");
+          return;
+        }
+      }
+      formData.set("inclusionCount", String(validInclusions.length));
+      validInclusions.forEach((row, i) => {
+        formData.set(`inclusion_${i}_includedProductId`, row.includedProductId);
+        formData.set(`inclusion_${i}_quantityPerParent`, row.quantityPerParent);
       });
       setBuilderError("");
     }
@@ -734,15 +786,114 @@ export function ProductForm({
       </div>
       )}
 
+      {productType === "PREPARED" && (
+        <div className="card-padded space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="section-title">Included sides</h3>
+            <Badge variant="outline">Free with this item</Badge>
+          </div>
+          <p className="form-hint">
+            Auto-added at ₹0 when this dish is ordered (e.g. raita with biryani). Included products
+            can still be sold separately if they have their own menu price.
+          </p>
+          {errors.inclusions?.[0] && (
+            <p className="text-sm text-servora-red">{errors.inclusions[0]}</p>
+          )}
+          <div className="space-y-2">
+            {inclusions.map((row, index) => (
+              <div
+                key={`inclusion-${index}`}
+                className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3"
+              >
+                <div className="min-w-[12rem] flex-1">
+                  <Select
+                    label="Side / accompaniment"
+                    value={row.includedProductId}
+                    onChange={(e) => {
+                      const next = [...inclusions];
+                      next[index] = { ...next[index], includedProductId: e.target.value };
+                      setInclusions(next);
+                    }}
+                    options={[
+                      { value: "", label: "Select product…" },
+                      ...inclusionCandidates
+                        .filter(
+                          (candidate) =>
+                            candidate.id === row.includedProductId ||
+                            !selectedInclusionIds.has(candidate.id)
+                        )
+                        .map((candidate) => ({
+                          value: candidate.id,
+                          label: `${candidate.name} (${candidate.category})${
+                            candidate.salePrice != null ? "" : " · no menu price"
+                          }`,
+                        })),
+                    ]}
+                  />
+                </div>
+                <div className="w-28">
+                  <Input
+                    label="Qty / portion"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={row.quantityPerParent}
+                    onChange={(e) => {
+                      const next = [...inclusions];
+                      next[index] = { ...next[index], quantityPerParent: e.target.value };
+                      setInclusions(next);
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="mb-0.5 px-2 py-1 text-xs"
+                  onClick={() => setInclusions(inclusions.filter((_, i) => i !== index))}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={inclusionCandidates.length === 0}
+            onClick={() =>
+              setInclusions((current) => [
+                ...current,
+                { includedProductId: "", quantityPerParent: "1" },
+              ])
+            }
+          >
+            Add included side
+          </Button>
+        </div>
+      )}
+
       <div className="card-padded space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="section-title">Pricing</h3>
           <Badge variant="primary">Menu Price</Badge>
         </div>
         <p className="form-hint">
-          Set sale price while creating the menu item; margin uses estimated raw material cost.
+          POS code is the short number staff say at register (e.g. &quot;1 qty 5&quot;). Set sale
+          price for menu; margin uses estimated raw material cost.
         </p>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Input
+            name="posCode"
+            label="POS code"
+            type="number"
+            min="1"
+            step="1"
+            value={posCode}
+            onChange={(e) => setPosCode(e.target.value)}
+            error={errors.posCode?.[0]}
+            placeholder="e.g. 1"
+          />
           <Input
             name="salePrice"
             label="Sale Price"

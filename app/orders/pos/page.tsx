@@ -30,6 +30,13 @@ export default async function PosOrderPage() {
       tables={register.tables}
       taxSettings={taxSettings}
       showExitLink={!auth.user || isAdminRole(auth.user.role)}
+      canManageDiscounts={
+        auth.user
+          ? isAdminRole(auth.user.role)
+          : auth.roles?.includes("owner") ||
+            auth.roles?.includes("manager") ||
+            auth.roles === null
+      }
     />
   );
 }

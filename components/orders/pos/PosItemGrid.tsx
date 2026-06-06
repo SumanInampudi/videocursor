@@ -9,6 +9,7 @@ import type { PosProductAvailability } from "@/lib/pos-stock-status";
 type Product = PricedProduct & {
   category: string;
   imageUrl?: string | null;
+  posCode?: number | null;
   productType?: "PREPARED" | "RETAIL";
   requiresKitchen?: boolean;
 };
@@ -95,6 +96,7 @@ export function PosItemGrid({
           key={product.id}
           name={product.name}
           price={Number(product.salePrice)}
+          posCode={product.posCode}
           imageUrl={product.imageUrl}
           onAdd={() => onAdd(product)}
           disabled={disabled}

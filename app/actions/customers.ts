@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { serializeForClient } from "@/lib/serialize";
 import { smartMatches } from "@/lib/smart-search";
 import { customerSchema } from "@/lib/validations";
+import type { z } from "zod";
 import { OrderStatus } from "@prisma/client";
 
 const PATHS = ["/customers", "/orders", "/orders/new", "/"];
@@ -121,6 +122,16 @@ export async function getCustomerInsights(id: string) {
   });
 }
 
+function parseCustomerData(data: z.infer<typeof customerSchema>) {
+  return {
+    name: data.name,
+    phone: data.phone || null,
+    email: data.email || null,
+    notes: data.notes || null,
+    dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+  };
+}
+
 export async function createCustomer(formData: FormData) {
   const parsed = customerSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
@@ -128,7 +139,7 @@ export async function createCustomer(formData: FormData) {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
   const customer = await db.customer.create({
-    data: { ...parsed.data, businessId },
+    data: { ...parseCustomerData(parsed.data), businessId },
   });
   revalidate();
   return { success: true, customerId: customer.id };
@@ -138,7 +149,7 @@ export async function updateCustomer(id: string, formData: FormData) {
   const parsed = customerSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
-  await db.customer.update({ where: { id }, data: parsed.data });
+  await db.customer.update({ where: { id }, data: parseCustomerData(parsed.data) });
   revalidate();
   return { success: true };
 }

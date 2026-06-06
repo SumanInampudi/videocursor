@@ -18,6 +18,7 @@ type CustomerFormProps = {
     phone: string | null;
     email: string | null;
     notes: string | null;
+    dateOfBirth?: string | null;
   };
   submitLabel?: string;
   redirectToDetail?: boolean;
@@ -59,6 +60,15 @@ export function CustomerForm({
       <Input name="name" label="Name *" defaultValue={initialData?.name} error={errors.name?.[0]} required />
       <Input name="phone" label="Phone" defaultValue={initialData?.phone ?? ""} />
       <Input name="email" label="Email" type="email" defaultValue={initialData?.email ?? ""} error={errors.email?.[0]} />
+      <Input
+        name="dateOfBirth"
+        label="Date of birth"
+        type="date"
+        defaultValue={initialData?.dateOfBirth?.slice(0, 10) ?? ""}
+      />
+      <p className="text-xs text-gray-500">
+        Used for birthday-month promotions when a customer is linked to an order.
+      </p>
       <Textarea name="notes" label="Notes" rows={3} defaultValue={initialData?.notes ?? ""} />
       <Button type="submit" disabled={isPending}>
         {isPending ? "Saving…" : submitLabel}

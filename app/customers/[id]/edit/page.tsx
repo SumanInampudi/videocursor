@@ -19,7 +19,17 @@ export default async function EditCustomerPage({ params }: Props) {
       </Link>
       <h1 className="mt-2 page-title">Edit customer</h1>
       <p className="mb-6 text-sm text-gray-500">{customer.name}</p>
-      <CustomerForm action={action} initialData={customer} submitLabel="Update customer" />
+      <CustomerForm
+        action={action}
+        initialData={{
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          notes: customer.notes,
+          dateOfBirth: customer.dateOfBirth ? String(customer.dateOfBirth) : null,
+        }}
+        submitLabel="Update customer"
+      />
     </div>
   );
 }

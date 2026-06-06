@@ -16,10 +16,12 @@ import {
   assertNoOpenOrderOnTable,
   addLinesToOpenOrder,
 } from "@/app/actions/table-service";
+import { assertManagerPromotionAccess } from "@/lib/manager-access";
 import {
-  applyDiscountToLines,
+  applyOrderPromotions,
   buildLinePayloadsForBusiness,
 } from "@/lib/order-line-build";
+import { parseManagerAdjustmentsFromForm } from "@/lib/promotion-engine/manager";
 import { isPayAtClose } from "@/lib/venue-settings";
 import {
   createOrderSchema,
@@ -145,6 +147,16 @@ export async function getOrder(id: string) {
           },
         },
       },
+      appliedPromotions: {
+        include: {
+          lineDiscounts: {
+            include: {
+              orderLineItem: { select: { productName: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
@@ -175,7 +187,7 @@ export async function getPosMenuData() {
   const since = new Date();
   since.setDate(since.getDate() - 90);
 
-  const [products, frequentGroups] = await Promise.all([
+  const [products, inclusionRows, frequentGroups] = await Promise.all([
     db.product.findMany({
       where: { businessId },
       select: {
@@ -183,6 +195,7 @@ export async function getPosMenuData() {
         name: true,
         category: true,
         salePrice: true,
+        posCode: true,
         prepTimeMinutes: true,
         yieldUnit: true,
         imageUrl: true,
@@ -190,6 +203,12 @@ export async function getPosMenuData() {
         requiresKitchen: true,
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
+    }),
+    db.productInclusion.findMany({
+      where: { parentProduct: { businessId } },
+      include: {
+        includedProduct: { select: { id: true, name: true, imageUrl: true } },
+      },
     }),
     db.orderLineItem.groupBy({
       by: ["productId"],
@@ -214,8 +233,33 @@ export async function getPosMenuData() {
   const allCategories = [...new Set(products.map((p) => p.category))];
   const categories = await getOrderedPosCategories(allCategories);
 
+  const inclusionsByParent = new Map<
+    string,
+    {
+      includedProductId: string;
+      includedProductName: string;
+      quantityPerParent: number;
+      imageUrl: string | null;
+    }[]
+  >();
+  for (const row of inclusionRows) {
+    const list = inclusionsByParent.get(row.parentProductId) ?? [];
+    list.push({
+      includedProductId: row.includedProduct.id,
+      includedProductName: row.includedProduct.name,
+      quantityPerParent: row.quantityPerParent,
+      imageUrl: row.includedProduct.imageUrl,
+    });
+    inclusionsByParent.set(row.parentProductId, list);
+  }
+
+  const productsWithInclusions = products.map((product) => ({
+    ...product,
+    inclusions: inclusionsByParent.get(product.id) ?? [],
+  }));
+
   return serializeForClient({
-    products,
+    products: productsWithInclusions,
     categories,
     frequentIds,
   });
@@ -264,6 +308,10 @@ export async function createOrder(formData: FormData) {
     externalRef: raw.externalRef || undefined,
     covers: raw.covers || undefined,
     tipAmount: raw.tipAmount || undefined,
+    managerDiscountMode: raw.managerDiscountMode || undefined,
+    managerDiscountValue: raw.managerDiscountValue || undefined,
+    managerDiscountReason: raw.managerDiscountReason || undefined,
+    compLinesJson: raw.compLinesJson || undefined,
     lines,
   });
 
@@ -325,7 +373,11 @@ export async function createOrder(formData: FormData) {
 
   const stockCheck = await validateOrderLinesStock(
     businessId,
-    parsed.data.lines.map((l) => ({ productId: l.productId, quantity: l.quantity }))
+    built.payloads.map((l) => ({
+      productId: l.productId,
+      quantity: l.quantity,
+      productName: l.productName,
+    }))
   );
   if (!stockCheck.ok) {
     return { error: { stock: stockCheck.issues } };
@@ -345,18 +397,42 @@ export async function createOrder(formData: FormData) {
   let linePayloads = built.payloads;
   const subtotal = built.subtotal;
 
-  const discountApplied = await applyDiscountToLines(
+  const managerAdjustments = parseManagerAdjustmentsFromForm({
+    managerDiscountMode: parsed.data.managerDiscountMode,
+    managerDiscountValue: parsed.data.managerDiscountValue,
+    managerDiscountReason: parsed.data.managerDiscountReason,
+    compLinesJson: parsed.data.compLinesJson,
+  });
+
+  let appliedByUserId: string | null = null;
+  if (managerAdjustments.openDiscount || managerAdjustments.compLines?.length) {
+    const access = await assertManagerPromotionAccess();
+    if ("error" in access) {
+      return { error: { managerDiscount: [access.error] } };
+    }
+    appliedByUserId = access.userId;
+  }
+
+  const paymentMethod = parsed.data.paymentMethod as OrderPaymentMethod | undefined;
+
+  const discountApplied = await applyOrderPromotions(
     businessId,
     parsed.data.discountCode,
     subtotal,
-    linePayloads
+    linePayloads,
+    {
+      channel,
+      includeAuto: true,
+      customerId,
+      paymentMethod: paymentMethod ?? null,
+      managerAdjustments,
+      appliedByUserId,
+    }
   );
   if ("error" in discountApplied) return { error: discountApplied.error };
 
   linePayloads = discountApplied.linePayloads;
   const { discountId, discountCode, discountTotal } = discountApplied;
-
-  const paymentMethod = parsed.data.paymentMethod as OrderPaymentMethod | undefined;
   const covers =
     "covers" in parsed.data && typeof parsed.data.covers === "number"
       ? parsed.data.covers
@@ -377,6 +453,7 @@ export async function createOrder(formData: FormData) {
     quantity: line.quantity,
     unitSalePrice: line.unitSalePrice,
     revenue: line.revenue,
+    isIncluded: line.isIncluded ?? false,
   }));
 
   const order = await db.order.create({
@@ -401,7 +478,17 @@ export async function createOrder(formData: FormData) {
       status: OrderStatus.NEW,
       lineItems: { create: createLinePayloads },
     },
+    include: { lineItems: { select: { id: true, productId: true } } },
   });
+
+  if (discountApplied.appliedPromotions.length > 0) {
+    const { persistOrderAppliedPromotions } = await import("@/lib/promotion-persist");
+    await persistOrderAppliedPromotions(
+      order.id,
+      order.lineItems,
+      discountApplied.appliedPromotions
+    );
+  }
 
   revalidateOrders();
 
@@ -440,9 +527,21 @@ export async function previewCartStock(
   existingOrderId?: string
 ) {
   const { businessId } = await requireBusinessContext();
-  return validateOrderLinesStock(businessId, lines, {
-    existingOrderId: existingOrderId || undefined,
-  });
+  const built = await buildLinePayloadsForBusiness(businessId, lines);
+  if ("error" in built) {
+    return { ok: false as const, issues: Object.values(built.error).flat() };
+  }
+  return validateOrderLinesStock(
+    businessId,
+    built.payloads.map((l) => ({
+      productId: l.productId,
+      quantity: l.quantity,
+      productName: l.productName,
+    })),
+    {
+      existingOrderId: existingOrderId || undefined,
+    }
+  );
 }
 
 /** Preview stock impact before marking processing → packing. */

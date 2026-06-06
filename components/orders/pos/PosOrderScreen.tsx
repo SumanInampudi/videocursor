@@ -10,6 +10,7 @@ import { PosCartPanel } from "@/components/orders/pos/PosCartPanel";
 import { PosCategoryNav } from "@/components/orders/pos/PosCategoryNav";
 import { PosCheckoutModal } from "@/components/orders/pos/PosCheckoutModal";
 import { PosItemGrid } from "@/components/orders/pos/PosItemGrid";
+import { PosQuickAddBar } from "@/components/orders/pos/PosQuickAddBar";
 import { OrderReceiptModal } from "@/components/orders/OrderReceiptModal";
 import { PosSettleModal } from "@/components/orders/pos/PosSettleModal";
 import { PosTableFloor } from "@/components/orders/pos/PosTableFloor";
@@ -23,6 +24,12 @@ import {
   type OrderCartLine,
   type PricedProduct,
 } from "@/lib/order-cart";
+import {
+  buildDisplayCartLines,
+  inclusionsMapFromPosProducts,
+  type ProductInclusionRef,
+} from "@/lib/product-inclusions";
+import { findProductByPosCode } from "@/lib/pos-quick-add";
 import {
   cartExceedsAvailability,
   type PosProductAvailability,
@@ -41,7 +48,12 @@ function cartToStockLines(cart: OrderCartLine[]) {
   return cart.map((l) => ({ productId: l.productId, quantity: l.quantity }));
 }
 
-type Product = PricedProduct & { category: string; imageUrl?: string | null };
+type Product = PricedProduct & {
+  category: string;
+  imageUrl?: string | null;
+  posCode?: number | null;
+  inclusions?: ProductInclusionRef[];
+};
 
 type CheckoutFields = {
   customerId: string;
@@ -52,6 +64,10 @@ type CheckoutFields = {
   diningTableId: string;
   externalRef: string;
   tableLabel?: string;
+  managerDiscountMode?: string;
+  managerDiscountValue?: string;
+  managerDiscountReason?: string;
+  compLinesJson?: string;
 };
 
 type PosView = "menu" | "tables";
@@ -66,6 +82,7 @@ type PosOrderScreenProps = {
   tables: DiningTableOption[];
   taxSettings: TaxSettings;
   showExitLink?: boolean;
+  canManageDiscounts?: boolean;
 };
 
 export function PosOrderScreen({
@@ -78,6 +95,7 @@ export function PosOrderScreen({
   tables,
   taxSettings,
   showExitLink = true,
+  canManageDiscounts = false,
 }: PosOrderScreenProps) {
   const router = useRouter();
   const { success, error: toastError } = useToast();
@@ -120,13 +138,18 @@ export function PosOrderScreen({
     sent?: boolean;
   } | null>(null);
 
+  const inclusionsMap = useMemo(() => inclusionsMapFromPosProducts(products), [products]);
+  const displayCart = useMemo(
+    () => buildDisplayCartLines(cart, inclusionsMap),
+    [cart, inclusionsMap]
+  );
   const subtotal = cartSubtotal(cart);
   const total = Math.max(0, subtotal - discountAmount);
   const sendToKitchen =
     channel === "DINE_IN" && isPayAtClose(venue, "DINE_IN");
 
   const addProduct = useCallback(
-    (product: Product) => {
+    (product: Product, qty = 1) => {
       const avail = availability[product.id];
       if (avail?.status === "out" || avail?.status === "unavailable") {
         setScanHint(`${product.name} is out of stock`);
@@ -134,7 +157,7 @@ export function PosOrderScreen({
       }
       setCart((prev) => {
         const currentQty = prev.find((l) => l.productId === product.id)?.quantity ?? 0;
-        if (avail && cartExceedsAvailability(currentQty, avail.maxServings, 1)) {
+        if (avail && cartExceedsAvailability(currentQty, avail.maxServings, qty)) {
           setScanHint(
             avail.maxServings <= 0
               ? `${product.name} is out of stock`
@@ -142,16 +165,34 @@ export function PosOrderScreen({
           );
           return prev;
         }
-        const { cart: next, error } = addToOrderCart(prev, product);
+        const { cart: next, error } = addToOrderCart(prev, product, qty);
         if (error) {
           setScanHint(error);
           return prev;
         }
-        setScanHint(`${product.name} added`);
+        setScanHint(
+          qty > 1 ? `${qty}× ${product.name} added` : `${product.name} added`
+        );
         return next;
       });
     },
     [availability]
+  );
+
+  const handleQuickAdd = useCallback(
+    (posCode: number, quantity: number) => {
+      const product = findProductByPosCode(products, posCode);
+      if (!product) {
+        setScanHint(`No menu item with POS code ${posCode}`);
+        return;
+      }
+      if (product.salePrice == null) {
+        setScanHint(`"${product.name}" has no sale price`);
+        return;
+      }
+      addProduct(product, quantity);
+    },
+    [addProduct, products]
   );
 
   function resetTabState() {
@@ -325,6 +366,7 @@ export function PosOrderScreen({
 
   const cartPanelProps = {
     cart,
+    displayLines: displayCart,
     subtotal,
     discountAmount,
     total,
@@ -347,6 +389,7 @@ export function PosOrderScreen({
     },
     onDiscountApplied: (p: { code: string; discountAmount: number } | null) =>
       setDiscountAmount(p?.discountAmount ?? 0),
+    canManageDiscounts,
     venue,
     tables,
     channel,
@@ -474,6 +517,11 @@ export function PosOrderScreen({
                     variant="pills"
                   />
                 </div>
+                <PosQuickAddBar
+                  disabled={isPending}
+                  onQuickAdd={handleQuickAdd}
+                  onHint={setScanHint}
+                />
                 <SmartSearchInput
                   placeholder="Search menu by name or category..."
                   value={search}
@@ -547,6 +595,7 @@ export function PosOrderScreen({
           orderNumber={settleTarget.orderNumber}
           subtotal={settleTarget.total}
           taxSettings={taxSettings}
+          canManageDiscounts={canManageDiscounts}
           onClose={() => setSettleOpen(false)}
           onSettled={(orderId) => {
             resetTabState();

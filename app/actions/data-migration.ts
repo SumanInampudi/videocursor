@@ -13,7 +13,7 @@ import {
 import { db } from "@/lib/db";
 import { generateIngredientBarcode, generateProductBarcode } from "@/lib/barcode";
 import { ingredientSkuPrefix, normalizeIngredientName } from "@/lib/ingredients";
-import { DiscountType, Unit } from "@prisma/client";
+import { PromotionKind, Unit } from "@prisma/client";
 
 export async function getTemplateCsv(type: DataExportType): Promise<string> {
   await requireAdminSession();
@@ -140,7 +140,7 @@ export async function exportDataCsv(type: DataExportType): Promise<string> {
         ...rows.map((r) => [
           r.code,
           r.name,
-          r.type,
+          r.kind,
           String(r.value),
           r.minOrderAmount != null ? String(r.minOrderAmount) : "",
           String(r.isActive),
@@ -503,8 +503,11 @@ export async function importDataCsv(
         if (error) return { success: false, imported: 0, errors: [error] };
         for (const row of data) {
           try {
-            const type =
-              row.type.toUpperCase() === "FIXED" ? DiscountType.FIXED : DiscountType.PERCENT;
+            const rawKind = (row.kind || row.type || "PERCENT").toUpperCase();
+            const kind: PromotionKind =
+              rawKind === "FIXED" || rawKind === "CHECK_FIXED"
+                ? PromotionKind.CHECK_FIXED
+                : PromotionKind.CHECK_PERCENT;
             await db.discount.upsert({
               where: {
                 businessId_code: {
@@ -516,7 +519,7 @@ export async function importDataCsv(
                 businessId,
                 code: row.code.trim().toUpperCase(),
                 name: row.name,
-                type,
+                kind,
                 value: Number(row.value) || 0,
                 minOrderAmount: row.min_order_amount
                   ? Number(row.min_order_amount)
@@ -527,7 +530,7 @@ export async function importDataCsv(
               },
               update: {
                 name: row.name,
-                type,
+                kind,
                 value: Number(row.value) || 0,
                 minOrderAmount: row.min_order_amount
                   ? Number(row.min_order_amount)

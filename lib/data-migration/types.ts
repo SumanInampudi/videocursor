@@ -73,7 +73,7 @@ export const TEMPLATE_HEADERS: Record<DataExportType, string[]> = {
   discounts: [
     "code",
     "name",
-    "type",
+    "kind",
     "value",
     "min_order_amount",
     "is_active",
@@ -110,5 +110,5 @@ export const TEMPLATE_EXAMPLE_ROW: Record<DataExportType, string[]> = {
   product_ingredients: ["Margherita Pizza", "Mozzarella", "0.15", "kg"],
   customers: ["Rahul Sharma", "9876543210", "rahul@example.com", "Regular"],
   suppliers: ["Fresh Farms", "9123456780", "orders@freshfarms.com", "Pune", "", "true"],
-  discounts: ["WELCOME10", "Welcome 10%", "PERCENT", "10", "200", "true", "", ""],
+  discounts: ["WELCOME10", "Welcome 10%", "CHECK_PERCENT", "10", "200", "true", "", ""],
 };
