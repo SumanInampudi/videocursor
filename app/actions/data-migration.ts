@@ -13,6 +13,7 @@ import {
 import { db } from "@/lib/db";
 import { generateIngredientBarcode, generateProductBarcode } from "@/lib/barcode";
 import { ingredientSkuPrefix, normalizeIngredientName } from "@/lib/ingredients";
+import { coerceUnit } from "@/lib/units";
 import { PromotionKind, Unit } from "@prisma/client";
 
 export async function getTemplateCsv(type: DataExportType): Promise<string> {
@@ -161,9 +162,9 @@ function parseBool(v: string, defaultValue = true) {
 }
 
 function parseUnit(v: string): Unit {
-  const u = v.trim() as Unit;
-  if (Object.values(Unit).includes(u)) return u;
-  throw new Error(`Invalid unit: ${v}`);
+  const u = coerceUnit(v);
+  if (!u) throw new Error(`Invalid unit: ${v}. Use KG, GM, LT, ML, or Pcs.`);
+  return u as Unit;
 }
 
 export async function importDataCsv(
@@ -205,7 +206,7 @@ export async function importDataCsv(
                 sku,
                 barcode,
                 category: row.category || "Uncategorized",
-                defaultUnit: parseUnit(row.default_unit || "pcs"),
+                defaultUnit: parseUnit(row.default_unit || "Pcs"),
                 aliases: row.aliases || null,
                 notes: row.notes || null,
                 isActive: parseBool(row.is_active ?? "true"),
@@ -213,7 +214,7 @@ export async function importDataCsv(
               update: {
                 name,
                 category: row.category || "Uncategorized",
-                defaultUnit: parseUnit(row.default_unit || "pcs"),
+                defaultUnit: parseUnit(row.default_unit || "Pcs"),
                 aliases: row.aliases || null,
                 notes: row.notes || null,
                 isActive: parseBool(row.is_active ?? "true"),
@@ -271,7 +272,7 @@ export async function importDataCsv(
                 ingredientId,
                 supplierId,
                 quantity: Number(row.quantity) || 0,
-                unit: parseUnit(row.unit || "pcs"),
+                unit: parseUnit(row.unit || "Pcs"),
                 reorderLevel: Number(row.reorder_level) || 0,
                 costPerUnit: Number(row.cost_per_unit) || 0,
                 supplier: row.supplier_name || null,
@@ -284,7 +285,7 @@ export async function importDataCsv(
                 ingredientId,
                 supplierId,
                 quantity: Number(row.quantity) || 0,
-                unit: parseUnit(row.unit || "pcs"),
+                unit: parseUnit(row.unit || "Pcs"),
                 reorderLevel: Number(row.reorder_level) || 0,
                 costPerUnit: Number(row.cost_per_unit) || 0,
                 supplier: row.supplier_name || null,
@@ -320,7 +321,7 @@ export async function importDataCsv(
                   category: row.category || "Uncategorized",
                   description: row.description || null,
                   yieldQuantity: Number(row.yield_quantity) || 1,
-                  yieldUnit: row.yield_unit || "pcs",
+                  yieldUnit: parseUnit(row.yield_unit || "Pcs"),
                   salePrice: row.sale_price ? Number(row.sale_price) : null,
                   imageUrl: row.image_url || null,
                   instructions: row.instructions || null,
@@ -334,7 +335,7 @@ export async function importDataCsv(
                   category: row.category || "Uncategorized",
                   description: row.description || null,
                   yieldQuantity: Number(row.yield_quantity) || 1,
-                  yieldUnit: row.yield_unit || "pcs",
+                  yieldUnit: parseUnit(row.yield_unit || "Pcs"),
                   salePrice: row.sale_price ? Number(row.sale_price) : null,
                   barcode,
                   imageUrl: row.image_url || null,

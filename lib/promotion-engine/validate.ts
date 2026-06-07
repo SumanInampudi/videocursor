@@ -50,8 +50,9 @@ export function isPromotionEligible(
     ) {
       return false;
     }
-  } else if (promotion.paymentMethods.length > 0) {
-    if (!paymentMethod || !promotion.paymentMethods.includes(paymentMethod)) {
+  } else if (promotion.paymentMethods.length > 0 && paymentMethod) {
+    // AUTO/CODE: payment filter applies only once payment is known (checkout/settle).
+    if (!promotion.paymentMethods.includes(paymentMethod)) {
       return false;
     }
   }

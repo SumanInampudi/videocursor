@@ -7,6 +7,7 @@ import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
+import { DiscountImpactEstimator } from "@/components/discounts/DiscountImpactEstimator";
 
 type ProductOption = { id: string; name: string; category: string };
 
@@ -62,6 +63,7 @@ type DiscountFormProps = {
     targets?: { targetType: string; productId?: string | null; category?: string | null }[];
   };
   submitLabel?: string;
+  discountId?: string;
 };
 
 const DAY_OPTIONS = [
@@ -80,6 +82,7 @@ export function DiscountForm({
   categoryOptions = [],
   initialData,
   submitLabel = "Save discount",
+  discountId,
 }: DiscountFormProps) {
   const router = useRouter();
   const { success, error: toastError } = useToast();
@@ -121,6 +124,13 @@ export function DiscountForm({
     }));
   }, [initialData?.configJson?.tiers]);
   const [tierRows, setTierRows] = useState<TierRow[]>(initialTierRows);
+  const [value, setValue] = useState(String(initialData?.value ?? ""));
+  const [minOrderAmount, setMinOrderAmount] = useState(
+    initialData?.minOrderAmount != null ? String(initialData.minOrderAmount) : ""
+  );
+  const [maxDiscountAmount, setMaxDiscountAmount] = useState(
+    initialData?.maxDiscountAmount != null ? String(initialData.maxDiscountAmount) : ""
+  );
 
   useEffect(() => {
     if (isItemLevel && targetType === "ALL_PRODUCTS" && !initialData?.targets?.length) {
@@ -347,7 +357,8 @@ export function DiscountForm({
             type="number"
             step={isBogo ? "1" : "0.01"}
             min="0"
-            defaultValue={initialData?.value ?? (isBogo ? 100 : undefined)}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
             error={errors.value?.[0]}
             required
           />
@@ -627,10 +638,7 @@ export function DiscountForm({
             <input
               type="checkbox"
               name="paymentCash"
-              defaultChecked={
-                !initialData?.paymentMethodsJson?.length ||
-                initialData.paymentMethodsJson.includes("CASH")
-              }
+              defaultChecked={initialData?.paymentMethodsJson?.includes("CASH") ?? false}
             />
             Cash
           </label>
@@ -638,10 +646,7 @@ export function DiscountForm({
             <input
               type="checkbox"
               name="paymentCard"
-              defaultChecked={
-                !initialData?.paymentMethodsJson?.length ||
-                initialData.paymentMethodsJson.includes("CARD")
-              }
+              defaultChecked={initialData?.paymentMethodsJson?.includes("CARD") ?? false}
             />
             Card
           </label>
@@ -649,10 +654,7 @@ export function DiscountForm({
             <input
               type="checkbox"
               name="paymentPhonePe"
-              defaultChecked={
-                !initialData?.paymentMethodsJson?.length ||
-                initialData.paymentMethodsJson.includes("PHONEPE")
-              }
+              defaultChecked={initialData?.paymentMethodsJson?.includes("PHONEPE") ?? false}
             />
             PhonePe
           </label>
@@ -671,7 +673,8 @@ export function DiscountForm({
           type="number"
           step="0.01"
           min="0"
-          defaultValue={initialData?.minOrderAmount ?? ""}
+          value={minOrderAmount}
+          onChange={(e) => setMinOrderAmount(e.target.value)}
         />
         <Input
           name="maxDiscountAmount"
@@ -679,7 +682,8 @@ export function DiscountForm({
           type="number"
           step="0.01"
           min="0"
-          defaultValue={initialData?.maxDiscountAmount ?? ""}
+          value={maxDiscountAmount}
+          onChange={(e) => setMaxDiscountAmount(e.target.value)}
         />
         <Input
           name="validFrom"
@@ -698,6 +702,16 @@ export function DiscountForm({
           Active
         </label>
       </section>
+
+      <DiscountImpactEstimator
+        discountId={discountId}
+        draft={{
+          kind,
+          value: Number(value) || 0,
+          minOrderAmount: minOrderAmount.trim() ? Number(minOrderAmount) : null,
+          maxDiscountAmount: maxDiscountAmount.trim() ? Number(maxDiscountAmount) : null,
+        }}
+      />
 
       <Button type="submit" disabled={isPending}>
         {isPending ? "Saving…" : submitLabel}

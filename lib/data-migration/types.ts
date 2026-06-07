@@ -83,14 +83,14 @@ export const TEMPLATE_HEADERS: Record<DataExportType, string[]> = {
 };
 
 export const TEMPLATE_EXAMPLE_ROW: Record<DataExportType, string[]> = {
-  raw_materials: ["Mozzarella", "Dairy", "kg", "MOZZ-001", "mozzarella cheese", "", "true"],
+  raw_materials: ["Mozzarella", "Dairy", "KG", "MOZZ-001", "mozzarella cheese", "", "true"],
   inventory: [
     "Mozzarella Block 1kg",
     "MOZZ-STK-001",
     "Dairy",
     "Mozzarella",
     "5",
-    "kg",
+    "KG",
     "2",
     "450",
     "Fresh Farms",
@@ -102,12 +102,12 @@ export const TEMPLATE_EXAMPLE_ROW: Record<DataExportType, string[]> = {
     "Pizza",
     "Classic tomato and cheese",
     "1",
-    "pcs",
+    "Pcs",
     "299",
     "",
     "Bake 12 min",
   ],
-  product_ingredients: ["Margherita Pizza", "Mozzarella", "0.15", "kg"],
+  product_ingredients: ["Margherita Pizza", "Mozzarella", "0.15", "KG"],
   customers: ["Rahul Sharma", "9876543210", "rahul@example.com", "Regular"],
   suppliers: ["Fresh Farms", "9123456780", "orders@freshfarms.com", "Pune", "", "true"],
   discounts: ["WELCOME10", "Welcome 10%", "CHECK_PERCENT", "10", "200", "true", "", ""],

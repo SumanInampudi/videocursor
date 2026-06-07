@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { evaluatePromotionsForCart } from "@/app/actions/discounts";
+import { AppliedPromotionsList } from "@/components/orders/AppliedPromotionsList";
 import { Button } from "@/components/ui/Button";
 import { ProductThumbnail } from "@/components/products/ProductThumbnail";
 import { OrderTotalsBreakdown } from "@/components/orders/OrderTotalsBreakdown";
@@ -33,11 +35,21 @@ type CheckoutFields = {
   tableLabel?: string;
 };
 
+type AppliedPromotionRow = {
+  name: string;
+  code?: string | null;
+  discountAmount: number;
+};
+
 type PosCheckoutModalProps = {
   open: boolean;
   cart: OrderCartLine[];
   subtotal: number;
   discountAmount: number;
+  promoDiscount: number;
+  managerDiscount: number;
+  appliedPromotions: AppliedPromotionRow[];
+  channel: OrderChannel;
   taxSettings: TaxSettings;
   tipAmount: number;
   onTipChange: (amount: number) => void;
@@ -57,6 +69,10 @@ export function PosCheckoutModal({
   cart,
   subtotal,
   discountAmount,
+  promoDiscount,
+  managerDiscount,
+  appliedPromotions,
+  channel,
   taxSettings,
   tipAmount,
   onTipChange,
@@ -71,20 +87,63 @@ export function PosCheckoutModal({
   products,
 }: PosCheckoutModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentMethod | null>(null);
+  const [checkoutPromoDiscount, setCheckoutPromoDiscount] = useState(promoDiscount);
+  const [checkoutPromotions, setCheckoutPromotions] = useState(appliedPromotions);
+  const [isEvaluating, startEvaluate] = useTransition();
 
   useEffect(() => {
     if (open) setPaymentMethod(null);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setCheckoutPromoDiscount(promoDiscount);
+    setCheckoutPromotions(appliedPromotions);
+  }, [open, promoDiscount, JSON.stringify(appliedPromotions)]);
+
+  useEffect(() => {
+    if (!open || sendToKitchen) return;
+
+    startEvaluate(async () => {
+      const result = await evaluatePromotionsForCart({
+        subtotal,
+        channel,
+        cartLines: cart.map((line) => ({
+          productId: line.productId,
+          quantity: line.quantity,
+        })),
+        customerId: fields.customerId || undefined,
+        paymentMethod: paymentMethod ?? undefined,
+        discountCode: fields.discountCode || undefined,
+      });
+
+      if ("error" in result) return;
+
+      setCheckoutPromoDiscount(result.discountTotal);
+      setCheckoutPromotions(result.appliedPromotions);
+    });
+  }, [
+    open,
+    sendToKitchen,
+    paymentMethod,
+    subtotal,
+    channel,
+    cart,
+    fields.customerId,
+    fields.discountCode,
+  ]);
+
+  const effectiveDiscount = checkoutPromoDiscount + managerDiscount;
 
   const tax = useMemo(
     () =>
       computeOrderTaxAmounts(
         taxSettings,
         subtotal,
-        discountAmount,
+        effectiveDiscount,
         sendToKitchen ? 0 : tipAmount
       ),
-    [taxSettings, subtotal, discountAmount, tipAmount, sendToKitchen]
+    [taxSettings, subtotal, effectiveDiscount, tipAmount, sendToKitchen]
   );
 
   if (!open) return null;
@@ -94,8 +153,9 @@ export function PosCheckoutModal({
     (k) => (errors[k]?.length ?? 0) > 0
   );
 
-  const netBeforeTip = Math.max(0, subtotal - discountAmount);
+  const netBeforeTip = Math.max(0, subtotal - effectiveDiscount);
   const displayTotal = sendToKitchen ? netBeforeTip : tax.grandTotal;
+  const paymentPromoDelta = checkoutPromoDiscount - promoDiscount;
 
   function handleConfirm() {
     if (sendToKitchen) {
@@ -172,10 +232,10 @@ export function PosCheckoutModal({
                 <span>Bill subtotal</span>
                 <span>{formatCurrency(subtotal)}</span>
               </div>
-              {discountAmount > 0 && (
+              {effectiveDiscount > 0 && (
                 <div className="flex justify-between text-green-700">
                   <span>Discount</span>
-                  <span>−{formatCurrency(discountAmount)}</span>
+                  <span>−{formatCurrency(effectiveDiscount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold text-servora-charcoal">
@@ -191,9 +251,31 @@ export function PosCheckoutModal({
             </div>
           ) : (
             <>
+              {(checkoutPromotions.length > 0 || managerDiscount > 0) && (
+                <AppliedPromotionsList
+                  promotions={[
+                    ...checkoutPromotions,
+                    ...(managerDiscount > 0
+                      ? [{ name: "Manager discount", discountAmount: managerDiscount }]
+                      : []),
+                  ]}
+                  totalDiscount={effectiveDiscount}
+                  compact
+                />
+              )}
+              {isEvaluating && (
+                <p className="text-xs text-gray-500">Updating promotions for payment method…</p>
+              )}
+              {paymentMethod && paymentPromoDelta !== 0 && (
+                <p className="text-xs text-green-700">
+                  {paymentPromoDelta > 0
+                    ? `${PAYMENT_METHOD_LABELS[paymentMethod]} promo adds −${formatCurrency(paymentPromoDelta)}`
+                    : `Payment method changed discount by ${formatCurrency(Math.abs(paymentPromoDelta))}`}
+                </p>
+              )}
               <OrderTotalsBreakdown
                 subtotal={subtotal}
-                discountAmount={discountAmount}
+                discountAmount={effectiveDiscount}
                 tax={tax}
                 compact
               />

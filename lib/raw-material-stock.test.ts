@@ -12,7 +12,7 @@ describe("raw material stock status", () => {
   it("marks depleted stock as out", () => {
     expect(
       getRawMaterialStockStatus(0, [
-        { quantity: 0, reorderLevel: 5, unit: "kg", isActive: true },
+        { quantity: 0, reorderLevel: 5, unit: "KG", isActive: true },
       ]).kind
     ).toBe("out");
   });
@@ -20,7 +20,7 @@ describe("raw material stock status", () => {
   it("marks below reorder as low", () => {
     expect(
       getRawMaterialStockStatus(0, [
-        { quantity: 2, reorderLevel: 5, unit: "kg", isActive: true },
+        { quantity: 2, reorderLevel: 5, unit: "KG", isActive: true },
       ]).kind
     ).toBe("low");
   });

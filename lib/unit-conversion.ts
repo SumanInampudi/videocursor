@@ -3,13 +3,11 @@ import { Unit } from "@prisma/client";
 type UnitFamily = "mass" | "volume" | "count";
 
 const UNIT_FAMILY: Record<Unit, UnitFamily> = {
-  g: "mass",
-  kg: "mass",
-  oz: "mass",
-  lb: "mass",
-  ml: "volume",
-  L: "volume",
-  pcs: "count",
+  GM: "mass",
+  KG: "mass",
+  ML: "volume",
+  LT: "volume",
+  Pcs: "count",
 };
 
 /** Convert quantity between compatible units; returns null when conversion is unsupported. */
@@ -22,13 +20,11 @@ export function convertUnits(quantity: number, from: Unit, to: Unit): number | n
 
   if (fromFamily === "mass") {
     const toGrams: Record<Unit, number | null> = {
-      g: 1,
-      kg: 1000,
-      oz: 28.3495,
-      lb: 453.592,
-      ml: null,
-      L: null,
-      pcs: null,
+      GM: 1,
+      KG: 1000,
+      ML: null,
+      LT: null,
+      Pcs: null,
     };
     const fromFactor = toGrams[from];
     const toFactor = toGrams[to];
@@ -37,13 +33,11 @@ export function convertUnits(quantity: number, from: Unit, to: Unit): number | n
   }
 
   const toMl: Record<Unit, number | null> = {
-    ml: 1,
-    L: 1000,
-    g: null,
-    kg: null,
-    oz: null,
-    lb: null,
-    pcs: null,
+    ML: 1,
+    LT: 1000,
+    GM: null,
+    KG: null,
+    Pcs: null,
   };
   const fromFactor = toMl[from];
   const toFactor = toMl[to];

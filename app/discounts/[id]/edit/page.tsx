@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDiscount, getDiscountFormOptions, updateDiscount } from "@/app/actions/discounts";
 import { DiscountForm } from "@/components/discounts/DiscountForm";
-import { DiscountImpactPanel } from "@/components/discounts/DiscountImpactPanel";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -74,8 +73,8 @@ export default async function EditDiscountPage({ params }: Props) {
           targets: discount.targets,
         }}
         submitLabel="Update promotion"
+        discountId={id}
       />
-      <DiscountImpactPanel discountId={id} />
     </div>
   );
 }

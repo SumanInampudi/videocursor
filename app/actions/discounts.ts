@@ -13,7 +13,10 @@ import { db } from "@/lib/db";
 import { calculateDiscountAmount, isDiscountValid } from "@/lib/discount-calc";
 import { mapDiscountToPromotion } from "@/lib/promotion-db";
 import { buildPromotionHints } from "@/lib/promotion-engine/hints";
-import { estimatePromotionImpact } from "@/lib/promotion-engine/impact";
+import {
+  estimateImpactAtUses,
+  estimatePromotionImpact,
+} from "@/lib/promotion-engine/impact";
 import type { PromotionTierDef } from "@/lib/promotion-engine/types";
 import { serializeForClient } from "@/lib/serialize";
 import { discountSchema } from "@/lib/validations";
@@ -492,18 +495,7 @@ export async function validateDiscountForOrder(code: string, subtotal: number) {
   };
 }
 
-export async function getDiscountImpactEstimate(
-  discountId: string,
-  expectedWeeklyRedemptions = 50
-) {
-  const { requireBusinessContext } = await import("@/lib/business-context");
-  const { businessId } = await requireBusinessContext();
-
-  const discount = await db.discount.findFirst({
-    where: { id: discountId, businessId },
-  });
-  if (!discount) return null;
-
+async function loadOrderBaselineStats(businessId: string) {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
@@ -541,9 +533,71 @@ export async function getDiscountImpactEstimate(
   const avgOrderValue = orderCount > 0 ? subtotalSum / orderCount : 0;
   const grossMarginRate = revenue > 0 ? (revenue - cogs) / revenue : 0.55;
 
+  return { avgOrderValue, grossMarginRate, orderCount };
+}
+
+export async function previewDiscountImpact(input: {
+  kind: DiscountInput["kind"];
+  value: number;
+  minOrderAmount?: number | null;
+  maxDiscountAmount?: number | null;
+  expectedUses?: number;
+}) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  const baseline = await loadOrderBaselineStats(businessId);
+  const uses = Math.max(0, input.expectedUses ?? 50);
+
+  const estimate = estimatePromotionImpact({
+    promotion: {
+      kind: input.kind,
+      value: input.value,
+      minOrderAmount: input.minOrderAmount ?? null,
+      maxDiscountAmount: input.maxDiscountAmount ?? null,
+    },
+    avgOrderValue: baseline.avgOrderValue,
+    grossMarginRate: baseline.grossMarginRate,
+    expectedWeeklyRedemptions: uses,
+    sampleOrderCount: baseline.orderCount,
+  });
+
+  const atUses = estimateImpactAtUses({
+    discountPerOrder: estimate.discountPerOrder,
+    grossMarginRate: baseline.grossMarginRate,
+    uses,
+  });
+
+  return serializeForClient({
+    ...estimate,
+    ...atUses,
+    usesCount: uses,
+    hasBaselineData: baseline.orderCount > 0,
+  });
+}
+
+export async function getDiscountImpactEstimate(
+  discountId: string,
+  expectedUses = 50
+) {
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  const discount = await db.discount.findFirst({
+    where: { id: discountId, businessId },
+  });
+  if (!discount) return null;
+
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+
+  const baseline = await loadOrderBaselineStats(businessId);
+
   const actualUses = await db.orderAppliedPromotion.count({
     where: { discountId, createdAt: { gte: since } },
   });
+
+  const uses = Math.max(0, expectedUses);
 
   const estimate = estimatePromotionImpact({
     promotion: {
@@ -554,14 +608,23 @@ export async function getDiscountImpactEstimate(
       maxDiscountAmount:
         discount.maxDiscountAmount != null ? Number(discount.maxDiscountAmount) : null,
     },
-    avgOrderValue,
-    grossMarginRate,
-    expectedWeeklyRedemptions,
-    sampleOrderCount: orderCount,
+    avgOrderValue: baseline.avgOrderValue,
+    grossMarginRate: baseline.grossMarginRate,
+    expectedWeeklyRedemptions: uses,
+    sampleOrderCount: baseline.orderCount,
+  });
+
+  const atUses = estimateImpactAtUses({
+    discountPerOrder: estimate.discountPerOrder,
+    grossMarginRate: baseline.grossMarginRate,
+    uses,
   });
 
   return serializeForClient({
     ...estimate,
+    ...atUses,
+    usesCount: uses,
+    hasBaselineData: baseline.orderCount > 0,
     discountName: discount.name,
     discountCode: discount.code,
     redemptionCount: discount.redemptionCount,

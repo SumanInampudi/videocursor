@@ -121,7 +121,13 @@ export function selectAutoPromotions(
 
   const exclusive = eligible.filter((promotion) => promotion.stackingPolicy === "EXCLUSIVE");
   if (exclusive.length > 0) {
-    return [exclusive[0]!];
+    for (const promotion of exclusive) {
+      const allocated = allocatePromotionToLines(promotion, lines, subtotal);
+      if (allocated && allocated.discountTotal > 0) {
+        return [promotion];
+      }
+    }
+    return [];
   }
 
   return eligible.filter((promotion) => promotion.stackingPolicy === "STACKABLE");

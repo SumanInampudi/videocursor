@@ -34,7 +34,10 @@ async function loadInclusionsByParent(
     where: {
       parentProductId: { in: parentProductIds },
       parentProduct: { businessId },
-      includedProduct: { businessId, productType: "PREPARED" },
+      includedProduct: {
+        businessId,
+        productType: { in: ["PREPARED", "PREP"] },
+      },
     },
     include: {
       includedProduct: { select: { id: true, name: true } },

@@ -10,7 +10,7 @@ describe("inventory stock status", () => {
       getInventoryStockStatus({
         quantity: 0,
         reorderLevel: 5,
-        unit: "kg",
+        unit: "KG",
         isActive: true,
       }).kind
     ).toBe("out");
@@ -21,7 +21,7 @@ describe("inventory stock status", () => {
       isInventoryItemLowStock({
         quantity: 10,
         reorderLevel: 9,
-        unit: "kg",
+        unit: "KG",
         isActive: true,
         ingredient: { wastagePercent: 20 },
       })
@@ -33,7 +33,7 @@ describe("inventory stock status", () => {
       isInventoryItemLowStock({
         quantity: 0,
         reorderLevel: 5,
-        unit: "kg",
+        unit: "KG",
         isActive: false,
       })
     ).toBe(false);

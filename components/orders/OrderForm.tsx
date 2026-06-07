@@ -39,6 +39,7 @@ export function OrderForm({ products, customers = [] }: OrderFormProps) {
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [cart, setCart] = useState<OrderCartLine[]>([]);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [customerId, setCustomerId] = useState("");
 
   const pricedProducts = useMemo(
     () => products.filter((r) => r.salePrice != null),
@@ -134,7 +135,11 @@ export function OrderForm({ products, customers = [] }: OrderFormProps) {
         </p>
       </div>
 
-      <OrderCustomerSection customers={customers} />
+      <OrderCustomerSection
+        customers={customers}
+        customerId={customerId}
+        onCustomerIdChange={setCustomerId}
+      />
       <Textarea name="notes" label="Order notes (optional)" rows={2} />
 
       <div>
@@ -207,6 +212,7 @@ export function OrderForm({ products, customers = [] }: OrderFormProps) {
       <OrderPromotionsPanel
         subtotal={subtotal}
         channel="DINE_IN"
+        customerId={customerId || undefined}
         cartLines={cart.map((line) => ({
           productId: line.productId,
           quantity: line.quantity,

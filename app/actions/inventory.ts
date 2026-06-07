@@ -12,6 +12,7 @@ import {
 import { recordManualInventoryAdjustment } from "@/lib/inventory-adjustment-log";
 import { serializeForClient } from "@/lib/serialize";
 import { smartMatches } from "@/lib/smart-search";
+import { resolveInventoryUnit } from "@/lib/ingredient-unit";
 import { inventoryItemSchema } from "@/lib/validations";
 import { Prisma, Unit } from "@prisma/client";
 
@@ -124,6 +125,11 @@ export async function createInventoryItem(formData: FormData) {
     return { error: { category: [categoryResult.message] } };
   }
   data.category = categoryResult.category;
+  data.unit = await resolveInventoryUnit(
+    businessId,
+    data.ingredientId || null,
+    data.unit
+  );
 
   try {
     await db.$transaction(async (tx) => {
@@ -183,6 +189,9 @@ export async function updateInventoryItem(id: string, formData: FormData) {
 
   const data = parsed.data;
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
   const existingCategories = await getInventoryCatalogCategories();
   const categoryResult = resolveCategory(data.category, existingCategories);
   if (!categoryResult.ok) {
@@ -195,6 +204,12 @@ export async function updateInventoryItem(id: string, formData: FormData) {
     if (!existing) {
       return { error: { name: ["Item not found"] } };
     }
+
+    data.unit = await resolveInventoryUnit(
+      businessId,
+      data.ingredientId || existing.ingredientId,
+      data.unit
+    );
 
     const previousCost = Number(existing.costPerUnit);
     const previousQty = Number(existing.quantity);

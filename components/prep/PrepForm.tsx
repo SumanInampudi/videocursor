@@ -8,7 +8,7 @@ import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { UNITS } from "@/lib/units";
+import { DEFAULT_UNIT, UNITS } from "@/lib/units";
 
 type RawMaterialOption = {
   id: string;
@@ -35,6 +35,7 @@ type PrepFormProps = {
     category: string;
     yieldQuantity: number;
     yieldUnit: string;
+    inclusionOutputQuantity?: number | null;
     instructions: string | null;
     ingredients: { ingredientId: string; quantityRequired: number; unit: string }[];
   };
@@ -157,13 +158,27 @@ export function PrepForm({
           hint="Recipe makes this much per batch (e.g. 500)"
           required
         />
-        <Input
+        <Select
           name="yieldUnit"
           label="Yield unit *"
-          defaultValue={initialData?.yieldUnit ?? "g"}
+          defaultValue={initialData?.yieldUnit ?? DEFAULT_UNIT}
+          options={unitOptions}
           error={errors.yieldUnit?.[0]}
-          placeholder="g, kg, ml, L"
           required
+        />
+        <Input
+          name="inclusionOutputQuantity"
+          label="Per inclusion serving"
+          type="number"
+          step="0.01"
+          min="0.01"
+          defaultValue={
+            initialData?.inclusionOutputQuantity != null
+              ? String(initialData.inclusionOutputQuantity)
+              : ""
+          }
+          error={errors.inclusionOutputQuantity?.[0]}
+          hint="Prep output used when this batch is a free side on another dish (e.g. 50 GM raita)"
         />
       </div>
 
@@ -251,17 +266,7 @@ export function PrepForm({
                           }}
                         />
                       </td>
-                      <td className="px-4 py-2">
-                        <Select
-                          value={row.unit}
-                          onChange={(e) => {
-                            const next = [...rawMaterials];
-                            next[index] = { ...next[index], unit: e.target.value };
-                            setRawMaterials(next);
-                          }}
-                          options={unitOptions}
-                        />
-                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-600">{row.unit}</td>
                       <td className="px-4 py-2 text-right">
                         <Button
                           type="button"

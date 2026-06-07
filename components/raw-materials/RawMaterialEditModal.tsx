@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button";
 import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { UNITS } from "@/lib/units";
 import { Ingredient } from "@prisma/client";
 
 type RawMaterialEditModalProps = {
@@ -48,8 +47,6 @@ export function RawMaterialEditModal({
       onClose();
     });
   }
-
-  const unitOptions = UNITS.map((u) => ({ value: u, label: u }));
 
   return (
     <div
@@ -96,14 +93,13 @@ export function RawMaterialEditModal({
             required
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Select
-              name="defaultUnit"
-              label="Unit *"
-              defaultValue={ingredient.defaultUnit}
-              options={unitOptions}
-              error={errors.defaultUnit?.[0]}
-              required
-            />
+            <div>
+              <span className="mb-1 block text-sm font-medium text-servora-charcoal">Unit</span>
+              <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                {ingredient.defaultUnit}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">Set at creation and cannot be changed.</p>
+            </div>
             <Input
               name="wastagePercent"
               label="Wastage %"
@@ -131,6 +127,7 @@ export function RawMaterialEditModal({
             />
             Active
           </label>
+          <input type="hidden" name="defaultUnit" value={ingredient.defaultUnit} />
           <input type="hidden" name="notes" value={ingredient.notes ?? ""} />
         </div>
 

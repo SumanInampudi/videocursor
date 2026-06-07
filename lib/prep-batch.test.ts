@@ -10,13 +10,13 @@ describe("prep batch planning", () => {
     prepOutputInventoryItem: {
       id: "out1",
       quantity: 0,
-      unit: "g" as const,
+      unit: "GM" as const,
       costPerUnit: 0,
     },
     ingredients: [
       {
         quantityRequired: 200,
-        unit: "g" as const,
+        unit: "GM" as const,
         ingredient: {
           name: "Coriander",
           wastagePercent: 0,
@@ -24,7 +24,7 @@ describe("prep batch planning", () => {
             {
               id: "inv1",
               quantity: 1000,
-              unit: "g" as const,
+              unit: "GM" as const,
               costPerUnit: 0.1,
               isActive: true,
               costLayers: [
@@ -32,7 +32,7 @@ describe("prep batch planning", () => {
                   id: "layer1",
                   quantityRemaining: 1000,
                   costPerUnit: 0.1,
-                  unit: "g" as const,
+                  unit: "GM" as const,
                 },
               ],
             },

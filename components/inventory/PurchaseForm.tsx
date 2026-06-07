@@ -124,7 +124,7 @@ export function PurchaseForm({
           <Select
             name="newItemUnit"
             label="Unit *"
-            defaultValue="pcs"
+            defaultValue="Pcs"
             options={unitOptions}
             error={errors.newItemUnit?.[0]}
           />

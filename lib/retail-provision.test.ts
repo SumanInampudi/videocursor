@@ -6,7 +6,7 @@ describe("receiveNewItemSchema", () => {
     const result = receiveNewItemSchema.safeParse({
       name: "Coke",
       category: "Retail",
-      unit: "pcs",
+      unit: "Pcs",
       quantity: 24,
       unitCost: 25,
       salePrice: null,
@@ -20,7 +20,7 @@ describe("receiveNewItemSchema", () => {
     const result = receiveNewItemSchema.safeParse({
       name: "Coke",
       category: "Retail",
-      unit: "pcs",
+      unit: "Pcs",
       quantity: 24,
       unitCost: 25,
       salePrice: null,

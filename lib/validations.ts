@@ -58,7 +58,7 @@ export const productSchema = z
     description: z.string().optional(),
     category: z.string().min(1, "Category is required"),
     yieldQuantity: z.coerce.number().positive("Yield quantity must be greater than 0"),
-    yieldUnit: z.string().min(1, "Yield unit is required"),
+    yieldUnit: z.enum(UNITS, { message: "Select a valid unit" }),
     salePrice: z.preprocess(
       (val) => (val === "" || val === null || val === undefined ? null : val),
       z.union([z.null(), z.coerce.number().min(0, "Price must be 0 or greater")])
@@ -82,6 +82,10 @@ export const productSchema = z
       .default(true),
     retailInventoryItemId: z.string().optional(),
     retailQuantityPerSale: z.coerce.number().optional(),
+    inclusionOutputQuantity: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : val),
+      z.union([z.null(), z.coerce.number().positive("Must be greater than 0")])
+    ),
     ingredients: z.array(productIngredientSchema).default([]),
     inclusions: z.array(productInclusionSchema).default([]),
   })

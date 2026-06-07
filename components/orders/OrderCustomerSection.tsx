@@ -5,12 +5,22 @@ import { Input } from "@/components/ui/Input";
 
 type CustomerOption = { id: string; name: string };
 
-export function OrderCustomerSection({ customers }: { customers: CustomerOption[] }) {
+export function OrderCustomerSection({
+  customers,
+  customerId,
+  onCustomerIdChange,
+}: {
+  customers: CustomerOption[];
+  customerId?: string;
+  onCustomerIdChange?: (id: string) => void;
+}) {
   return (
     <div className="space-y-4">
       <Select
         name="customerId"
         label="Linked customer (optional)"
+        value={customerId}
+        onChange={(e) => onCustomerIdChange?.(e.target.value)}
         options={[
           { value: "", label: "— Walk-in / no profile —" },
           ...customers.map((c) => ({ value: c.id, label: c.name })),

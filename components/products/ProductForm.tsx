@@ -9,7 +9,7 @@ import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { UNITS } from "@/lib/units";
+import { DEFAULT_UNIT, normalizeUnit, UNITS } from "@/lib/units";
 
 type RawMaterialOption = {
   id: string;
@@ -32,7 +32,23 @@ type InclusionCandidate = {
   name: string;
   category: string;
   salePrice: number | string | null;
+  productType?: "PREPARED" | "PREP" | "RETAIL";
+  yieldUnit?: string;
+  inclusionOutputQuantity?: number | null;
 };
+
+function inclusionCandidateLabel(candidate: InclusionCandidate): string {
+  if (candidate.productType === "PREP") {
+    const serving =
+      candidate.inclusionOutputQuantity != null && candidate.inclusionOutputQuantity > 0
+        ? `${candidate.inclusionOutputQuantity} ${candidate.yieldUnit ?? ""}/serving`
+        : "set serving on prep item";
+    return `${candidate.name} · Prep batch · ${serving}`;
+  }
+  return `${candidate.name} (${candidate.category})${
+    candidate.salePrice != null ? "" : " · no menu price"
+  }`;
+}
 
 type InclusionRow = {
   includedProductId: string;
@@ -270,10 +286,6 @@ export function ProductForm({
     });
   }
 
-  function normalizeUnit(unit: string) {
-    return UNITS.find((candidate) => candidate.toLowerCase() === unit.toLowerCase()) ?? "g";
-  }
-
   function parseBulkLine(raw: string): ParsedBulkLine | null {
     const line = raw.trim();
     if (!line) return null;
@@ -288,7 +300,7 @@ export function ProductForm({
     const match = commaMatch ?? spaceMatch;
 
     if (!match) {
-      return { raw: line, name: line, quantityRequired: "", unit: "g" };
+      return { raw: line, name: line, quantityRequired: "", unit: DEFAULT_UNIT };
     }
 
     return {
@@ -498,12 +510,12 @@ export function ProductForm({
           error={errors.yieldQuantity?.[0]}
           required
         />
-        <Input
+        <Select
           name="yieldUnit"
-          label="Yield Unit *"
-          defaultValue={initialData?.yieldUnit}
+          label="Yield unit *"
+          defaultValue={initialData?.yieldUnit ?? DEFAULT_UNIT}
+          options={unitOptions}
           error={errors.yieldUnit?.[0]}
-          placeholder="e.g. pizza, portions, servings"
           required
         />
       </div>
@@ -554,10 +566,10 @@ export function ProductForm({
               setRetailInventoryItemId(id);
               const item = inventoryItems.find((i) => i.id === id);
               if (item && !initialData?.yieldUnit) {
-                const yieldInput = document.querySelector<HTMLInputElement>(
-                  'input[name="yieldUnit"]'
+                const yieldSelect = document.querySelector<HTMLSelectElement>(
+                  'select[name="yieldUnit"]'
                 );
-                if (yieldInput) yieldInput.value = item.unit;
+                if (yieldSelect) yieldSelect.value = item.unit;
               }
             }}
             options={[
@@ -711,7 +723,7 @@ export function ProductForm({
               rows={8}
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
-              placeholder={"Chicken Bone-In, 1 kg\nBasmati Rice, 500 g\nSalt, 20 g"}
+              placeholder={"Chicken Bone-In, 1 KG\nBasmati Rice, 500 GM\nSalt, 20 GM"}
               className="mt-1"
             />
             <Button
@@ -809,15 +821,7 @@ export function ProductForm({
                           onChange={(e) => updateRawMaterial(index, "quantityRequired", e.target.value)}
                         />
                       </td>
-                      <td className="px-4 py-3">
-                        <Select
-                          aria-label={`Unit for ${ingredient?.name ?? "ingredient"}`}
-                          value={ing.unit}
-                          onChange={(e) => updateRawMaterial(index, "unit", e.target.value)}
-                          options={unitOptions}
-                          disabled
-                        />
-                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{ing.unit}</td>
                       <td className="px-4 py-3 text-right">
                         <Button
                           type="button"
@@ -845,8 +849,8 @@ export function ProductForm({
             <Badge variant="outline">Free with this item</Badge>
           </div>
           <p className="form-hint">
-            Auto-added at ₹0 when this dish is ordered (e.g. raita with biryani). Included products
-            can still be sold separately if they have their own menu price.
+            Auto-added at ₹0 when this dish is ordered (e.g. raita with biryani). Pick a menu
+            product or a <strong>prep batch</strong> (set per-inclusion serving under Prep items).
           </p>
           {errors.inclusions?.[0] && (
             <p className="text-sm text-servora-red">{errors.inclusions[0]}</p>
@@ -876,9 +880,7 @@ export function ProductForm({
                         )
                         .map((candidate) => ({
                           value: candidate.id,
-                          label: `${candidate.name} (${candidate.category})${
-                            candidate.salePrice != null ? "" : " · no menu price"
-                          }`,
+                          label: inclusionCandidateLabel(candidate),
                         })),
                     ]}
                   />

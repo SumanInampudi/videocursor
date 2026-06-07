@@ -342,6 +342,38 @@ describe("CUSTOMER_SEGMENT promotions", () => {
 });
 
 describe("payment method promotions", () => {
+  it("allows AUTO promo in cart before payment is selected", () => {
+    expect(
+      isPromotionEligible(
+        {
+          ...basePromotion,
+          application: "AUTO",
+          paymentMethods: ["CASH", "CARD"],
+        },
+        400,
+        "DINE_IN",
+        new Date(),
+        null
+      )
+    ).toBe(true);
+  });
+
+  it("rejects AUTO promo when payment method is known and not allowed", () => {
+    expect(
+      isPromotionEligible(
+        {
+          ...basePromotion,
+          application: "AUTO",
+          paymentMethods: ["CASH"],
+        },
+        400,
+        "DINE_IN",
+        new Date(),
+        "CARD"
+      )
+    ).toBe(false);
+  });
+
   it("applies cash-only promo when payment method matches", () => {
     const lines = [
       {
@@ -374,6 +406,58 @@ describe("payment method promotions", () => {
     if (!("error" in withoutPayment) && !("error" in withCash)) {
       expect(withoutPayment.discountTotal).toBe(0);
       expect(withCash.discountTotal).toBe(5);
+    }
+  });
+});
+
+describe("EXCLUSIVE stacking", () => {
+  it("skips an exclusive promo that does not match the cart", () => {
+    const lines = [
+      {
+        productId: "family",
+        productName: "Family Pack",
+        category: "Biryani",
+        quantity: 1,
+        unitSalePrice: 400,
+        revenue: 400,
+      },
+    ];
+    const promos = [
+      {
+        ...basePromotion,
+        id: "combo",
+        code: "SUMMER",
+        name: "Combo",
+        application: "AUTO" as const,
+        kind: "COMBO_PRICE" as const,
+        value: 200,
+        comboConfig: { comboPrice: 200 },
+        targets: [
+          { role: "BUNDLE_MEMBER" as const, targetType: "PRODUCT" as const, productId: "burger", category: null },
+          { role: "BUNDLE_MEMBER" as const, targetType: "PRODUCT" as const, productId: "fries", category: null },
+        ],
+      },
+      {
+        ...basePromotion,
+        id: "item",
+        code: "TEST",
+        name: "Family 15%",
+        application: "AUTO" as const,
+        kind: "ITEM_PERCENT" as const,
+        value: 15,
+        targets: [
+          { role: "APPLY_TO" as const, targetType: "PRODUCT" as const, productId: "family", category: null },
+        ],
+      },
+    ];
+    const result = applyPromotions(promos, lines, 400, {
+      channel: "ONLINE",
+      includeAuto: true,
+    });
+    expect("error" in result).toBe(false);
+    if (!("error" in result)) {
+      expect(result.discountTotal).toBe(60);
+      expect(result.appliedPromotions[0]?.name).toBe("Family 15%");
     }
   });
 });
@@ -489,6 +573,8 @@ describe("estimatePromotionImpact", () => {
       sampleOrderCount: 120,
     });
     expect(estimate.discountPerOrder).toBe(80);
+    expect(estimate.grossProfitPerOrder).toBe(440);
+    expect(estimate.profitAfterDiscountPerOrder).toBe(360);
     expect(estimate.weeklyDiscountCost).toBe(4000);
     expect(estimate.weeklyBreakEvenRevenue).toBeCloseTo(7272.73, 1);
   });

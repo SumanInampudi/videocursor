@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { getActiveIngredientsForProducts, getProductCategories } from "@/app/actions/products";
 import { getPrepItem, updatePrepItem } from "@/app/actions/prep";
+import { getPrepSellVariants } from "@/app/actions/prep-variants";
 import { PrepForm } from "@/components/prep/PrepForm";
+import { PrepSellVariantsPanel } from "@/components/prep/PrepSellVariantsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +11,11 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function EditPrepPage({ params }: Props) {
   const { id } = await params;
-  const [item, ingredients, categories] = await Promise.all([
+  const [item, ingredients, categories, sellVariants] = await Promise.all([
     getPrepItem(id),
     getActiveIngredientsForProducts(),
     getProductCategories(),
+    getPrepSellVariants(id),
   ]);
 
   if (!item) notFound();
@@ -24,6 +27,7 @@ export default async function EditPrepPage({ params }: Props) {
     category: string;
     yieldQuantity: number | string;
     yieldUnit: string;
+    inclusionOutputQuantity: number | string | null;
     instructions: string | null;
     ingredients: { ingredientId: string; quantityRequired: number | string; unit: string }[];
   };
@@ -44,6 +48,8 @@ export default async function EditPrepPage({ params }: Props) {
           category: prep.category,
           yieldQuantity: Number(prep.yieldQuantity),
           yieldUnit: prep.yieldUnit,
+          inclusionOutputQuantity:
+            prep.inclusionOutputQuantity != null ? Number(prep.inclusionOutputQuantity) : null,
           instructions: prep.instructions,
           ingredients: prep.ingredients.map((ing) => ({
             ingredientId: ing.ingredientId,
@@ -52,6 +58,13 @@ export default async function EditPrepPage({ params }: Props) {
           })),
         }}
         submitLabel="Update prep item"
+      />
+      <PrepSellVariantsPanel
+        prepId={sellVariants.prepId}
+        prepName={sellVariants.prepName}
+        yieldUnit={sellVariants.yieldUnit}
+        onHandQty={sellVariants.onHandQty}
+        variants={sellVariants.variants}
       />
     </div>
   );

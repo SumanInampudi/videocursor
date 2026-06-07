@@ -29,7 +29,6 @@ type PrepBatchRow = {
   costPerUnit: number | string;
   producedAt: string | Date;
   prepProduct: { name: string; yieldUnit: string };
-  outputInventoryItem: { name: string; unit: string };
 };
 
 type ProduceBatchPanelProps = {
@@ -148,7 +147,7 @@ export function ProduceBatchPanel({ prepItems, recentBatches }: ProduceBatchPane
               <li key={batch.id} className="py-2">
                 <p className="font-medium">{batch.prepProduct.name}</p>
                 <p className="text-gray-600">
-                  {formatQuantity(Number(batch.quantityProduced), batch.outputInventoryItem.unit)} ·{" "}
+                  {formatQuantity(Number(batch.quantityProduced), batch.prepProduct.yieldUnit)} ·{" "}
                   {formatCurrency(Number(batch.totalInputCost))} total
                 </p>
                 <p className="text-xs text-gray-400">

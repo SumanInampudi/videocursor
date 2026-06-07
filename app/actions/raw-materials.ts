@@ -81,7 +81,7 @@ async function ensureZeroStockForRawMaterial(
 async function createRawMaterialFromName(
   name: string,
   category = "Uncategorized",
-  defaultUnit: Unit = Unit.g
+  defaultUnit: Unit = Unit.GM
 ) {
   const normalizedName = normalizeIngredientName(name);
   if (!normalizedName) return { skipped: name };
@@ -279,6 +279,14 @@ export async function updateRawMaterial(id: string, formData: FormData): Promise
     return { error: { name: ["Raw material already exists"] } };
   }
 
+  const existing = await db.ingredient.findFirst({
+    where: { id, businessId },
+    select: { defaultUnit: true },
+  });
+  if (!existing) {
+    return { error: { name: ["Raw material not found"] } };
+  }
+
   try {
     const rawMaterial = await db.ingredient.update({
       where: { id },
@@ -287,7 +295,6 @@ export async function updateRawMaterial(id: string, formData: FormData): Promise
         normalizedName,
         sku: data.sku?.trim() || (await nextIngredientSku(data.name, businessId)),
         category: data.category,
-        defaultUnit: data.defaultUnit as Unit,
         aliases: data.aliases || null,
         notes: data.notes || null,
         wastagePercent: data.wastagePercent,
@@ -309,7 +316,7 @@ export async function updateRawMaterial(id: string, formData: FormData): Promise
 export async function bulkCreateRawMaterials(formData: FormData): Promise<RawMaterialResult> {
   const text = String(formData.get("items") || "");
   const categoryInput = String(formData.get("category") || "").trim();
-  const defaultUnit = String(formData.get("defaultUnit") || "g") as Unit;
+  const defaultUnit = String(formData.get("defaultUnit") || "GM") as Unit;
   const names = parseBulkText(text);
 
   if (names.length === 0) {

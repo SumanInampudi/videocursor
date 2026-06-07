@@ -24,6 +24,9 @@ export type ProductForStockPlan = {
   ingredients: Parameters<typeof planInventoryDeductions>[0];
   retailInventoryItem?: StockItem | null;
   retailQuantityPerSale?: Decimal | number | null;
+  prepOutputInventoryItem?: StockItem | null;
+  inclusionOutputQuantity?: Decimal | number | null;
+  yieldUnit?: string;
 };
 
 function toNumber(value: Decimal | number): number {
@@ -43,10 +46,64 @@ export function productRequiresKitchen(product: {
   return product.requiresKitchen;
 }
 
+function planPrepInclusionDeduction(
+  product: ProductForStockPlan,
+  batchCount: number
+): FulfillmentResult {
+  const item = product.prepOutputInventoryItem;
+  const perServing = product.inclusionOutputQuantity;
+  if (!item) {
+    return { ok: false, error: `Prep "${product.name}" has no output stock link` };
+  }
+  if (perServing == null || toNumber(perServing) <= 0) {
+    return {
+      ok: false,
+      error: `Prep "${product.name}" needs a per-inclusion serving size (edit under Prep items)`,
+    };
+  }
+
+  const needed = toNumber(perServing) * batchCount;
+  const waste =
+    item.ingredient?.wastagePercent != null ? toNumber(item.ingredient.wastagePercent) : 0;
+
+  const result = planFifoConsumption({
+    needed,
+    unit: item.unit,
+    wastagePercent: waste,
+    inventoryItems: [
+      {
+        id: item.id,
+        quantity: item.quantity,
+        unit: item.unit,
+        costPerUnit: item.costPerUnit,
+        isActive: item.isActive,
+        costLayers: item.costLayers,
+      },
+    ],
+  });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: `Insufficient prep stock for ${product.name}: ${result.error}`,
+    };
+  }
+
+  return {
+    ok: true,
+    consumptions: result.consumptions as FifoConsumptionSlice[],
+    totalCost: result.totalCost,
+  };
+}
+
 export function planProductStockDeduction(
   product: ProductForStockPlan,
   batchCount: number
 ): FulfillmentResult {
+  if (product.productType === ProductType.PREP) {
+    return planPrepInclusionDeduction(product, batchCount);
+  }
+
   if (!isRetailProduct(product)) {
     return planInventoryDeductions(product.ingredients, batchCount);
   }
@@ -100,6 +157,16 @@ export function isKitchenLine(product: {
     productType: product.productType ?? ProductType.PREPARED,
     requiresKitchen: product.requiresKitchen ?? true,
   });
+}
+
+/** Lines that deduct inventory when the order moves to packing. */
+export function lineNeedsStockFulfillment(line: {
+  isIncluded?: boolean;
+  product?: { productType?: ProductType; requiresKitchen?: boolean } | null;
+}): boolean {
+  if (!line.product) return false;
+  if (line.product.productType === ProductType.PREP) return true;
+  return isKitchenLine(line.product);
 }
 
 export type KitchenLineLike = {

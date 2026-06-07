@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getStayOnPosAfterCheckout,
   setStayOnPosAfterCheckout,
@@ -39,7 +39,13 @@ type PosCartPanelProps = {
   onUpdateQty: (productId: string, qty: number) => void;
   onClear: () => void;
   canManageDiscounts?: boolean;
-  onDiscountApplied: (payload: { code: string; discountAmount: number } | null) => void;
+  onDiscountApplied: (payload: {
+    code: string;
+    promoDiscount: number;
+    managerDiscount: number;
+    discountAmount: number;
+    appliedPromotions: { name: string; code?: string | null; discountAmount: number }[];
+  } | null) => void;
   venue: VenuePosSettings;
   tables: DiningTableOption[];
   channel: OrderChannel;
@@ -99,6 +105,10 @@ export function PosCartPanel({
   onSettleTab,
 }: PosCartPanelProps) {
   const lines = displayLines ?? cart;
+  const cartLinesForPromo = useMemo(
+    () => cart.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+    [cart]
+  );
   const sendToKitchen =
     channel === "DINE_IN" && isPayAtClose(venue, "DINE_IN");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -107,6 +117,9 @@ export function PosCartPanel({
   const [discountCode, setDiscountCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [managerDiscount, setManagerDiscount] = useState(0);
+  const [appliedPromotions, setAppliedPromotions] = useState<
+    { name: string; code?: string | null; discountAmount: number }[]
+  >([]);
   const [managerAdjustments, setManagerAdjustments] = useState<ManagerAdjustmentsInput>({});
   const [notes, setNotes] = useState("");
   const [stayOnPos, setStayOnPos] = useState(true);
@@ -121,6 +134,7 @@ export function PosCartPanel({
     setDiscountCode("");
     setPromoDiscount(0);
     setManagerDiscount(0);
+    setAppliedPromotions([]);
     setManagerAdjustments({});
     setNotes("");
   }, [resetKey]);
@@ -273,18 +287,22 @@ export function PosCartPanel({
             subtotal={subtotal}
             channel={channel}
             customerId={customerId || undefined}
-            cartLines={cart.map((line) => ({
-              productId: line.productId,
-              quantity: line.quantity,
-            }))}
+            cartLines={cartLinesForPromo}
             onApplied={(payload) => {
               const promoAmount = payload?.discountAmount ?? 0;
               setPromoDiscount(promoAmount);
               setDiscountCode(payload?.code ?? "");
+              setAppliedPromotions(payload?.promotions ?? []);
               const combined = promoAmount + managerDiscount;
               onDiscountApplied(
                 combined > 0
-                  ? { code: payload?.code ?? "", discountAmount: combined }
+                  ? {
+                      code: payload?.code ?? "",
+                      promoDiscount: promoAmount,
+                      managerDiscount,
+                      discountAmount: combined,
+                      appliedPromotions: payload?.promotions ?? [],
+                    }
                   : null
               );
             }}
@@ -299,7 +317,15 @@ export function PosCartPanel({
                 setManagerDiscount(0);
                 const combined = promoDiscount;
                 onDiscountApplied(
-                  combined > 0 ? { code: discountCode, discountAmount: combined } : null
+                  combined > 0
+                    ? {
+                        code: discountCode,
+                        promoDiscount,
+                        managerDiscount: 0,
+                        discountAmount: combined,
+                        appliedPromotions,
+                      }
+                    : null
                 );
                 return;
               }
@@ -307,7 +333,15 @@ export function PosCartPanel({
               setManagerDiscount(payload.managerDiscountTotal);
               const combined = promoDiscount + payload.managerDiscountTotal;
               onDiscountApplied(
-                combined > 0 ? { code: discountCode, discountAmount: combined } : null
+                combined > 0
+                  ? {
+                      code: discountCode,
+                      promoDiscount,
+                      managerDiscount: payload.managerDiscountTotal,
+                      discountAmount: combined,
+                      appliedPromotions,
+                    }
+                  : null
               );
             }}
           />

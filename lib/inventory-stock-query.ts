@@ -14,16 +14,17 @@ export const ingredientWithFifoStockInclude = {
 } as const;
 
 /** Product → ingredients → stock (orders, pricing, previews). */
-export const productIngredientsWithFifoStock = {
-  retailInventoryItem: {
-    include: {
-      ingredient: { select: { wastagePercent: true } },
-      costLayers: {
-        where: { quantityRemaining: { gt: 0 } },
-        orderBy: { createdAt: "asc" as const },
-      },
-    },
+const fifoStockItemInclude = {
+  ingredient: { select: { wastagePercent: true } },
+  costLayers: {
+    where: { quantityRemaining: { gt: 0 } },
+    orderBy: { createdAt: "asc" as const },
   },
+} as const;
+
+export const productIngredientsWithFifoStock = {
+  retailInventoryItem: { include: fifoStockItemInclude },
+  prepOutputInventoryItem: { include: fifoStockItemInclude },
   ingredients: {
     include: {
       ingredient: ingredientWithFifoStockInclude,

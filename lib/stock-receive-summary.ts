@@ -71,7 +71,7 @@ function parseReceiveDescription(
     return {
       name: `${manual[1]} — ${manual[2]}`,
       quantity: 1,
-      unit: "g",
+      unit: "GM",
       unitCost: 0,
       lineTotal,
     };
@@ -92,7 +92,7 @@ function parseReceiveDescription(
   return {
     name: itemName ?? description,
     quantity: 1,
-    unit: "g",
+    unit: "GM",
     unitCost: lineTotal,
     lineTotal,
   };

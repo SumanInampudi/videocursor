@@ -4,12 +4,10 @@ import type { Prisma } from "@prisma/client";
 import { Unit } from "@prisma/client";
 import { generateIngredientBarcode } from "@/lib/barcode";
 import { ingredientSkuPrefix, normalizeIngredientName } from "@/lib/ingredients";
-import { UNITS } from "@/lib/units";
+import { coerceUnit, DEFAULT_UNIT } from "@/lib/units";
 
 function toInventoryUnit(yieldUnit: string): Unit {
-  const lower = yieldUnit.trim().toLowerCase();
-  const match = UNITS.find((u) => u.toLowerCase() === lower);
-  return (match ?? "g") as Unit;
+  return (coerceUnit(yieldUnit) ?? DEFAULT_UNIT) as Unit;
 }
 
 async function nextIngredientSku(

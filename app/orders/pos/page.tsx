@@ -22,6 +22,7 @@ export default async function PosOrderPage() {
   return (
     <PosOrderScreen
       products={menu.products}
+      variantGroups={menu.variantGroups}
       categories={menu.categories}
       frequentIds={menu.frequentIds}
       availability={availability}

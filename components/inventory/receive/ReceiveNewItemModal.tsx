@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { UNITS } from "@/lib/units";
+import { DEFAULT_UNIT, UNITS } from "@/lib/units";
 import type { ReceiveCatalogItem } from "@/lib/stock-receive-cart";
 
 type ReceiveNewItemModalProps = {
@@ -31,7 +31,7 @@ export function ReceiveNewItemModal({
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Retail");
-  const [unit, setUnit] = useState("pcs");
+  const [unit, setUnit] = useState(DEFAULT_UNIT);
   const [quantity, setQuantity] = useState("1");
   const [unitCost, setUnitCost] = useState("");
   const [salePrice, setSalePrice] = useState("");

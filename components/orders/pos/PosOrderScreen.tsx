@@ -10,6 +10,7 @@ import { PosCartPanel } from "@/components/orders/pos/PosCartPanel";
 import { PosCategoryNav } from "@/components/orders/pos/PosCategoryNav";
 import { PosCheckoutModal } from "@/components/orders/pos/PosCheckoutModal";
 import { PosItemGrid } from "@/components/orders/pos/PosItemGrid";
+import { PosVariantPickerModal } from "@/components/orders/pos/PosVariantPickerModal";
 import { PosQuickAddBar } from "@/components/orders/pos/PosQuickAddBar";
 import { OrderReceiptModal } from "@/components/orders/OrderReceiptModal";
 import { PosSettleModal } from "@/components/orders/pos/PosSettleModal";
@@ -42,6 +43,7 @@ import { isPayAtClose } from "@/lib/venue-settings";
 import type { VenuePosSettings } from "@/lib/venue-settings";
 import type { TaxSettings } from "@/lib/tax-settings";
 import type { DiningTableOption } from "@/components/orders/pos/PosChannelTablePicker";
+import type { PosVariantGroup } from "@/lib/pos-variant-groups";
 import type { OrderChannel } from "@prisma/client";
 
 function cartToStockLines(cart: OrderCartLine[]) {
@@ -52,6 +54,7 @@ type Product = PricedProduct & {
   category: string;
   imageUrl?: string | null;
   posCode?: number | null;
+  parentPrepId?: string | null;
   inclusions?: ProductInclusionRef[];
 };
 
@@ -74,6 +77,7 @@ type PosView = "menu" | "tables";
 
 type PosOrderScreenProps = {
   products: Product[];
+  variantGroups?: PosVariantGroup[];
   categories: string[];
   frequentIds: string[];
   availability?: Record<string, PosProductAvailability>;
@@ -87,6 +91,7 @@ type PosOrderScreenProps = {
 
 export function PosOrderScreen({
   products,
+  variantGroups = [],
   categories,
   frequentIds,
   availability = {},
@@ -106,6 +111,11 @@ export function PosOrderScreen({
   const [search, setSearch] = useState("");
   const [scanHint, setScanHint] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [managerDiscount, setManagerDiscount] = useState(0);
+  const [appliedPromotions, setAppliedPromotions] = useState<
+    { name: string; code?: string | null; discountAmount: number }[]
+  >([]);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [checkoutKey, setCheckoutKey] = useState(0);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -137,6 +147,7 @@ export function PosOrderScreen({
     paymentMethod?: PosPaymentMethod;
     sent?: boolean;
   } | null>(null);
+  const [variantGroupOpen, setVariantGroupOpen] = useState<PosVariantGroup | null>(null);
 
   const inclusionsMap = useMemo(() => inclusionsMapFromPosProducts(products), [products]);
   const displayCart = useMemo(
@@ -200,6 +211,9 @@ export function PosOrderScreen({
     setActiveOrderNumber(null);
     setCart([]);
     setDiscountAmount(0);
+    setPromoDiscount(0);
+    setManagerDiscount(0);
+    setAppliedPromotions([]);
     setTipAmount(0);
     setDiningTableId("");
     setChannel(venue.defaultChannel);
@@ -386,9 +400,16 @@ export function PosOrderScreen({
     onClear: () => {
       setCart([]);
       setDiscountAmount(0);
+      setPromoDiscount(0);
+      setManagerDiscount(0);
+      setAppliedPromotions([]);
     },
-    onDiscountApplied: (p: { code: string; discountAmount: number } | null) =>
-      setDiscountAmount(p?.discountAmount ?? 0),
+    onDiscountApplied: (p) => {
+      setPromoDiscount(p?.promoDiscount ?? 0);
+      setManagerDiscount(p?.managerDiscount ?? 0);
+      setDiscountAmount(p?.discountAmount ?? 0);
+      setAppliedPromotions(p?.appliedPromotions ?? []);
+    },
     canManageDiscounts,
     venue,
     tables,
@@ -407,10 +428,13 @@ export function PosOrderScreen({
         : undefined,
   };
 
-  const pricedCount = useMemo(
-    () => products.filter((r) => r.salePrice != null).length,
-    [products]
-  );
+  const pricedCount = useMemo(() => {
+    const standalone = products.filter((r) => r.salePrice != null && !r.parentPrepId).length;
+    const grouped = variantGroups.filter((g) =>
+      g.variants.some((v) => v.salePrice != null && v.salePrice >= 0)
+    ).length;
+    return standalone + grouped;
+  }, [products, variantGroups]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -537,10 +561,12 @@ export function PosOrderScreen({
               <div className="flex-1 overflow-y-auto p-3 md:p-4">
                 <PosItemGrid
                   products={products}
+                  variantGroups={variantGroups}
                   frequentIds={frequentIds}
                   selectedCategory={selectedCategory}
                   search={search}
                   onAdd={addProduct}
+                  onOpenVariantGroup={setVariantGroupOpen}
                   disabled={isPending}
                   availability={availability}
                 />
@@ -565,6 +591,10 @@ export function PosOrderScreen({
         cart={cart}
         subtotal={subtotal}
         discountAmount={discountAmount}
+        promoDiscount={promoDiscount}
+        managerDiscount={managerDiscount}
+        appliedPromotions={appliedPromotions}
+        channel={channel}
         taxSettings={taxSettings}
         tipAmount={tipAmount}
         onTipChange={setTipAmount}
@@ -586,6 +616,18 @@ export function PosOrderScreen({
         open={receiptOrderId != null}
         onClose={() => setReceiptOrderId(null)}
         title="Payment receipt"
+      />
+
+      <PosVariantPickerModal
+        group={variantGroupOpen}
+        availability={availability}
+        disabled={isPending}
+        onClose={() => setVariantGroupOpen(null)}
+        onSelect={(variant) => {
+          const product = products.find((p) => p.id === variant.id);
+          if (product) addProduct(product);
+          setVariantGroupOpen(null);
+        }}
       />
 
       {settleTarget && (

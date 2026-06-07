@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { CategoryCombobox } from "@/components/ui/CategoryCombobox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { UNITS } from "@/lib/units";
+import { DEFAULT_UNIT, UNITS } from "@/lib/units";
 
 type RawMaterialAddModalProps = {
   open: boolean;
@@ -25,7 +25,7 @@ export function RawMaterialAddModal({
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
-  const [unit, setUnit] = useState("g");
+  const [unit, setUnit] = useState(DEFAULT_UNIT);
   const [wastagePercent, setWastagePercent] = useState("0");
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function RawMaterialAddModal({
     setErrors({});
     setName("");
     setCategory("");
-    setUnit("g");
+    setUnit(DEFAULT_UNIT);
     setWastagePercent("0");
   }, [open]);
 

@@ -10,6 +10,7 @@ import { createPrepOutputStock } from "@/lib/prep-output";
 import { serializeForClient } from "@/lib/serialize";
 import { productSchema } from "@/lib/validations";
 import { ProductType, Unit } from "@prisma/client";
+import { resolveBomUnitsFromCatalog } from "@/lib/ingredient-unit";
 import { productIngredientsWithFifoStock } from "@/lib/inventory-stock-query";
 
 const PREP_PATHS = ["/prep", "/prep/produce", "/products", "/inventory", "/yield", "/orders/pos"];
@@ -41,6 +42,7 @@ function parsePrepFormData(raw: Record<string, FormDataEntryValue>) {
     instructions: raw.instructions,
     productType: "PREP",
     requiresKitchen: false,
+    inclusionOutputQuantity: raw.inclusionOutputQuantity,
     ingredients,
     inclusions: [],
   });
@@ -164,11 +166,18 @@ export async function getRecentPrepBatches(limit = 20) {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
 
-  const rows = await db.prepBatch.findMany({
+  const inventoryIds = await db.inventoryItem.findMany({
     where: { businessId },
+    select: { id: true },
+  });
+
+  const rows = await db.prepBatch.findMany({
+    where: {
+      businessId,
+      outputInventoryItemId: { in: inventoryIds.map((item) => item.id) },
+    },
     include: {
       prepProduct: { select: { name: true, yieldUnit: true } },
-      outputInventoryItem: { select: { name: true, unit: true } },
     },
     orderBy: { producedAt: "desc" },
     take: limit,
@@ -197,6 +206,15 @@ export async function createPrepItem(formData: FormData) {
   }
   data.category = categoryResult.category;
 
+  if (data.ingredients.length > 0) {
+    const resolved = await resolveBomUnitsFromCatalog(businessId, data.ingredients);
+    if ("error" in resolved) return { error: { ingredients: [resolved.error] } };
+    data.ingredients = data.ingredients.map((ing, index) => ({
+      ...ing,
+      unit: resolved[index].unit,
+    }));
+  }
+
   await db.$transaction(async (tx) => {
     const outputInventoryItemId = await createPrepOutputStock(tx, businessId, {
       name: data.name,
@@ -212,6 +230,7 @@ export async function createPrepItem(formData: FormData) {
         category: data.category,
         yieldQuantity: data.yieldQuantity,
         yieldUnit: data.yieldUnit,
+        inclusionOutputQuantity: data.inclusionOutputQuantity ?? null,
         instructions: data.instructions || null,
         barcode: generateProductBarcode(data.name),
         productType: ProductType.PREP,
@@ -257,6 +276,15 @@ export async function updatePrepItem(id: string, formData: FormData) {
   }
   data.category = categoryResult.category;
 
+  if (data.ingredients.length > 0) {
+    const resolved = await resolveBomUnitsFromCatalog(businessId, data.ingredients);
+    if ("error" in resolved) return { error: { ingredients: [resolved.error] } };
+    data.ingredients = data.ingredients.map((ing, index) => ({
+      ...ing,
+      unit: resolved[index].unit,
+    }));
+  }
+
   await db.$transaction(async (tx) => {
     await tx.productIngredient.deleteMany({ where: { productId: id } });
     await tx.product.update({
@@ -267,6 +295,7 @@ export async function updatePrepItem(id: string, formData: FormData) {
         category: data.category,
         yieldQuantity: data.yieldQuantity,
         yieldUnit: data.yieldUnit,
+        inclusionOutputQuantity: data.inclusionOutputQuantity ?? null,
         instructions: data.instructions || null,
         ingredients: {
           create: data.ingredients.map((ing) => ({

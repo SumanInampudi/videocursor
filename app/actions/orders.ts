@@ -9,8 +9,13 @@ import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { applyFifoConsumptions, ensureCostLayers } from "@/lib/inventory-fifo";
 import {
+  buildPosVariantGroups,
+  type PosVariantGroup,
+} from "@/lib/pos-variant-groups";
+import {
   filterKitchenLines,
   isKitchenLine,
+  lineNeedsStockFulfillment,
   planProductStockDeduction,
 } from "@/lib/product-fulfillment";
 import { fulfillKitchenOrderLines, fulfillRetailOrderLines } from "@/lib/order-line-fulfill";
@@ -213,6 +218,10 @@ export async function getPosMenuData() {
         imageUrl: true,
         productType: true,
         requiresKitchen: true,
+        parentPrepId: true,
+        variantLabel: true,
+        variantSortOrder: true,
+        variantOutputQuantity: true,
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
@@ -267,11 +276,29 @@ export async function getPosMenuData() {
 
   const productsWithInclusions = products.map((product) => ({
     ...product,
+    salePrice: product.salePrice != null ? Number(product.salePrice) : null,
+    variantOutputQuantity:
+      product.variantOutputQuantity != null
+        ? Number(product.variantOutputQuantity)
+        : null,
+    inclusions: inclusionsByParent.get(product.id) ?? [],
+  }));
+
+  const { groups: variantGroups, standalone } = buildPosVariantGroups(
+    productsWithInclusions as never[]
+  );
+
+  const posProducts = [
+    ...standalone,
+    ...variantGroups.flatMap((g) => g.variants),
+  ].map((product) => ({
+    ...product,
     inclusions: inclusionsByParent.get(product.id) ?? [],
   }));
 
   return serializeForClient({
-    products: productsWithInclusions,
+    products: posProducts,
+    variantGroups: variantGroups as PosVariantGroup[],
     categories,
     frequentIds,
   });
@@ -574,9 +601,9 @@ export async function getOrderFulfillmentPreview(orderId: string) {
   if (!order) return { error: "Order not found" };
 
   const issues: string[] = [];
-  const kitchenLines = filterKitchenLines(order.lineItems);
-  for (const line of kitchenLines) {
+  for (const line of order.lineItems) {
     if (line.processedAt) continue;
+    if (!lineNeedsStockFulfillment(line)) continue;
     if (!line.product) {
       issues.push(`"${line.productName}": product removed from catalog`);
       continue;
@@ -615,10 +642,10 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
   }
 
   if (statusDeductionOnTransition(order.status, nextStatus, order.channel)) {
-    const kitchenLines = order.lineItems.filter(
-      (line) => !line.processedAt && isKitchenLine(line.product)
+    const linesToFulfill = order.lineItems.filter(
+      (line) => !line.processedAt && lineNeedsStockFulfillment(line)
     );
-    const fulfillResult = await fulfillKitchenOrderLines(kitchenLines);
+    const fulfillResult = await fulfillKitchenOrderLines(linesToFulfill);
     if ("error" in fulfillResult) {
       return { error: fulfillResult.error };
     }
@@ -823,7 +850,7 @@ async function tryAutoCompletePaidRetailOnlyOrder(orderId: string, businessId: s
 
 async function fulfillOrderInventory(order: OrderForFulfillment) {
   const result = await fulfillKitchenOrderLines(
-    order.lineItems.filter((line) => isKitchenLine(line.product))
+    order.lineItems.filter((line) => lineNeedsStockFulfillment(line))
   );
   if ("error" in result) return { error: result.error };
   return { success: true };

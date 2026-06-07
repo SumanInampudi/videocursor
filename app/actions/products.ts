@@ -10,8 +10,29 @@ import { productSchema } from "@/lib/validations";
 import { enrichYieldsWithCommitments } from "@/lib/order-stock-commitments";
 import { getCommittedProductQuantities } from "@/lib/order-stock-server";
 import { posAvailabilityFromMaxYield } from "@/lib/pos-stock-status";
+import { resolveBomUnitsFromCatalog } from "@/lib/ingredient-unit";
+import { validatePrepInclusionTargets } from "@/lib/prep-inclusion";
 import { calculateAllYields } from "@/lib/yield";
 import { ProductType, Unit } from "@prisma/client";
+
+async function applyCatalogUnitsToBom(
+  businessId: string,
+  ingredients: { ingredientId: string; quantityRequired: number; unit: string }[]
+): Promise<
+  | { ingredients: { ingredientId: string; quantityRequired: number; unit: Unit }[] }
+  | { error: string }
+> {
+  if (ingredients.length === 0) return { ingredients: [] };
+  const resolved = await resolveBomUnitsFromCatalog(businessId, ingredients);
+  if ("error" in resolved) return { error: resolved.error };
+  return {
+    ingredients: ingredients.map((ing, index) => ({
+      ingredientId: ing.ingredientId,
+      quantityRequired: ing.quantityRequired,
+      unit: resolved[index].unit,
+    })),
+  };
+}
 
 function parseProductFormData(raw: Record<string, FormDataEntryValue>) {
   const ingredientCount = parseInt(String(raw.ingredientCount || "0"), 10);
@@ -189,18 +210,60 @@ export async function getPreparedProductsForInclusions(excludeProductId?: string
   const rows = await db.product.findMany({
     where: {
       businessId,
-      productType: ProductType.PREPARED,
+      parentPrepId: null,
+      OR: [
+        { productType: ProductType.PREPARED },
+        {
+          productType: ProductType.PREP,
+          prepOutputInventoryItemId: { not: null },
+        },
+      ],
       ...(excludeProductId ? { id: { not: excludeProductId } } : {}),
     },
-    select: { id: true, name: true, category: true, salePrice: true },
-    orderBy: [{ category: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      category: true,
+      salePrice: true,
+      productType: true,
+      yieldUnit: true,
+      inclusionOutputQuantity: true,
+    },
+    orderBy: [{ productType: "asc" }, { category: "asc" }, { name: "asc" }],
   });
   return serializeForClient(
     rows.map((row) => ({
       ...row,
       salePrice: row.salePrice != null ? Number(row.salePrice) : null,
+      inclusionOutputQuantity:
+        row.inclusionOutputQuantity != null ? Number(row.inclusionOutputQuantity) : null,
     }))
   );
+}
+
+async function assertInclusionTargetsValid(
+  businessId: string,
+  inclusionIds: string[]
+): Promise<{ error: { inclusions: string[] } } | null> {
+  if (inclusionIds.length === 0) return null;
+
+  const found = await db.product.count({
+    where: {
+      businessId,
+      id: { in: inclusionIds },
+      productType: { in: [ProductType.PREPARED, ProductType.PREP] },
+    },
+  });
+  if (found !== inclusionIds.length) {
+    return { error: { inclusions: ["One or more included products were not found"] } };
+  }
+
+  const prepCheck = await validatePrepInclusionTargets(businessId, inclusionIds);
+  if (!prepCheck.ok) {
+    return { error: { inclusions: [prepCheck.message] } };
+  }
+
+  return null;
 }
 
 export async function getActiveIngredientsForProducts() {
@@ -289,16 +352,18 @@ export async function createProduct(formData: FormData) {
 
   if (data.productType === "PREPARED" && data.inclusions.length > 0) {
     const inclusionIds = data.inclusions.map((row) => row.includedProductId);
-    const found = await db.product.count({
-      where: { businessId, id: { in: inclusionIds }, productType: ProductType.PREPARED },
-    });
-    if (found !== inclusionIds.length) {
-      return { error: { inclusions: ["One or more included products were not found"] } };
-    }
+    const inclusionError = await assertInclusionTargetsValid(businessId, inclusionIds);
+    if (inclusionError) return inclusionError;
   }
 
   const posCodeConflict = await assertPosCodeAvailable(businessId, data.posCode);
   if (posCodeConflict) return posCodeConflict;
+
+  if (data.productType === "PREPARED" && data.ingredients.length > 0) {
+    const bom = await applyCatalogUnitsToBom(businessId, data.ingredients);
+    if ("error" in bom) return { error: { ingredients: [bom.error] } };
+    data.ingredients = bom.ingredients;
+  }
 
   await db.product.create({
     data: {
@@ -381,16 +446,18 @@ export async function updateProduct(id: string, formData: FormData) {
     if (inclusionIds.includes(id)) {
       return { error: { inclusions: ["A product cannot include itself"] } };
     }
-    const found = await db.product.count({
-      where: { businessId, id: { in: inclusionIds }, productType: ProductType.PREPARED },
-    });
-    if (found !== inclusionIds.length) {
-      return { error: { inclusions: ["One or more included products were not found"] } };
-    }
+    const inclusionError = await assertInclusionTargetsValid(businessId, inclusionIds);
+    if (inclusionError) return inclusionError;
   }
 
   const posCodeConflict = await assertPosCodeAvailable(businessId, data.posCode, id);
   if (posCodeConflict) return posCodeConflict;
+
+  if (data.productType === "PREPARED" && data.ingredients.length > 0) {
+    const bom = await applyCatalogUnitsToBom(businessId, data.ingredients);
+    if ("error" in bom) return { error: { ingredients: [bom.error] } };
+    data.ingredients = bom.ingredients;
+  }
 
   await db.$transaction([
     db.productIngredient.deleteMany({ where: { productId: id } }),

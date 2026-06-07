@@ -8,13 +8,11 @@ datasource db {
 }
 
 enum Unit {
-  g
-  kg
-  ml
-  L
-  pcs
-  oz
-  lb
+  KG
+  GM
+  LT
+  ML
+  Pcs
 }
 
 enum OrderStatus {
@@ -490,10 +488,20 @@ model Product {
   retailQuantityPerSale Decimal?   @db.Decimal(12, 4)
   /// Stock SKU filled when this prep recipe is produced in batch.
   prepOutputInventoryItemId String?
+  /// Prep output qty per inclusion unit when used as a free side on another dish.
+  inclusionOutputQuantity Decimal? @db.Decimal(12, 4)
+  /// Sell variant linked to a prep batch (POS packs: Single Plate, Family, etc.).
+  parentPrepId          String?
+  variantLabel          String?
+  variantSortOrder      Int      @default(0)
+  /// Prep output consumed per sale for batch-linked variants.
+  variantOutputQuantity Decimal? @db.Decimal(12, 4)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   business            Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  parentPrep          Product?           @relation("PrepSellVariants", fields: [parentPrepId], references: [id], onDelete: Cascade)
+  sellVariants        Product[]          @relation("PrepSellVariants")
   ingredients         ProductIngredient[]
   includedSides       ProductInclusion[] @relation("ParentProductInclusions")
   includedIn          ProductInclusion[] @relation("IncludedProductInclusions")
@@ -510,6 +518,7 @@ model Product {
   @@index([businessId, posCode])
   @@index([retailInventoryItemId])
   @@index([prepOutputInventoryItemId])
+  @@index([parentPrepId])
   @@map("products")
 }
 

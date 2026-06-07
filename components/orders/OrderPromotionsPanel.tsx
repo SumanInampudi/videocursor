@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { evaluatePromotionsForCart } from "@/app/actions/discounts";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AppliedPromotionsList } from "@/components/orders/AppliedPromotionsList";
 import { formatCurrency } from "@/lib/units";
 import type { OrderChannel, OrderPaymentMethod } from "@prisma/client";
 
@@ -32,6 +33,7 @@ type Props = {
     discountAmount: number;
     promotions: AppliedRow[];
   } | null) => void;
+  showBreakdown?: boolean;
 };
 
 export function OrderPromotionsPanel({
@@ -41,6 +43,7 @@ export function OrderPromotionsPanel({
   paymentMethod,
   cartLines,
   onApplied,
+  showBreakdown = true,
 }: Props) {
   const [code, setCode] = useState("");
   const [appliedCode, setAppliedCode] = useState("");
@@ -48,14 +51,37 @@ export function OrderPromotionsPanel({
   const [eligibilityHints, setEligibilityHints] = useState<HintRow[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [appliedPromotions, setAppliedPromotions] = useState<AppliedRow[]>([]);
   const [isPending, startTransition] = useTransition();
+  const lastNotifiedRef = useRef<string>("");
+  const cartLinesKey = useMemo(
+    () => cartLines.map((l) => `${l.productId}:${l.quantity}`).join("|"),
+    [cartLines]
+  );
+
+  function notifyApplied(
+    payload: {
+      code: string;
+      discountAmount: number;
+      promotions: AppliedRow[];
+    } | null
+  ) {
+    const key = payload ? JSON.stringify(payload) : "null";
+    if (key === lastNotifiedRef.current) return;
+    lastNotifiedRef.current = key;
+    onApplied(payload);
+  }
 
   function evaluate(nextCode = appliedCode) {
     if (subtotal <= 0 || cartLines.length === 0) {
-      setAutoPromotions([]);
-      setEligibilityHints([]);
-      setDiscountAmount(0);
-      onApplied(null);
+      if (discountAmount !== 0 || appliedPromotions.length > 0 || autoPromotions.length > 0) {
+        setAutoPromotions([]);
+        setEligibilityHints([]);
+        setDiscountAmount(0);
+        setAppliedPromotions([]);
+        setMessage(null);
+      }
+      notifyApplied(null);
       return;
     }
 
@@ -73,7 +99,7 @@ export function OrderPromotionsPanel({
         setMessage(result.error ?? "Could not apply promotion");
         if (nextCode) {
           setAppliedCode("");
-          onApplied(null);
+          notifyApplied(null);
         }
         return;
       }
@@ -81,13 +107,14 @@ export function OrderPromotionsPanel({
       setAutoPromotions(result.autoPromotions);
       setEligibilityHints(result.eligibilityHints ?? []);
       setDiscountAmount(result.discountTotal);
+      setAppliedPromotions(result.appliedPromotions);
       setMessage(
         result.discountTotal > 0
           ? `Total savings: −${formatCurrency(result.discountTotal)}`
           : null
       );
 
-      onApplied(
+      notifyApplied(
         result.discountTotal > 0
           ? {
               code: result.discountCode ?? nextCode,
@@ -102,7 +129,7 @@ export function OrderPromotionsPanel({
   useEffect(() => {
     evaluate(appliedCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal, channel, cartLines, appliedCode, customerId, paymentMethod]);
+  }, [subtotal, channel, cartLinesKey, appliedCode, customerId, paymentMethod]);
 
   function applyCode() {
     const next = code.trim().toUpperCase();
@@ -167,10 +194,18 @@ export function OrderPromotionsPanel({
         )}
       </div>
 
-      {message && (
+      {message && !showBreakdown && (
         <p className={`text-xs ${discountAmount > 0 ? "text-green-700" : "text-red-600"}`}>
           {message}
         </p>
+      )}
+
+      {showBreakdown && discountAmount > 0 && (
+        <AppliedPromotionsList
+          promotions={appliedPromotions}
+          totalDiscount={discountAmount}
+          compact
+        />
       )}
 
       <input type="hidden" name="discountCode" value={appliedCode} />

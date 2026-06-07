@@ -23,7 +23,9 @@ async function loadProductsForStockCheck(businessId: string, productIds: string[
       productType: true,
       requiresKitchen: true,
       retailQuantityPerSale: true,
+      inclusionOutputQuantity: true,
       retailInventoryItem: productIngredientsWithFifoStock.retailInventoryItem,
+      prepOutputInventoryItem: productIngredientsWithFifoStock.prepOutputInventoryItem,
       ingredients: {
         include: {
           ingredient: ingredientWithFifoStockInclude,

@@ -6,11 +6,11 @@ import type { ProductForStockPlan } from "@/lib/product-fulfillment";
 const paneerStock = {
   id: "paneer-inv",
   quantity: 1000,
-  unit: "g" as const,
+  unit: "GM" as const,
   costPerUnit: 0.5,
   isActive: true,
   costLayers: [
-    { id: "layer-p", quantityRemaining: 1000, costPerUnit: 0.5, unit: "g" as const },
+    { id: "layer-p", quantityRemaining: 1000, costPerUnit: 0.5, unit: "GM" as const },
   ],
 };
 
@@ -30,7 +30,7 @@ const curry: ProductForStockPlan = {
   ingredients: [
     {
       quantityRequired: 150,
-      unit: "g",
+      unit: "GM",
       ingredient: {
         name: "Paneer",
         wastagePercent: 0,
@@ -56,7 +56,7 @@ describe("shared inventory demand", () => {
         { productId: "retail-paneer", quantity: 4 },
         { productId: "curry", quantity: 4 },
       ],
-      [{ id: "paneer-inv", name: "Paneer", quantity: 1000, unit: "g" }]
+      [{ id: "paneer-inv", name: "Paneer", quantity: 1000, unit: "GM" }]
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {

@@ -323,7 +323,7 @@ export async function postStockReceive(formData: FormData) {
       ingredientId: String(raw[`line_${i}_ingredientId`] || ""),
       quantity: raw[`line_${i}_quantity`],
       unitCost: raw[`line_${i}_unitCost`],
-      unit: String(raw[`line_${i}_unit`] || "g"),
+      unit: String(raw[`line_${i}_unit`] || "GM"),
     });
   }
 
@@ -382,7 +382,7 @@ export async function postStockReceive(formData: FormData) {
           line.ingredientId
         );
 
-        const receiveUnit = line.unit as Unit;
+        const receiveUnit = rawMaterial.defaultUnit;
         const previousCost = Number(item.costPerUnit);
         const previousQty = Number(item.quantity);
         const newQty = previousQty + line.quantity;

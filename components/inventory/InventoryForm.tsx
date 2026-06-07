@@ -64,7 +64,7 @@ export function InventoryForm({
     name: initialData?.name ?? "",
     sku: initialData?.sku ?? "",
     category: initialData?.category ?? "",
-    unit: initialData?.unit ?? Unit.g,
+    unit: initialData?.unit ?? Unit.GM,
   });
 
   const selectedRawMaterial = ingredients.find(
@@ -157,18 +157,24 @@ export function InventoryForm({
           readOnly={Boolean(selectedRawMaterial)}
           required
         />
-        <Select
-          name="unit"
-          label="Unit *"
-          value={catalogValues.unit}
-          onChange={(event) => updateCatalogValue("unit", event.target.value)}
-          options={unitOptions}
-          error={errors.unit?.[0]}
-          disabled={Boolean(selectedRawMaterial)}
-          required
-        />
-        {selectedRawMaterial && (
-          <input type="hidden" name="unit" value={selectedRawMaterial.defaultUnit} />
+        {selectedRawMaterial ? (
+          <div>
+            <span className="mb-1 block text-sm font-medium text-servora-charcoal">Unit *</span>
+            <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              {selectedRawMaterial.defaultUnit}
+            </p>
+            <input type="hidden" name="unit" value={selectedRawMaterial.defaultUnit} />
+          </div>
+        ) : (
+          <Select
+            name="unit"
+            label="Unit *"
+            value={catalogValues.unit}
+            onChange={(event) => updateCatalogValue("unit", event.target.value)}
+            options={unitOptions}
+            error={errors.unit?.[0]}
+            required
+          />
         )}
         <Input
           name="quantity"
