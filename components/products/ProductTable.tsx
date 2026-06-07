@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { deleteProduct } from "@/app/actions/products";
-import { ProductThumbnail } from "@/components/products/ProductThumbnail";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui/DataTable";
 import { YieldResult } from "@/lib/yield";
 
 type ProductWithYield = {
@@ -24,6 +23,16 @@ type ProductWithYield = {
 type ProductTableProps = {
   products: ProductWithYield[];
 };
+
+function yieldLabel(product: ProductWithYield): string {
+  const y = product.yieldResult;
+  if (y.canSell) {
+    return `${y.availableYield ?? y.maxYield} ${product.yieldUnit}`;
+  }
+  if (y.canMake && (y.committedQty ?? 0) > 0) return "Committed";
+  if (y.canMake) return `${y.maxYield} ${product.yieldUnit}`;
+  return "Cannot make";
+}
 
 export function ProductTable({ products }: ProductTableProps) {
   const router = useRouter();
@@ -54,15 +63,15 @@ export function ProductTable({ products }: ProductTableProps) {
   }
 
   return (
-    <div className="table-panel">
+    <DataTable scroll>
       <table>
         <thead>
           <tr>
             <th>Product</th>
             <th>POS</th>
             <th>Category</th>
-            <th>Raw Materials</th>
-            <th>Max Yield</th>
+            <th>Inputs</th>
+            <th>Yield</th>
             <th>Bottleneck</th>
             <th className="text-right">Actions</th>
           </tr>
@@ -71,48 +80,27 @@ export function ProductTable({ products }: ProductTableProps) {
           {products.map((product) => (
             <tr key={product.id}>
               <td>
-                <div className="flex items-center gap-3">
-                  <ProductThumbnail name={product.name} imageUrl={product.imageUrl} size="sm" />
-                  <span className="font-semibold text-charcoal">{product.name}</span>
-                  {product.productType === "RETAIL" && (
-                    <Badge variant="primary" className="ml-1 normal-case">
-                      Retail
-                    </Badge>
-                  )}
-                </div>
+                <div className="font-medium">{product.name}</div>
+                {product.productType === "RETAIL" && (
+                  <div className="text-xs text-gray-400">Retail</div>
+                )}
               </td>
-              <td className="tabular-nums text-charcoal-muted">
-                {product.posCode ?? "—"}
-              </td>
-              <td className="text-charcoal-muted">{product.category}</td>
-              <td className="text-charcoal-muted">
+              <td className="tabular-nums text-muted">{product.posCode ?? "—"}</td>
+              <td className="text-muted">{product.category}</td>
+              <td className="text-muted">
                 {product.productType === "RETAIL"
                   ? "Retail item"
                   : `${product.ingredients?.length ?? 0} items`}
               </td>
-              <td>
-                {product.yieldResult.canSell ? (
-                  <Badge variant="success">
-                    {product.yieldResult.availableYield ?? product.yieldResult.maxYield}{" "}
-                    {product.yieldUnit}
-                  </Badge>
-                ) : product.yieldResult.canMake &&
-                  (product.yieldResult.committedQty ?? 0) > 0 ? (
-                  <Badge variant="warning">Committed</Badge>
-                ) : product.yieldResult.canMake ? (
-                  <Badge variant="success">
-                    {product.yieldResult.maxYield} {product.yieldUnit}
-                  </Badge>
-                ) : (
-                  <Badge variant="danger">Cannot make</Badge>
-                )}
+              <td className={product.yieldResult.canMake || product.yieldResult.canSell ? "" : "text-red-700"}>
+                {yieldLabel(product)}
               </td>
-              <td className="text-charcoal-muted">
+              <td className="text-muted">
                 {product.yieldResult.bottleneckIngredient ? (
                   <>
                     {product.yieldResult.bottleneckIngredient}
                     {product.yieldResult.bottleneckNote && (
-                      <span className="mt-0.5 block text-xs text-gray-500">
+                      <span className="mt-0.5 block text-xs text-gray-400">
                         {product.yieldResult.bottleneckNote}
                       </span>
                     )}
@@ -122,7 +110,7 @@ export function ProductTable({ products }: ProductTableProps) {
                 )}
               </td>
               <td className="text-right">
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-0.5">
                   <Link href={`/products/${product.id}/edit#menu-image`}>
                     <Button variant="ghost" className="px-2 py-1 text-xs">
                       Photo
@@ -134,8 +122,8 @@ export function ProductTable({ products }: ProductTableProps) {
                     </Button>
                   </Link>
                   <Button
-                    variant="danger"
-                    className="px-2 py-1 text-xs"
+                    variant="ghost"
+                    className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
                     disabled={isPending}
                     onClick={() => handleDelete(product.id, product.name)}
                   >
@@ -147,6 +135,6 @@ export function ProductTable({ products }: ProductTableProps) {
           ))}
         </tbody>
       </table>
-    </div>
+    </DataTable>
   );
 }

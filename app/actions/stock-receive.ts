@@ -18,7 +18,9 @@ import {
   type StockReceiveBatchSummary,
   type StockReceiveReceipt,
 } from "@/lib/stock-receive-summary";
-import { stockReceiveSchema } from "@/lib/validations";
+import { resolveCategory } from "@/lib/category-resolve";
+import { provisionRetailReceiveItem } from "@/lib/retail-provision";
+import { receiveNewItemSchema, stockReceiveSchema } from "@/lib/validations";
 import { Prisma, PurchasePaymentStatus, Unit } from "@prisma/client";
 
 const REVALIDATE_PATHS = [
@@ -31,6 +33,7 @@ const REVALIDATE_PATHS = [
   "/raw-materials",
   "/yield",
   "/products",
+  "/orders/pos",
   "/expenses",
   "/reports",
 ];
@@ -165,6 +168,92 @@ export async function getReceiveCatalog() {
   });
 
   return serializeForClient({ catalog, categories, frequentIds });
+}
+
+/** Create raw material + inventory (+ optional retail product) for stock receive. */
+export async function provisionNewReceiveItem(input: {
+  name: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  unitCost: number;
+  salePrice?: number | null;
+  quantityPerSale?: number;
+  addToMenu?: boolean;
+}) {
+  const parsed = receiveNewItemSchema.safeParse({
+    ...input,
+    addToMenu: input.addToMenu ?? true,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const data = parsed.data;
+  const { businessId } = await requireBusinessContext();
+
+  const existingCategories = [
+    ...new Set(
+      (
+        await db.ingredient.findMany({
+          where: { businessId },
+          select: { category: true },
+          distinct: ["category"],
+        })
+      ).map((r) => r.category)
+    ),
+  ];
+  const categoryResult = resolveCategory(data.category, existingCategories);
+  if (!categoryResult.ok) {
+    return { error: { category: [categoryResult.message] } };
+  }
+
+  try {
+    const provisioned = await db.$transaction((tx) =>
+      provisionRetailReceiveItem(tx, businessId, {
+        name: data.name,
+        category: categoryResult.category,
+        unit: data.unit as Unit,
+        salePrice: data.salePrice,
+        quantityPerSale: data.quantityPerSale,
+        addToMenu: data.addToMenu,
+      })
+    );
+
+    revalidateStock();
+
+    const catalogItem: ReceiveCatalogItem = {
+      id: provisioned.ingredientId,
+      name: provisioned.name,
+      sku: provisioned.sku,
+      imageUrl: null,
+      category: provisioned.category,
+      aliases: null,
+      defaultUnit: provisioned.defaultUnit,
+      inventoryItemId: provisioned.inventoryItemId,
+      lastUnitCost: data.unitCost,
+      stockQty: 0,
+      stockUnit: data.unit,
+    };
+
+    return serializeForClient({
+      success: true as const,
+      catalogItem,
+      quantity: data.quantity,
+      unitCost: data.unitCost,
+      productCreated: provisioned.productCreated,
+      productId: provisioned.productId,
+      createdIngredient: provisioned.createdIngredient,
+      createdInventory: provisioned.createdInventory,
+    });
+  } catch (e) {
+    return {
+      error: {
+        name: [e instanceof Error ? e.message : "Could not create item"],
+      },
+    };
+  }
 }
 
 export async function getStockReceiveHistory(filters?: {

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui/DataTable";
 import { formatPromotionValue } from "@/lib/discount-calc";
 import { formatDateIST } from "@/lib/format";
 import { formatCurrency } from "@/lib/units";
@@ -42,51 +42,47 @@ export function DiscountTable({ discounts }: { discounts: DiscountRow[] }) {
   }
 
   return (
-    <div className="table-panel">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
+    <DataTable>
+      <table>
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Code</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Offer</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Mode</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Uses</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Validity</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+            <th>Code</th>
+            <th>Offer</th>
+            <th>Mode</th>
+            <th>Uses</th>
+            <th>Validity</th>
+            <th>Status</th>
+            <th className="text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody>
           {discounts.map((d) => (
-            <tr key={d.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 font-mono font-medium">{d.code}</td>
-              <td className="px-4 py-3">
+            <tr key={d.id}>
+              <td className="font-mono font-medium">{d.code}</td>
+              <td>
                 {d.name} · {formatPromotionValue(d.kind, num(d.value))}
                 {d.minOrderAmount != null && num(d.minOrderAmount) > 0 && (
                   <span className="text-gray-400"> (min {formatCurrency(num(d.minOrderAmount))})</span>
                 )}
               </td>
-              <td className="px-4 py-3 text-gray-600 text-xs">
+              <td className="text-subtle text-xs">
                 {d.application === "AUTO"
                   ? "Auto"
                   : d.application === "PAYMENT_METHOD"
                     ? "Payment"
-                  : d.application === "MANAGER"
-                    ? "Manager"
-                    : "Code"}
+                    : d.application === "MANAGER"
+                      ? "Manager"
+                      : "Code"}
               </td>
-              <td className="px-4 py-3 text-gray-600">{d.redemptionCount ?? 0}</td>
-              <td className="px-4 py-3 text-gray-600 text-xs">
+              <td className="text-muted tabular-nums">{d.redemptionCount ?? 0}</td>
+              <td className="text-subtle text-xs">
                 {d.validFrom ? formatDateIST(d.validFrom) : "—"} →{" "}
                 {d.validTo ? formatDateIST(d.validTo) : "—"}
               </td>
-              <td className="px-4 py-3">
-                <Badge variant={d.isActive ? "success" : "default"}>
-                  {d.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </td>
-              <td className="px-4 py-3 text-right">
+              <td className="text-subtle">{d.isActive ? "Active" : "Inactive"}</td>
+              <td className="text-right">
                 <Link href={`/discounts/${d.id}/edit`}>
-                  <Button variant="ghost" className="text-xs">
+                  <Button variant="ghost" className="px-2 py-1 text-xs">
                     Edit
                   </Button>
                 </Link>
@@ -95,6 +91,6 @@ export function DiscountTable({ discounts }: { discounts: DiscountRow[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </DataTable>
   );
 }

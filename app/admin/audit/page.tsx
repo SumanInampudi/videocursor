@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAuditLogs } from "@/app/actions/audit";
+import { DataTable } from "@/components/ui/DataTable";
 import { formatDateTimeIST } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -20,38 +21,32 @@ export default async function AuditLogPage() {
       {logs.length === 0 ? (
         <p className="text-sm text-gray-500">No audit entries yet.</p>
       ) : (
-        <div className="table-panel">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
+        <DataTable scroll resultLabel={`${logs.length} recent entries`}>
+          <table>
+            <thead>
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  When (IST)
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Action
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Entity
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Details
-                </th>
+                <th>When (IST)</th>
+                <th>Action</th>
+                <th>Entity</th>
+                <th>Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody>
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <td className="px-4 py-2 whitespace-nowrap text-gray-600">
+                  <td className="whitespace-nowrap text-muted">
                     {formatDateTimeIST(log.createdAt)}
                   </td>
-                  <td className="px-4 py-2 font-medium">{log.action}</td>
-                  <td className="px-4 py-2">
+                  <td className="font-medium">{log.action}</td>
+                  <td>
                     {log.entity}
                     {log.entityId && (
-                      <span className="ml-1 text-xs text-gray-400">{log.entityId.slice(0, 8)}…</span>
+                      <span className="ml-1 text-xs text-gray-400">
+                        {log.entityId.slice(0, 8)}…
+                      </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 max-w-md truncate text-xs text-gray-500">
+                  <td className="max-w-md truncate text-xs text-subtle">
                     {log.details ?? "—"}
                     {log.actorRole && (
                       <span className="ml-2 text-gray-400">({log.actorRole})</span>
@@ -61,7 +56,7 @@ export default async function AuditLogPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </DataTable>
       )}
     </div>
   );

@@ -42,7 +42,13 @@ import {
   statusDeductionOnTransition,
   statusFlowForChannel,
 } from "@/lib/order-pipeline";
-import { OrderChannel, OrderPaymentMethod, OrderStatus, Prisma } from "@prisma/client";
+import {
+  OrderChannel,
+  OrderPaymentMethod,
+  OrderStatus,
+  Prisma,
+  ProductType,
+} from "@prisma/client";
 
 const ORDER_PATHS = [
   "/orders",
@@ -195,7 +201,7 @@ export async function getPosMenuData() {
 
   const [products, inclusionRows, frequentGroups] = await Promise.all([
     db.product.findMany({
-      where: { businessId },
+      where: { businessId, productType: { not: ProductType.PREP } },
       select: {
         id: true,
         name: true,

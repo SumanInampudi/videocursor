@@ -1,4 +1,5 @@
 import { getInventoryCostHistory } from "@/app/actions/pricing";
+import { DataTable } from "@/components/ui/DataTable";
 import { formatCurrency } from "@/lib/units";
 
 type CostHistoryPanelProps = {
@@ -9,10 +10,8 @@ export async function CostHistoryPanel({ inventoryItemId }: CostHistoryPanelProp
   const history = await getInventoryCostHistory(inventoryItemId);
 
   return (
-    <section className="mt-8 filter-bar">
-      <h2 className="mb-1 text-sm font-semibold text-servora-charcoal">
-        Cost price history
-      </h2>
+    <section className="mt-8">
+      <h2 className="mb-1 text-sm font-semibold text-charcoal">Cost price history</h2>
       <p className="mb-4 text-xs text-gray-500">
         Each time you change cost per unit on this item, a snapshot is recorded. When an
         order is marked ready, raw material costs use the current inventory price at that
@@ -22,44 +21,36 @@ export async function CostHistoryPanel({ inventoryItemId }: CostHistoryPanelProp
       {history.length === 0 ? (
         <p className="text-sm text-gray-500">No cost changes recorded yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
+        <DataTable>
+          <table>
+            <thead>
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Date
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Previous
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  New cost / unit
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Note
-                </th>
+                <th>Date</th>
+                <th>Previous</th>
+                <th>New cost / unit</th>
+                <th>Note</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {history.map((row) => (
                 <tr key={row.id}>
-                  <td className="px-3 py-2 text-gray-600">
+                  <td className="text-muted">
                     {new Date(row.effectiveAt).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="tabular-nums">
                     {row.previousCost != null
                       ? formatCurrency(Number(row.previousCost))
                       : "—"}
                   </td>
-                  <td className="px-3 py-2 font-medium">
+                  <td className="font-medium tabular-nums">
                     {formatCurrency(Number(row.costPerUnit))}
                   </td>
-                  <td className="px-3 py-2 text-gray-500">{row.note || "—"}</td>
+                  <td className="text-subtle">{row.note || "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </DataTable>
       )}
     </section>
   );

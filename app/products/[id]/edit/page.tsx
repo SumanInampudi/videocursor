@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getPrepOutputIngredientsForBom } from "@/app/actions/prep";
 import {
   getActiveIngredientsForProducts,
   getInventoryItemsForRetailMenu,
@@ -19,7 +20,7 @@ type Props = {
 
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
-  const [product, ingredients, inventoryItems, pricing, categories, inclusionCandidates] =
+  const [product, ingredients, inventoryItems, pricing, categories, inclusionCandidates, prepOutputs] =
     await Promise.all([
       getProduct(id),
       getActiveIngredientsForProducts(),
@@ -27,6 +28,7 @@ export default async function EditProductPage({ params }: Props) {
       getProductPricingDetail(id),
       getProductCategories(),
       getPreparedProductsForInclusions(id),
+      getPrepOutputIngredientsForBom(),
     ]);
 
   if (!product) notFound();
@@ -73,6 +75,7 @@ export default async function EditProductPage({ params }: Props) {
         estimatedRawMaterialCostPerSale={pricing?.costEstimate?.unitIngredientCost ?? null}
         categories={categories}
         inclusionCandidates={inclusionCandidates}
+        prepOutputIngredients={prepOutputs as never[]}
         submitLabel="Update product"
       />
       <div className="mt-8">

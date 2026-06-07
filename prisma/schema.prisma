@@ -146,6 +146,7 @@ model Business {
   discounts     Discount[]
   inventoryItems InventoryItem[]
   products      Product[]
+  prepBatches   PrepBatch[]
   orders        Order[]
   reservations  TableReservation[]
   expenses      Expense[]
@@ -418,6 +419,8 @@ model InventoryItem {
   orderConsumptions  OrderLineConsumption[]
   purchases          InventoryPurchase[]
   retailProducts      Product[]               @relation("ProductRetailStock")
+  prepOutputProducts  Product[]               @relation("ProductPrepOutput")
+  prepBatches         PrepBatch[]
 
   @@unique([businessId, sku])
   @@index([businessId, ingredientId])
@@ -461,6 +464,8 @@ model InventoryCostLayer {
 enum ProductType {
   PREPARED
   RETAIL
+  /// House-made batch prep (garam masala, bases) — not sold on menu; output goes to inventory.
+  PREP
 }
 
 model Product {
@@ -483,6 +488,8 @@ model Product {
   requiresKitchen       Boolean    @default(true)
   retailInventoryItemId String?
   retailQuantityPerSale Decimal?   @db.Decimal(12, 4)
+  /// Stock SKU filled when this prep recipe is produced in batch.
+  prepOutputInventoryItemId String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -492,7 +499,9 @@ model Product {
   includedIn          ProductInclusion[] @relation("IncludedProductInclusions")
   orderLineItems      OrderLineItem[]
   promotionTargets    PromotionTarget[]
+  prepBatches         PrepBatch[]
   retailInventoryItem InventoryItem?     @relation("ProductRetailStock", fields: [retailInventoryItemId], references: [id], onDelete: SetNull)
+  prepOutputInventoryItem InventoryItem? @relation("ProductPrepOutput", fields: [prepOutputInventoryItemId], references: [id], onDelete: SetNull)
 
   @@unique([businessId, barcode])
   @@unique([businessId, posCode])
@@ -500,7 +509,30 @@ model Product {
   @@index([businessId, productType])
   @@index([businessId, posCode])
   @@index([retailInventoryItemId])
+  @@index([prepOutputInventoryItemId])
   @@map("products")
+}
+
+/// Log of a prep batch run (inputs deducted, output stocked).
+model PrepBatch {
+  id                    String   @id @default(cuid())
+  businessId            String
+  prepProductId         String
+  outputInventoryItemId String
+  quantityProduced      Decimal  @db.Decimal(12, 4)
+  totalInputCost        Decimal  @db.Decimal(12, 4)
+  costPerUnit           Decimal  @db.Decimal(12, 4)
+  note                  String?  @db.Text
+  producedAt            DateTime @default(now())
+
+  business            Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  prepProduct         Product       @relation(fields: [prepProductId], references: [id], onDelete: Cascade)
+  outputInventoryItem InventoryItem @relation(fields: [outputInventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([businessId, producedAt])
+  @@index([prepProductId])
+  @@index([outputInventoryItemId])
+  @@map("prep_batches")
 }
 
 model ProductIngredient {

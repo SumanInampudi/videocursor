@@ -11,7 +11,9 @@ import {
   ReceiveReviewModal,
   type ReceivePostFields,
 } from "@/components/inventory/receive/ReceiveReviewModal";
+import { ReceiveNewItemModal } from "@/components/inventory/receive/ReceiveNewItemModal";
 import { ReceiveReceiptModal } from "@/components/inventory/receive/ReceiveReceiptModal";
+import { Button } from "@/components/ui/Button";
 import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
 import { useToast } from "@/components/ui/Toast";
 import type { StockReceiveReceipt } from "@/lib/stock-receive-summary";
@@ -51,6 +53,7 @@ export function StockReceiveScreen({
   const [reviewFields, setReviewFields] = useState<ReceivePostFields | null>(null);
   const [receipt, setReceipt] = useState<StockReceiveReceipt | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [newItemOpen, setNewItemOpen] = useState(false);
 
   const total = receiveCartTotal(cart);
 
@@ -118,9 +121,17 @@ export function StockReceiveScreen({
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold text-servora-charcoal md:text-xl">Stock receive</h1>
           <p className="text-xs text-gray-500">
-            Tap items · enter qty & unit cost · post (updates on-hand + purchase record)
+            Tap items or + New item · enter qty & cost · post (updates stock + purchase)
           </p>
         </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="touch-target"
+          onClick={() => setNewItemOpen(true)}
+        >
+          + New item
+        </Button>
         <Link
           href="/inventory/receive/history"
           className="touch-target rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
@@ -243,6 +254,24 @@ export function StockReceiveScreen({
         onClose={() => {
           setReceiptOpen(false);
           setReceipt(null);
+        }}
+      />
+
+      <ReceiveNewItemModal
+        open={newItemOpen}
+        categories={categories}
+        onClose={() => setNewItemOpen(false)}
+        onCreated={({ catalogItem, quantity, unitCost, productCreated }) => {
+          setCart((prev) => {
+            const withItem = addToReceiveCart(prev, catalogItem, quantity);
+            return updateReceiveLineUnitCost(withItem, catalogItem.id, unitCost);
+          });
+          setScanHint(
+            productCreated
+              ? `${catalogItem.name} created (stock + POS) — review cart and post`
+              : `${catalogItem.name} added to catalog — review cart and post`
+          );
+          router.refresh();
         }}
       />
     </div>

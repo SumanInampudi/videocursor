@@ -1,3 +1,4 @@
+import { getPrepOutputIngredientsForBom } from "@/app/actions/prep";
 import {
   createProduct,
   getActiveIngredientsForProducts,
@@ -11,13 +12,14 @@ import { ProductForm } from "@/components/products/ProductForm";
 export const dynamic = "force-dynamic";
 
 export default async function NewProductPage() {
-  const [ingredients, inventoryItems, categories, inclusionCandidates, suggestedPosCode] =
+  const [ingredients, inventoryItems, categories, inclusionCandidates, suggestedPosCode, prepOutputs] =
     await Promise.all([
       getActiveIngredientsForProducts(),
       getInventoryItemsForRetailMenu(),
       getProductCategories(),
       getPreparedProductsForInclusions(),
       getSuggestedPosCode(),
+      getPrepOutputIngredientsForBom(),
     ]);
 
   return (
@@ -36,6 +38,7 @@ export default async function NewProductPage() {
         categories={categories}
         inclusionCandidates={inclusionCandidates}
         suggestedPosCode={suggestedPosCode}
+        prepOutputIngredients={prepOutputs as never[]}
         submitLabel="Create product"
       />
     </div>

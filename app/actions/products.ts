@@ -125,7 +125,7 @@ export async function getProducts(search?: string) {
   const { requireBusinessContext } = await import("@/lib/business-context");
   const { businessId } = await requireBusinessContext();
   const products = await db.product.findMany({
-    where: { businessId },
+    where: { businessId, productType: { not: ProductType.PREP } },
     include: productStockInclude,
     orderBy: { updatedAt: "desc" },
   });
@@ -489,7 +489,7 @@ export async function getYieldResults() {
   const { businessId } = await requireBusinessContext();
   const [products, committed] = await Promise.all([
     db.product.findMany({
-      where: { businessId },
+      where: { businessId, productType: { not: ProductType.PREP } },
       include: productStockInclude,
     }),
     getCommittedProductQuantities(businessId),

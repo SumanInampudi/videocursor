@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui/DataTable";
 
 type CustomerRow = {
   id: string;
@@ -14,26 +15,26 @@ export function CustomerTable({ customers }: { customers: CustomerRow[] }) {
   }
 
   return (
-    <div className="table-panel">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
+    <DataTable>
+      <table>
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Name</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Phone</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Email</th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th className="text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody>
           {customers.map((c) => (
-            <tr key={c.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 font-medium">{c.name}</td>
-              <td className="px-4 py-3 text-gray-600">{c.phone || "—"}</td>
-              <td className="px-4 py-3 text-gray-600">{c.email || "—"}</td>
-              <td className="px-4 py-3 text-right">
+            <tr key={c.id}>
+              <td className="font-medium">{c.name}</td>
+              <td className="text-muted">{c.phone || "—"}</td>
+              <td className="text-muted">{c.email || "—"}</td>
+              <td className="text-right">
                 <Link href={`/customers/${c.id}`}>
-                  <Button variant="ghost" className="text-xs">
-                    Insights →
+                  <Button variant="ghost" className="px-2 py-1 text-xs">
+                    Insights
                   </Button>
                 </Link>
               </td>
@@ -41,6 +42,6 @@ export function CustomerTable({ customers }: { customers: CustomerRow[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </DataTable>
   );
 }

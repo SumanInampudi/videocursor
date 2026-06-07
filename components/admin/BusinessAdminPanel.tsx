@@ -3,6 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { createBusiness } from "@/app/actions/business";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui/DataTable";
 import { Input } from "@/components/ui/Input";
 
 type BusinessRow = {
@@ -46,38 +47,36 @@ export function BusinessAdminPanel({
         </Button>
       </form>
 
-      <div className="rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                Name
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                Slug
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {businesses.map((b) => (
-              <tr
-                key={b.id}
-                className={b.id === currentBusinessId ? "bg-yellow-50" : undefined}
-              >
-                <td className="px-4 py-3 font-medium">
-                  {b.name}
-                  {b.id === currentBusinessId && (
-                    <span className="ml-2 text-xs text-gray-500">(current session)</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-gray-600">{b.slug}</td>
+      <div>
+        <DataTable>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Slug</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {businesses.map((b) => (
+                <tr
+                  key={b.id}
+                  className={b.id === currentBusinessId ? "bg-brand-50/60" : undefined}
+                >
+                  <td className="font-medium">
+                    {b.name}
+                    {b.id === currentBusinessId && (
+                      <span className="ml-2 text-xs text-gray-400">(current session)</span>
+                    )}
+                  </td>
+                  <td className="text-muted">{b.slug}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </DataTable>
         <button
           type="button"
-          className="w-full border-t py-2 text-xs text-gray-500 hover:bg-gray-50"
+          className="mt-2 w-full rounded-lg border border-gray-200 py-2 text-xs text-gray-500 hover:bg-gray-50"
           onClick={() => startRefresh(() => window.location.reload())}
         >
           Refresh

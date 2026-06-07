@@ -77,33 +77,74 @@ body {
     @apply mt-2 text-2xl font-bold tabular-nums tracking-tight text-charcoal;
   }
 
-  /* —— Tables —— */
+  /* —— Data tables (shared list/catalog look) —— */
   .table-panel {
-    @apply overflow-x-auto rounded-xl border border-brand-200/50 bg-white shadow-card;
+    @apply flex min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm;
+  }
+
+  .table-panel-caption {
+    @apply border-b border-gray-100 px-3 py-2 text-xs text-gray-500;
+  }
+
+  .table-panel-scroll {
+    @apply max-h-[min(70vh,720px)] overflow-auto;
+  }
+
+  .table-panel-scroll thead {
+    @apply sticky top-0 z-10;
   }
 
   .table-panel table {
-    @apply min-w-full divide-y divide-brand-100;
+    @apply min-w-full text-sm;
   }
 
   .table-panel thead {
-    @apply bg-gradient-to-r from-brand-50 via-brand-50/80 to-white;
+    @apply bg-gray-50;
   }
 
   .table-panel th {
-    @apply px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-brand-800/80;
+    @apply px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500;
+  }
+
+  .table-panel th.text-right,
+  .table-panel td.text-right {
+    text-align: right;
   }
 
   .table-panel tbody {
-    @apply divide-y divide-brand-50/80 bg-white;
+    @apply bg-white;
   }
 
   .table-panel tbody tr {
-    @apply transition-colors duration-150 hover:bg-brand-50/50;
+    @apply border-b border-gray-100 transition-colors hover:bg-gray-50;
+  }
+
+  .table-panel tbody tr.row-highlight {
+    @apply bg-red-50/50 hover:bg-red-50;
+  }
+
+  .table-panel tbody tr.table-panel-group-header td {
+    @apply sticky z-[5] bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600;
+  }
+
+  .table-panel-scroll tbody tr.table-panel-group-header td {
+    top: 41px;
   }
 
   .table-panel td {
-    @apply px-4 py-3 text-sm text-charcoal;
+    @apply px-3 py-2 text-sm text-charcoal;
+  }
+
+  .table-panel td.text-muted {
+    @apply text-gray-600;
+  }
+
+  .table-panel td.text-subtle {
+    @apply text-gray-500;
+  }
+
+  .table-panel td.font-mono {
+    @apply font-mono text-xs text-gray-500;
   }
 
   /* —— Forms —— */

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { UNITS } from "./units";
 
-export const PRODUCT_TYPES = ["PREPARED", "RETAIL"] as const;
+export const PRODUCT_TYPES = ["PREPARED", "RETAIL", "PREP"] as const;
 
 export const inventoryItemSchema = z.object({
   ingredientId: z.string().optional(),
@@ -99,6 +99,17 @@ export const productSchema = z
           code: "custom",
           message: "Quantity per sale must be greater than 0",
           path: ["retailQuantityPerSale"],
+        });
+      }
+      return;
+    }
+
+    if (data.productType === "PREP") {
+      if (data.ingredients.length < 1) {
+        ctx.addIssue({
+          code: "custom",
+          message: "At least one raw material is required for the prep recipe",
+          path: ["ingredients"],
         });
       }
       return;
@@ -375,6 +386,35 @@ export const reservationSchema = z.object({
   durationMinutes: z.coerce.number().int().min(15).max(480).default(90),
   notes: z.string().optional(),
 });
+
+export const receiveNewItemSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    category: z.string().min(1, "Category is required"),
+    unit: z.enum(UNITS),
+    quantity: z.coerce.number().positive("Quantity must be greater than 0"),
+    unitCost: z.coerce.number().positive("Unit cost must be greater than 0"),
+    salePrice: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : val),
+      z.union([z.null(), z.coerce.number().min(0)])
+    ),
+    quantityPerSale: z.coerce.number().positive().optional().default(1),
+    addToMenu: z
+      .union([z.boolean(), z.literal("true"), z.literal("false"), z.literal("on")])
+      .transform((v) => v === true || v === "true" || v === "on")
+      .default(true),
+  })
+  .superRefine((data, ctx) => {
+    if (data.addToMenu && (data.salePrice == null || data.salePrice <= 0)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Enter a sale price to add this item to the POS menu",
+        path: ["salePrice"],
+      });
+    }
+  });
+
+export type ReceiveNewItemInput = z.infer<typeof receiveNewItemSchema>;
 
 export const stockReceiveLineSchema = z.object({
   ingredientId: z.string().min(1, "Item is required"),

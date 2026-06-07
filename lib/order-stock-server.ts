@@ -2,8 +2,12 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { ACTIVE_ORDER_STATUSES } from "@/lib/order-pipeline";
-import { checkStockForProducts, type OrderLineStockInput } from "@/lib/order-stock-check";
+import type { OrderLineStockInput } from "@/lib/order-stock-check";
 import { demandLinesWithCommitments } from "@/lib/order-stock-commitments";
+import {
+  aggregateInventoryDemand,
+  checkSharedInventoryStock,
+} from "@/lib/inventory-demand";
 import {
   ingredientWithFifoStockInclude,
   productIngredientsWithFifoStock,
@@ -109,5 +113,26 @@ export async function validateOrderLinesStock(
 
   const productIds = [...new Set(demandLines.map((l) => l.productId))];
   const products = await loadProductsForStockCheck(businessId, productIds);
-  return checkStockForProducts(products, demandLines);
+
+  const demand = aggregateInventoryDemand(products, demandLines);
+  const inventoryIds = [...demand.keys()];
+  if (inventoryIds.length === 0) {
+    return checkSharedInventoryStock(products, demandLines, []);
+  }
+
+  const onHandRows = await db.inventoryItem.findMany({
+    where: { businessId, id: { in: inventoryIds } },
+    select: { id: true, name: true, quantity: true, unit: true },
+  });
+
+  return checkSharedInventoryStock(
+    products,
+    demandLines,
+    onHandRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      quantity: Number(row.quantity),
+      unit: row.unit,
+    }))
+  );
 }

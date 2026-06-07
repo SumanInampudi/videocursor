@@ -88,6 +88,8 @@ type ProductFormProps = {
   categories?: string[];
   inclusionCandidates?: InclusionCandidate[];
   suggestedPosCode?: number | null;
+  /** House-made prep outputs — add to dish BOM like raw materials. */
+  prepOutputIngredients?: RawMaterialOption[];
 };
 
 export function ProductForm({
@@ -100,12 +102,19 @@ export function ProductForm({
   categories = [],
   inclusionCandidates = [],
   suggestedPosCode = null,
+  prepOutputIngredients = [],
 }: ProductFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isAddingIngredient, startAddingIngredient] = useTransition();
   const [errors, setErrors] = useState<Record<string, string[]>>({});
-  const [rawMaterialsCatalog, setRawMaterialsCatalog] = useState(initialIngredients);
+  const [rawMaterialsCatalog, setRawMaterialsCatalog] = useState(() => {
+    const merged = [...initialIngredients];
+    for (const prep of prepOutputIngredients) {
+      if (!merged.some((i) => i.id === prep.id)) merged.push(prep);
+    }
+    return merged.sort((a, b) => a.name.localeCompare(b.name));
+  });
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [bulkText, setBulkText] = useState("");
   const [bulkIssues, setBulkIssues] = useState<ParsedBulkLine[]>([]);
@@ -604,6 +613,36 @@ export function ProductForm({
                 Create
               </Button>
             </div>
+
+            {prepOutputIngredients.length > 0 && (
+              <div className="mt-3 rounded-md border border-teal-200 bg-teal-50/60 p-2">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-teal-800">
+                  Prep outputs (house-made)
+                </p>
+                <div className="space-y-1">
+                  {prepOutputIngredients.map((ingredient) => {
+                    const selected = selectedRawMaterialIds.has(ingredient.id);
+                    return (
+                      <button
+                        key={ingredient.id}
+                        type="button"
+                        onClick={() => addRawMaterialToRecipe(ingredient)}
+                        className={`w-full rounded-md border px-2 py-1.5 text-left text-sm ${
+                          selected
+                            ? "border-teal-400 bg-white"
+                            : "border-teal-100 bg-white/80 hover:border-teal-300"
+                        }`}
+                      >
+                        {ingredient.name}
+                        <span className="ml-2 text-xs text-teal-700">
+                          {selected ? "Added" : "Add"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="mt-3 max-h-72 space-y-3 overflow-y-auto pr-1">
               {Object.entries(groupedIngredients).map(([category, items]) => (

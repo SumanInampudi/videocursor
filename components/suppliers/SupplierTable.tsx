@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui/DataTable";
 
 type SupplierRow = {
   id: string;
@@ -18,31 +18,25 @@ export function SupplierTable({ suppliers }: { suppliers: SupplierRow[] }) {
   }
 
   return (
-    <div className="table-panel">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
+    <DataTable>
+      <table>
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Name</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Contact</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+            <th>Name</th>
+            <th>Contact</th>
+            <th>Status</th>
+            <th className="text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody>
           {suppliers.map((s) => (
-            <tr key={s.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 font-medium">{s.name}</td>
-              <td className="px-4 py-3 text-gray-600">
-                {s.contactPhone || s.email || "—"}
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant={s.isActive ? "success" : "default"}>
-                  {s.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </td>
-              <td className="px-4 py-3 text-right">
+            <tr key={s.id}>
+              <td className="font-medium">{s.name}</td>
+              <td className="text-muted">{s.contactPhone || s.email || "—"}</td>
+              <td className="text-subtle">{s.isActive ? "Active" : "Inactive"}</td>
+              <td className="text-right">
                 <Link href={`/suppliers/${s.id}/edit`}>
-                  <Button variant="ghost" className="text-xs">
+                  <Button variant="ghost" className="px-2 py-1 text-xs">
                     Edit
                   </Button>
                 </Link>
@@ -51,6 +45,6 @@ export function SupplierTable({ suppliers }: { suppliers: SupplierRow[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </DataTable>
   );
 }

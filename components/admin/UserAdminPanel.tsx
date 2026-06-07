@@ -3,6 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { createUser } from "@/app/actions/auth";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui/DataTable";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { UserRole } from "@prisma/client";
@@ -55,34 +56,30 @@ export function UserAdminPanel({ users }: { users: UserRow[] }) {
         </Button>
       </form>
 
-      <div className="table-panel">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                Name
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                Role
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                Email
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td className="px-4 py-3 font-medium">{u.name}</td>
-                <td className="px-4 py-3">{roleName(u.role)}</td>
-                <td className="px-4 py-3 text-gray-600">{u.email}</td>
+      <div>
+        <DataTable>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Email</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id}>
+                  <td className="font-medium">{u.name}</td>
+                  <td className="text-muted">{roleName(u.role)}</td>
+                  <td className="text-muted">{u.email}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </DataTable>
         <button
           type="button"
-          className="w-full border-t py-2 text-xs text-gray-500 hover:bg-gray-50"
+          className="mt-2 w-full rounded-lg border border-gray-200 py-2 text-xs text-gray-500 hover:bg-gray-50"
           onClick={() => startRefresh(() => window.location.reload())}
         >
           Refresh list
