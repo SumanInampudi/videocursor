@@ -6,6 +6,7 @@ export function roleLabel(role: NavRole): string {
     manager: "Manager",
     pos: "POS",
     kitchen: "Kitchen",
+    counter: "Counter",
     viewer: "Viewer",
   };
   return labels[role];

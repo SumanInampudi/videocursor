@@ -522,8 +522,21 @@ export function ProductForm({
             <Badge variant="primary">Resale</Badge>
           </div>
           <p className="form-hint">
-            Receive stock under Inventory → Stock receive, then sell it here on POS.
+            Retail items sell from inventory stock — you need an inventory SKU first (Raw Materials →
+            create stock → Stock receive), then link it here.
           </p>
+          {builderError && (
+            <p className="text-sm text-servora-red" role="alert">
+              {builderError}
+            </p>
+          )}
+          {inventoryItems.length === 0 && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              No inventory items yet. Add a raw material (e.g. Coke Can), click{" "}
+              <strong>Create stock</strong> on the Raw Materials page, receive quantity under{" "}
+              <strong>Stock receive</strong>, then return here.
+            </p>
+          )}
           <Select
             label="Inventory item *"
             value={retailInventoryItemId}

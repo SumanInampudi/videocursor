@@ -14,7 +14,7 @@ export type AuthContext = {
   business: BusinessContext | null;
 };
 
-/** Dev/staging: set APP_ROLE=owner|manager|pos|kitchen|viewer when no session. */
+/** Dev/staging: set APP_ROLE=owner|manager|pos|kitchen|counter|viewer when no session. */
 function getEnvDevRoles(): NavRole[] | null {
   const raw = process.env.APP_ROLE?.trim().toLowerCase();
   if (!raw) return null;
@@ -73,7 +73,9 @@ export async function getAuthContext(): Promise<AuthContext> {
             ? "POS"
             : envRoles[0] === "kitchen"
               ? "KITCHEN"
-              : "VIEWER"
+              : envRoles[0] === "counter"
+                ? "COUNTER"
+                : "VIEWER"
     );
     return { user: null, roles: envRoles, business };
   }

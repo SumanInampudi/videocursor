@@ -11,6 +11,8 @@ export function userRoleToNav(role: UserRole): NavRole {
       return "pos";
     case "KITCHEN":
       return "kitchen";
+    case "COUNTER":
+      return "counter";
     case "VIEWER":
       return "viewer";
     default:
@@ -28,6 +30,8 @@ export function navToUserRole(role: NavRole): UserRole {
       return "POS";
     case "kitchen":
       return "KITCHEN";
+    case "counter":
+      return "COUNTER";
     default:
       return "VIEWER";
   }
@@ -39,6 +43,8 @@ export function roleHomePath(role: UserRole): string {
       return "/orders/pos";
     case "KITCHEN":
       return "/orders/kitchen";
+    case "COUNTER":
+      return "/orders/counter";
     case "VIEWER":
       return "/reports";
     default:
@@ -49,6 +55,7 @@ export function roleHomePath(role: UserRole): string {
 /** Path prefixes allowed per nav role (null = dev mode, all allowed). */
 const POS_PREFIXES = ["/orders/pos", "/login", "/api/data"];
 const KITCHEN_PREFIXES = ["/orders/kitchen", "/login", "/api/data"];
+const COUNTER_PREFIXES = ["/orders/counter", "/login", "/api/data"];
 
 export function canAccessPath(pathname: string, roles: NavRole[] | null): boolean {
   if (roles === null) return true;
@@ -73,6 +80,12 @@ export function canAccessPath(pathname: string, roles: NavRole[] | null): boolea
 
   if (role === "kitchen") {
     return KITCHEN_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`)
+    );
+  }
+
+  if (role === "counter") {
+    return COUNTER_PREFIXES.some(
       (p) => pathname === p || pathname.startsWith(`${p}/`)
     );
   }

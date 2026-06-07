@@ -73,6 +73,34 @@ export function nextStatusForChannel(
   return NEXT_STATUS[status];
 }
 
+/** Counter display advances retail-only tickets through the same status pipeline. */
+export function getCounterNextAction(
+  status: OrderStatus,
+  channel: OrderChannel
+): { label: string; status: OrderStatus } | undefined {
+  const next = nextStatusForChannel(status, channel);
+  if (!next) return undefined;
+
+  if (channel === "DINE_IN") {
+    if (status === ORDER_STATUS.NEW) return { label: "Start picking", status: next };
+    if (status === ORDER_STATUS.PROCESSING || status === ORDER_STATUS.PACKING) {
+      return { label: "Ready for pickup", status: ORDER_STATUS.READY };
+    }
+    if (status === ORDER_STATUS.READY) {
+      return { label: "Picked up", status: ORDER_STATUS.DELIVERED };
+    }
+    return undefined;
+  }
+
+  const labels: Partial<Record<OrderStatus, string>> = {
+    NEW: "Start picking",
+    PROCESSING: "Bag",
+    PACKING: "Ready",
+    READY: "Picked up",
+  };
+  return { label: labels[status] ?? next, status: next };
+}
+
 export function getKitchenNextAction(
   status: OrderStatus,
   channel: OrderChannel

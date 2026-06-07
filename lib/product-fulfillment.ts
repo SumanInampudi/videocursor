@@ -112,6 +112,39 @@ export function filterKitchenLines<T extends KitchenLineLike>(lines: T[]): T[] {
   return lines.filter((l) => isKitchenLine(l.product));
 }
 
+export function isCounterLine(product: {
+  productType?: ProductType;
+  requiresKitchen?: boolean;
+} | null | undefined): boolean {
+  if (!product) return false;
+  return !isKitchenLine(product);
+}
+
+export function filterRetailLines<T extends KitchenLineLike>(lines: T[]): T[] {
+  return lines.filter((l) => isCounterLine(l.product));
+}
+
+export function orderHasKitchenLines(lines: KitchenLineLike[]): boolean {
+  return filterKitchenLines(lines).length > 0;
+}
+
+export function orderHasRetailLines(lines: KitchenLineLike[]): boolean {
+  return filterRetailLines(lines).length > 0;
+}
+
+export function counterLineProgressForRetail(lines: KitchenLineLike[]): {
+  done: number;
+  total: number;
+} {
+  const retail = filterRetailLines(lines);
+  const total = retail.reduce((s, l) => s + l.quantity, 0);
+  const done = retail.reduce(
+    (s, l) => s + Math.min(l.quantity, Math.max(0, l.kitchenDoneQty ?? 0)),
+    0
+  );
+  return { done, total };
+}
+
 export function kitchenLineProgressForKitchen(lines: KitchenLineLike[]): {
   done: number;
   total: number;

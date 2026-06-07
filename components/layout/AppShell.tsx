@@ -13,7 +13,9 @@ type AppShellProps = {
 };
 
 export function AppShell({ children, userRoles = null, user }: AppShellProps) {
-  const hideNav = userRoles?.length === 1 && (userRoles[0] === "pos" || userRoles[0] === "kitchen");
+  const hideNav =
+    userRoles?.length === 1 &&
+    (userRoles[0] === "pos" || userRoles[0] === "kitchen" || userRoles[0] === "counter");
 
   return (
     <ToastProvider>

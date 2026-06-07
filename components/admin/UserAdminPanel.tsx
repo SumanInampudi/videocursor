@@ -21,6 +21,7 @@ const ROLE_OPTIONS = [
   { value: UserRole.MANAGER, label: "Manager" },
   { value: UserRole.POS, label: "POS register" },
   { value: UserRole.KITCHEN, label: "Kitchen display" },
+  { value: UserRole.COUNTER, label: "Counter display" },
   { value: UserRole.VIEWER, label: "Viewer (reports)" },
 ];
 

@@ -71,6 +71,7 @@ async function main() {
     { email: "admin@restaurant.com", name: "Admin", role: UserRole.OWNER },
     { email: "pos@restaurant.com", name: "POS Staff", role: UserRole.POS },
     { email: "kitchen@restaurant.com", name: "Kitchen Lead", role: UserRole.KITCHEN },
+    { email: "counter@restaurant.com", name: "Counter Staff", role: UserRole.COUNTER },
   ] as const;
 
   for (const u of users) {

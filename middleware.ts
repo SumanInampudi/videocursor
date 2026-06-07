@@ -19,6 +19,7 @@ async function resolveRoles(request: NextRequest): Promise<NavRole[] | null> {
     envRole === "manager" ||
     envRole === "pos" ||
     envRole === "kitchen" ||
+    envRole === "counter" ||
     envRole === "viewer"
   ) {
     return [envRole as NavRole];
@@ -57,9 +58,11 @@ export async function middleware(request: NextRequest) {
         ? "/orders/pos"
         : roles[0] === "kitchen"
           ? "/orders/kitchen"
-          : roles[0] === "viewer"
-            ? "/reports"
-            : "/";
+          : roles[0] === "counter"
+            ? "/orders/counter"
+            : roles[0] === "viewer"
+              ? "/reports"
+              : "/";
     return NextResponse.redirect(new URL(home, request.url));
   }
 
@@ -69,7 +72,9 @@ export async function middleware(request: NextRequest) {
         ? "/orders/pos"
         : roles[0] === "kitchen"
           ? "/orders/kitchen"
-          : "/";
+          : roles[0] === "counter"
+            ? "/orders/counter"
+            : "/";
     return NextResponse.redirect(new URL(home, request.url));
   }
 

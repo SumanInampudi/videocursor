@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { getCounterPackWarning } from "@/app/actions/counter";
 import {
-  acknowledgeKitchenOrder,
-  getKitchenPackWarning,
-} from "@/app/actions/kitchen";
-import { getOrderFulfillmentPreview, updateOrderStatus } from "@/app/actions/orders";
+  acknowledgeCounterOrder,
+  getCounterPackWarning,
+  getKitchenIncompleteForOrder,
+} from "@/app/actions/counter";
+import { updateOrderStatus } from "@/app/actions/orders";
 import { CancelOrderButton } from "@/components/orders/CancelOrderButton";
-import { KitchenLineRow } from "@/components/kitchen/KitchenLineRow";
+import { CounterLineRow } from "@/components/counter/CounterLineRow";
 import { canCancelOrder } from "@/lib/order-cancel";
 import { confirmAction, useToast } from "@/components/ui/Toast";
 import { OrderTimerBadge } from "@/components/kitchen/OrderTimerBadge";
@@ -17,15 +17,15 @@ import { KitchenPrepHint } from "@/components/kitchen/KitchenPrepHint";
 import { formatTimeIST } from "@/lib/format";
 import { getStageAnchor, getTotalAnchor, type KdsThresholds } from "@/lib/kds-timers";
 import {
-  countNewKitchenLines,
-  kitchenLineProgress,
-  orderNeedsKitchenAttention,
-} from "@/lib/kitchen-kds";
+  countNewCounterLines,
+  counterLineProgress,
+  orderNeedsCounterAttention,
+} from "@/lib/counter-kds";
 import { orderChannelLabel, orderTicketLabel } from "@/lib/order-channel";
-import { statusDeductionOnTransition } from "@/lib/order-pipeline";
+import { getCounterNextAction } from "@/lib/order-pipeline";
 import { OrderChannel, OrderStatus } from "@prisma/client";
 
-type KitchenOrderCardProps = {
+type CounterOrderCardProps = {
   order: {
     id: string;
     orderNumber: string;
@@ -51,40 +51,41 @@ type KitchenOrderCardProps = {
       product: { name: string } | null;
     }[];
   };
-  nextAction?: { label: string; status: OrderStatus };
+  retailOnly: boolean;
   accent: "new" | "processing" | "packing" | "ready";
   thresholds: KdsThresholds;
 };
 
 const ACCENT_LEFT = {
   new: "border-l-amber-400",
-  processing: "border-l-blue-400",
+  processing: "border-l-teal-400",
   packing: "border-l-violet-500",
   ready: "border-l-green-500",
 };
 
-export function KitchenOrderCard({
+export function CounterOrderCard({
   order,
-  nextAction,
+  retailOnly,
   accent,
   thresholds,
-}: KitchenOrderCardProps) {
+}: CounterOrderCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [ackPending, startAck] = useTransition();
   const { success, error: toastError } = useToast();
 
+  const nextAction = retailOnly ? getCounterNextAction(order.status, order.channel) : undefined;
   const title = orderTicketLabel(order);
   const stageAnchor = getStageAnchor(order);
   const totalAnchor = getTotalAnchor(order);
-  const needsAttention = orderNeedsKitchenAttention(order);
-  const newCount = countNewKitchenLines(order);
-  const { done, total } = kitchenLineProgress(order.lineItems);
+  const needsAttention = orderNeedsCounterAttention(order);
+  const newCount = countNewCounterLines(order);
+  const { done, total } = counterLineProgress(order.lineItems);
   const allLinesDone = total > 0 && done === total;
 
   function handleAcknowledge() {
     startAck(async () => {
-      const result = await acknowledgeKitchenOrder(order.id);
+      const result = await acknowledgeCounterOrder(order.id);
       if (result.error) toastError(result.error);
       else router.refresh();
     });
@@ -93,46 +94,21 @@ export function KitchenOrderCard({
   function handleAdvance() {
     if (!nextAction) return;
 
-    const needsStockCheck = statusDeductionOnTransition(
-      order.status,
-      nextAction.status,
-      order.channel
-    );
-
     startTransition(async () => {
-      const advancingToPackOrReady =
-        nextAction.status === OrderStatus.PACKING || nextAction.status === OrderStatus.READY;
-
-      if (advancingToPackOrReady) {
-        const packHint = await getKitchenPackWarning(order.id);
-        if (packHint.incomplete) {
-          const proceedItems = confirmAction(
-            `${packHint.done}/${packHint.total} kitchen items marked done.\n\nContinue anyway?`
-          );
-          if (!proceedItems) return;
-        }
-
-        const counterHint = await getCounterPackWarning(order.id);
-        if (counterHint.incomplete) {
-          const proceedCounter = confirmAction(
-            `Counter still has ${counterHint.total - counterHint.done} retail item(s) not picked.\n\nContinue anyway?`
-          );
-          if (!proceedCounter) return;
-        }
+      const pickHint = await getCounterPackWarning(order.id);
+      if (pickHint.incomplete) {
+        const proceedItems = confirmAction(
+          `${pickHint.done}/${pickHint.total} retail items marked picked on the ticket.\n\nAdvance anyway?`
+        );
+        if (!proceedItems) return;
       }
 
-      if (needsStockCheck) {
-        const preview = await getOrderFulfillmentPreview(order.id);
-        if (preview.error) {
-          toastError(preview.error);
-          return;
-        }
-        if (!preview.ok && preview.issues?.length) {
-          const proceed = confirmAction(
-            `Stock issues:\n${preview.issues.join("\n")}\n\nContinue anyway?`
-          );
-          if (!proceed) return;
-        }
+      const kitchenHint = await getKitchenIncompleteForOrder(order.id);
+      if (kitchenHint.incomplete) {
+        const proceedKitchen = confirmAction(
+          `Kitchen still has ${kitchenHint.total - kitchenHint.done} item(s) in progress.\n\nAdvance anyway?`
+        );
+        if (!proceedKitchen) return;
       }
 
       const result = await updateOrderStatus(order.id, nextAction.status);
@@ -149,20 +125,20 @@ export function KitchenOrderCard({
     <article
       className={`flex flex-col rounded-md border bg-white p-2 shadow-sm transition-shadow ${ACCENT_LEFT[accent]} ${
         needsAttention
-          ? "kitchen-card-attention border-amber-300 border-l-[3px] ring-2 ring-amber-200/60"
+          ? "border-teal-300 border-l-[3px] ring-2 ring-teal-200/60"
           : "border-gray-200 border-l-[3px]"
       }`}
     >
       {needsAttention && (
-        <div className="mb-1 flex items-center justify-between gap-1 rounded bg-amber-100 px-1.5 py-0.5">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-amber-900">
+        <div className="mb-1 flex items-center justify-between gap-1 rounded bg-teal-100 px-1.5 py-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-teal-900">
             {newCount > 0 ? `${newCount} new item${newCount === 1 ? "" : "s"}` : "Updated order"}
           </span>
           <button
             type="button"
             disabled={ackPending}
             onClick={handleAcknowledge}
-            className="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            className="rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
           >
             {ackPending ? "…" : "Got it"}
           </button>
@@ -175,6 +151,11 @@ export function KitchenOrderCard({
           <p className="text-[10px] text-gray-500">
             {orderChannelLabel(order.channel)} · {order.orderNumber} ·{" "}
             {formatTimeIST(order.createdAt)}
+            {!retailOnly && (
+              <span className="ml-1 rounded bg-gray-100 px-1 py-px text-[9px] font-semibold text-gray-600">
+                + kitchen
+              </span>
+            )}
           </p>
           <KitchenPrepHint
             stageSince={stageAnchor}
@@ -191,7 +172,7 @@ export function KitchenOrderCard({
             order.status === "NEW"
               ? "Wait"
               : order.status === "PROCESSING"
-                ? "Cook"
+                ? "Pick"
                 : "Ready"
           }
         />
@@ -202,25 +183,20 @@ export function KitchenOrderCard({
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-gray-100">
             <div
               className={`h-full rounded-full transition-all ${
-                allLinesDone ? "bg-green-500" : "bg-blue-500"
+                allLinesDone ? "bg-teal-500" : "bg-teal-400"
               }`}
               style={{ width: `${total ? (done / total) * 100 : 0}%` }}
             />
           </div>
           <span className="shrink-0 text-[10px] font-semibold tabular-nums text-gray-600">
-            {done}/{total} items
+            {done}/{total} picked
           </span>
         </div>
       )}
 
       <ul className="mb-1.5 flex-1 space-y-0.5 border-t border-gray-100 pt-1">
         {order.lineItems.map((line) => (
-          <KitchenLineRow
-            key={line.id}
-            line={line}
-            order={order}
-            disabled={isPending}
-          />
+          <CounterLineRow key={line.id} line={line} order={order} disabled={isPending} />
         ))}
       </ul>
 
@@ -230,12 +206,13 @@ export function KitchenOrderCard({
             type="button"
             disabled={isPending}
             onClick={handleAdvance}
-            className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] font-semibold text-servora-charcoal transition-colors hover:border-servora-yellow hover:bg-servora-yellow hover:text-white disabled:opacity-50"
+            className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] font-semibold text-servora-charcoal transition-colors hover:border-teal-400 hover:bg-teal-50 disabled:opacity-50"
           >
             {isPending ? "…" : nextAction.label}
           </button>
         )}
-        {canCancelOrder(order.status) &&
+        {retailOnly &&
+          canCancelOrder(order.status) &&
           (order.status === "NEW" || order.status === "PROCESSING") && (
             <CancelOrderButton
               orderId={order.id}

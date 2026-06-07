@@ -5,7 +5,7 @@ import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
 import { kitchenLineProgressForKitchen } from "@/lib/product-fulfillment";
 
-const KITCHEN_PATHS = ["/orders/kitchen", "/orders"];
+const KITCHEN_PATHS = ["/orders/kitchen", "/orders/counter", "/orders"];
 
 function revalidateKitchen() {
   for (const p of KITCHEN_PATHS) revalidatePath(p);

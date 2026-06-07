@@ -8,7 +8,12 @@ import { db } from "@/lib/db";
 import { getOrderedPosCategories } from "@/app/actions/pos-settings";
 import { serializeForClient } from "@/lib/serialize";
 import { applyFifoConsumptions, ensureCostLayers } from "@/lib/inventory-fifo";
-import { planProductStockDeduction } from "@/lib/product-fulfillment";
+import {
+  filterKitchenLines,
+  isKitchenLine,
+  planProductStockDeduction,
+} from "@/lib/product-fulfillment";
+import { fulfillKitchenOrderLines, fulfillRetailOrderLines } from "@/lib/order-line-fulfill";
 import { productIngredientsWithFifoStock } from "@/lib/inventory-stock-query";
 import { validateOrderLinesStock } from "@/lib/order-stock-server";
 import { estimateOrderPrepMinutes } from "@/lib/order-prep-time";
@@ -45,6 +50,7 @@ const ORDER_PATHS = [
   "/orders/pos",
   "/orders/pos/settings",
   "/orders/kitchen",
+  "/orders/counter",
   "/",
   "/reports",
   "/inventory",
@@ -562,7 +568,8 @@ export async function getOrderFulfillmentPreview(orderId: string) {
   if (!order) return { error: "Order not found" };
 
   const issues: string[] = [];
-  for (const line of order.lineItems) {
+  const kitchenLines = filterKitchenLines(order.lineItems);
+  for (const line of kitchenLines) {
     if (line.processedAt) continue;
     if (!line.product) {
       issues.push(`"${line.productName}": product removed from catalog`);
@@ -602,9 +609,12 @@ export async function updateOrderStatus(id: string, nextStatus: OrderStatus) {
   }
 
   if (statusDeductionOnTransition(order.status, nextStatus, order.channel)) {
-    const fulfillResult = await fulfillOrderInventory(order);
+    const kitchenLines = order.lineItems.filter(
+      (line) => !line.processedAt && isKitchenLine(line.product)
+    );
+    const fulfillResult = await fulfillKitchenOrderLines(kitchenLines);
     if ("error" in fulfillResult) {
-      return fulfillResult;
+      return { error: fulfillResult.error };
     }
   }
 
@@ -793,7 +803,7 @@ async function tryAutoCompletePaidRetailOnlyOrder(orderId: string, businessId: s
   const allRetail = products.every((p) => p!.productType === "RETAIL");
   if (!allRetail) return;
 
-  const fulfillResult = await fulfillOrderInventory(order);
+  const fulfillResult = await fulfillRetailOrderLines(order.lineItems);
   if ("error" in fulfillResult) return;
 
   await db.order.update({
@@ -806,52 +816,10 @@ async function tryAutoCompletePaidRetailOnlyOrder(orderId: string, businessId: s
 }
 
 async function fulfillOrderInventory(order: OrderForFulfillment) {
-
-  for (const line of order.lineItems) {
-    if (line.processedAt) continue;
-
-    if (!line.product) {
-      return {
-        error: `Cannot fulfill: product "${line.productName}" was removed from the catalog`,
-      };
-    }
-
-    const plan = planProductStockDeduction(line.product, line.quantity);
-    if (!plan.ok) {
-      return { error: plan.error };
-    }
-
-    await db.$transaction(async (tx) => {
-      for (const consumption of plan.consumptions) {
-        await ensureCostLayers(tx, consumption.inventoryItemId);
-      }
-      await applyFifoConsumptions(tx, plan.consumptions);
-      for (const consumption of plan.consumptions) {
-        await tx.orderLineConsumption.create({
-          data: {
-            orderLineItemId: line.id,
-            inventoryItemId: consumption.inventoryItemId,
-            quantityDeducted: consumption.quantityDeducted,
-            unit: consumption.unit,
-            costPerUnit: consumption.costPerUnit,
-            lineCost: consumption.lineCost,
-          },
-        });
-      }
-
-      const revenue = Number(line.unitSalePrice) * line.quantity;
-      await tx.orderLineItem.update({
-        where: { id: line.id },
-        data: {
-          ingredientCost: plan.totalCost,
-          revenue,
-          profit: revenue - plan.totalCost,
-          processedAt: new Date(),
-        },
-      });
-    });
-  }
-
+  const result = await fulfillKitchenOrderLines(
+    order.lineItems.filter((line) => isKitchenLine(line.product))
+  );
+  if ("error" in result) return { error: result.error };
   return { success: true };
 }
 

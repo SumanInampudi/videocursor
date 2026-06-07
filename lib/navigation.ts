@@ -3,7 +3,7 @@
  * auth is wired; pass `null` for userRoles during development to show all items.
  */
 
-export const NAV_ROLES = ["owner", "manager", "pos", "kitchen", "viewer"] as const;
+export const NAV_ROLES = ["owner", "manager", "pos", "kitchen", "counter", "viewer"] as const;
 
 export type NavRole = (typeof NAV_ROLES)[number];
 
@@ -33,11 +33,12 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     id: "operations",
     label: "Operations",
-    roles: ["owner", "manager", "pos", "kitchen"],
+    roles: ["owner", "manager", "pos", "kitchen", "counter"],
     items: [
       { href: "/orders", label: "Orders", roles: ["owner", "manager"] },
       { href: "/orders/pos", label: "POS register", roles: ["owner", "manager", "pos"] },
       { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] },
+      { href: "/orders/counter", label: "Counter display", roles: ["owner", "manager", "counter"] },
       { href: "/queue", label: "Customer queue display", roles: ["owner", "manager"] },
       { href: "/customers", label: "Customers", roles: ["owner", "manager"] },
       { href: "/discounts", label: "Discounts", roles: ["owner", "manager"] },
@@ -80,6 +81,7 @@ export const NAV_SECTIONS: NavSection[] = [
 export const DASHBOARD_QUICK_ACTIONS = [
   { href: "/orders/pos", label: "POS register", roles: ["owner", "manager", "pos"] as NavRole[] },
   { href: "/orders/kitchen", label: "Kitchen display", roles: ["owner", "manager", "kitchen"] as NavRole[] },
+  { href: "/orders/counter", label: "Counter display", roles: ["owner", "manager", "counter"] as NavRole[] },
   { href: "/orders/new", label: "Simple order form", roles: ["owner", "manager"] as NavRole[] },
   { href: "/inventory/receive", label: "Stock receive", roles: ["owner", "manager"] as NavRole[] },
   { href: "/expenses/new", label: "Add expense", roles: ["owner", "manager"] as NavRole[] },

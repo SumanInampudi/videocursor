@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { CounterShell } from "@/components/layout/CounterShell";
 import { KitchenShell } from "@/components/layout/KitchenShell";
 import { PosShell } from "@/components/layout/PosShell";
 import type { NavRole } from "@/lib/navigation";
@@ -26,6 +27,7 @@ export function ShellSwitcher({ children, userRoles, user }: ShellSwitcherProps)
     pathname?.startsWith("/orders/pos/") ||
     pathname === "/inventory/receive";
   const isKitchen = pathname === "/orders/kitchen";
+  const isCounter = pathname === "/orders/counter";
 
   if (isLogin) {
     return <>{children}</>;
@@ -42,6 +44,16 @@ export function ShellSwitcher({ children, userRoles, user }: ShellSwitcherProps)
       <KitchenShell user={user} showOrdersLink={showOrdersLink}>
         {children}
       </KitchenShell>
+    );
+  }
+
+  if (isCounter) {
+    const showOrdersLink =
+      !user || user.role === "OWNER" || user.role === "MANAGER";
+    return (
+      <CounterShell user={user} showOrdersLink={showOrdersLink}>
+        {children}
+      </CounterShell>
     );
   }
 
