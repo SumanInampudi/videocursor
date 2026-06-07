@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -12,9 +13,9 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         charcoal: {
-          DEFAULT: "#2B2B2B",
-          light: "#4A4A4A",
-          muted: "#6B7280",
+          DEFAULT: "var(--text-primary)",
+          light: "var(--text-secondary)",
+          muted: "var(--text-muted)",
         },
         brand: {
           50: "#FFFBEB",
@@ -30,29 +31,28 @@ const config: Config = {
           900: "#78350F",
         },
         surface: {
-          DEFAULT: "#FAFAF8",
-          muted: "#F5F4F0",
-          card: "#FFFFFF",
+          DEFAULT: "var(--background)",
+          muted: "var(--surface-muted)",
+          card: "var(--surface-card)",
         },
         danger: {
           DEFAULT: "#DC2626",
-          soft: "#FEF2F2",
+          soft: "var(--danger-soft)",
         },
         success: {
           DEFAULT: "#15803D",
-          soft: "#F0FDF4",
+          soft: "var(--success-soft)",
         },
         /* Legacy aliases */
-        "servora-charcoal": "#2B2B2B",
+        "servora-charcoal": "var(--text-primary)",
         "servora-yellow": "#F5A623",
         "servora-red": "#DC2626",
       },
       boxShadow: {
-        card: "0 1px 3px 0 rgb(245 166 35 / 0.08), 0 4px 12px -2px rgb(43 43 43 / 0.06)",
-        "card-hover":
-          "0 4px 16px -2px rgb(245 166 35 / 0.15), 0 8px 24px -4px rgb(43 43 43 / 0.08)",
+        card: "var(--shadow-card)",
+        "card-hover": "var(--shadow-card-hover)",
         btn: "0 1px 2px rgb(196 125 14 / 0.35), 0 2px 6px rgb(245 166 35 / 0.25)",
-        header: "0 2px 12px -2px rgb(245 166 35 / 0.12)",
+        header: "var(--shadow-header)",
         inset: "inset 0 1px 2px rgb(43 43 43 / 0.04)",
       },
       borderRadius: {
@@ -61,7 +61,7 @@ const config: Config = {
       },
       backgroundImage: {
         "brand-gradient": "linear-gradient(135deg, #FBBF24 0%, #F5A623 50%, #E09515 100%)",
-        "brand-gradient-soft": "linear-gradient(180deg, #FFFBEB 0%, #FFFFFF 100%)",
+        "brand-gradient-soft": "var(--brand-gradient-soft)",
         "sidebar-active": "linear-gradient(135deg, #FBBF24 0%, #F5A623 100%)",
       },
     },

@@ -164,7 +164,7 @@ export function PosCartPanel({
   }
 
   const panel = (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface-card">
       <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
         <div>
           <h2 className="font-semibold text-servora-charcoal">Current order</h2>
@@ -229,7 +229,7 @@ export function PosCartPanel({
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
-                      className="touch-target flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold"
+                      className="touch-target flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-surface-card text-lg font-bold"
                       onClick={() => onUpdateQty(line.productId, line.quantity - 1)}
                     >
                       −
@@ -425,7 +425,7 @@ export function PosCartPanel({
   if (mobileCollapsed) {
     return (
       <>
-        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-gray-200 bg-white p-3 shadow-lg safe-area-bottom">
+        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-gray-200 bg-surface-card p-3 shadow-lg safe-area-bottom">
           <button
             type="button"
             className="touch-target min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-left"
@@ -448,7 +448,7 @@ export function PosCartPanel({
           )}
         </div>
         {sheetOpen && (
-          <div className="fixed inset-0 z-50 flex flex-col bg-white md:hidden">
+          <div className="fixed inset-0 z-50 flex flex-col bg-surface-card md:hidden">
             <div className="flex shrink-0 items-center justify-between border-b px-3 py-2 safe-area-top">
               <span className="font-semibold text-servora-charcoal">Current order</span>
               <button

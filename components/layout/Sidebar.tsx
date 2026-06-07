@@ -23,7 +23,7 @@ export function Sidebar({ userRoles = null }: SidebarProps) {
   );
 
   return (
-    <aside className="w-60 shrink-0 border-r border-brand-200/50 bg-white shadow-[inset_-1px_0_0_rgba(253,230,138,0.3)]">
+    <aside className="w-60 shrink-0 border-r border-brand-200/50 bg-surface-card shadow-[inset_-1px_0_0_rgba(253,230,138,0.3)] dark:border-brand-700/30 dark:shadow-[inset_-1px_0_0_rgba(245,166,35,0.08)]">
       <nav className="flex flex-col gap-6 p-4 pt-5">
         {sections.map((section) => (
           <div key={section.id}>
@@ -42,7 +42,7 @@ export function Sidebar({ userRoles = null }: SidebarProps) {
                         "block rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-150",
                         isActive
                           ? "bg-sidebar-active text-charcoal shadow-btn"
-                          : "text-charcoal-light hover:bg-brand-50 hover:text-brand-900"
+                          : "text-charcoal-light hover:bg-brand-50 hover:text-brand-900 dark:hover:bg-brand-900/25 dark:hover:text-brand-100"
                       )}
                     >
                       {item.label}

@@ -61,7 +61,7 @@ export function PosCategoryOrderEditor({
         {order.map((category, index) => (
           <li
             key={category}
-            className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2"
+            className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-surface-card px-3 py-2"
           >
             <span className="font-medium text-servora-charcoal">{category}</span>
             <div className="flex gap-1">

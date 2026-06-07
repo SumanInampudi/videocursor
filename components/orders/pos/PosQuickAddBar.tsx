@@ -133,7 +133,7 @@ export function PosQuickAddBar({ onQuickAdd, disabled, onHint }: PosQuickAddBarP
           className={`touch-target shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
             listening
               ? "border-red-300 bg-red-50 text-red-700"
-              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              : "border-gray-300 bg-surface-card text-gray-700 hover:bg-gray-50"
           } disabled:opacity-50`}
           aria-pressed={listening}
           title={listening ? "Stop listening" : "Speak to add (e.g. 1 qty 5)"}

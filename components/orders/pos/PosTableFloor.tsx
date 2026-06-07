@@ -65,7 +65,7 @@ export function PosTableFloor({
         </p>
         <div className="mt-2 flex flex-wrap gap-3 text-[10px] uppercase tracking-wide text-gray-500">
           <span className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded border border-gray-300 bg-white" /> Free
+            <span className="h-3 w-3 rounded border border-gray-300 bg-surface-card" /> Free
           </span>
           <span className="flex items-center gap-1">
             <span className="h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" /> Open bill
@@ -90,7 +90,7 @@ export function PosTableFloor({
                       className={`flex min-h-[88px] flex-col rounded-xl border-2 p-2 ${
                         open
                           ? "border-amber-400 bg-amber-50"
-                          : "border-gray-200 bg-white"
+                          : "border-gray-200 bg-surface-card"
                       }`}
                     >
                       <span className="text-lg font-bold text-servora-charcoal">
@@ -120,7 +120,7 @@ export function PosTableFloor({
                             </button>
                             <button
                               type="button"
-                              className="rounded-md border border-gray-300 bg-white py-1 text-[10px] font-semibold"
+                              className="rounded-md border border-gray-300 bg-surface-card py-1 text-[10px] font-semibold"
                               onClick={() =>
                                 onSettleOrder(
                                   item.order!.id,

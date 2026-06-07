@@ -47,7 +47,7 @@ export function PosChannelTablePicker({
               className={`touch-target rounded-lg border-2 px-3 py-3 text-sm font-semibold ${
                 channel === "DINE_IN"
                   ? "border-servora-yellow bg-yellow-50 text-servora-charcoal"
-                  : "border-gray-200 bg-white text-gray-700"
+                  : "border-gray-200 bg-surface-card text-gray-700"
               }`}
             >
               Dine-in
@@ -60,7 +60,7 @@ export function PosChannelTablePicker({
               className={`touch-target rounded-lg border-2 px-3 py-3 text-sm font-semibold ${
                 channel === "ONLINE"
                   ? "border-servora-yellow bg-yellow-50 text-servora-charcoal"
-                  : "border-gray-200 bg-white text-gray-700"
+                  : "border-gray-200 bg-surface-card text-gray-700"
               }`}
             >
               Online
@@ -97,7 +97,7 @@ export function PosChannelTablePicker({
                       className={`min-w-[3rem] rounded-md border px-2.5 py-2 text-sm font-bold ${
                         diningTableId === t.id
                           ? "border-servora-yellow bg-servora-yellow text-white"
-                          : "border-gray-200 bg-white text-servora-charcoal"
+                          : "border-gray-200 bg-surface-card text-servora-charcoal"
                       }`}
                     >
                       {t.code}

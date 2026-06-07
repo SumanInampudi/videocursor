@@ -169,7 +169,7 @@ export function PosCheckoutModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
       <div
-        className="flex max-h-[95dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
+        className="flex max-h-[95dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-surface-card shadow-xl sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="pos-checkout-title"
@@ -306,7 +306,7 @@ export function PosCheckoutModal({
                     className={`touch-target rounded-xl border-2 p-4 text-left transition ${
                       selected
                         ? "border-servora-yellow bg-yellow-50 ring-2 ring-servora-yellow/30"
-                        : "border-gray-200 bg-white hover:border-gray-300"
+                        : "border-gray-200 bg-surface-card hover:border-gray-300"
                     }`}
                   >
                     <span className="block text-base font-bold text-servora-charcoal">

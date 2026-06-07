@@ -30,7 +30,7 @@ export function PosSettleModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-      <div className="max-h-[95dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl">
+      <div className="max-h-[95dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-surface-card p-4 shadow-xl sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-servora-charcoal">Close table</h2>
           <button

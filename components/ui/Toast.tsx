@@ -61,10 +61,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             className={`pointer-events-auto rounded-xl border-2 px-4 py-3 text-sm font-medium shadow-card ${
               t.type === "success"
-                ? "border-green-300 bg-success-soft text-success"
+                ? "border-green-300 bg-success-soft text-success dark:border-green-700/50"
                 : t.type === "error"
-                  ? "border-red-300 bg-danger-soft text-danger"
-                  : "border-brand-300 bg-brand-50 text-brand-900"
+                  ? "border-red-300 bg-danger-soft text-danger dark:border-red-700/50"
+                  : "border-brand-300 bg-brand-50 text-brand-900 dark:border-brand-700/50 dark:bg-brand-900/30 dark:text-brand-200"
             }`}
           >
             {t.message}

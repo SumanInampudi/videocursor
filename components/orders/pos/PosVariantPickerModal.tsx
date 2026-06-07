@@ -33,7 +33,7 @@ export function PosVariantPickerModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="max-h-[85vh] w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[85vh] w-full max-w-md overflow-hidden rounded-2xl bg-surface-card shadow-2xl">
         <div className="border-b border-gray-100 px-5 py-4">
           <h2 id="pos-variant-picker-title" className="text-lg font-bold text-servora-charcoal">
             {group.name}

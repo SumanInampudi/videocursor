@@ -438,7 +438,7 @@ export function PosOrderScreen({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2 safe-area-top md:px-4 md:py-3">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-200 bg-surface-card px-3 py-2 safe-area-top md:px-4 md:py-3">
         {showExitLink && <PosExitLink />}
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold text-servora-charcoal md:text-xl">Register</h1>
@@ -470,7 +470,7 @@ export function PosOrderScreen({
         </div>
         <Link
           href="/orders/pos/settings"
-          className="touch-target rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+          className="touch-target rounded-lg border border-gray-300 bg-surface-card px-3 py-2 text-sm font-medium text-gray-700"
         >
           Settings
         </Link>
@@ -532,7 +532,7 @@ export function PosOrderScreen({
             </aside>
 
             <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-[5.5rem] md:pb-0">
-              <div className="shrink-0 space-y-2 border-b border-gray-100 bg-white px-3 py-2 md:px-4">
+              <div className="shrink-0 space-y-2 border-b border-gray-100 bg-surface-card px-3 py-2 md:px-4">
                 <div className="md:hidden">
                   <PosCategoryNav
                     categories={categories}
@@ -573,7 +573,7 @@ export function PosOrderScreen({
               </div>
             </main>
 
-            <aside className="hidden h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-l border-gray-200 bg-white lg:w-96 md:flex">
+            <aside className="hidden h-full min-h-0 w-80 shrink-0 flex-col overflow-hidden border-l border-gray-200 bg-surface-card lg:w-96 md:flex">
               <PosCartPanel key={checkoutKey} {...cartPanelProps} />
             </aside>
           </>

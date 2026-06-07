@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ShellSwitcher } from "@/components/layout/ShellSwitcher";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { getAuthContext } from "@/lib/auth";
 import "./globals.css";
 
@@ -31,11 +32,13 @@ export default async function RootLayout({
   const auth = await getAuthContext();
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} antialiased`}>
-        <ShellSwitcher userRoles={auth.roles} user={auth.user}>
-          {children}
-        </ShellSwitcher>
+        <ThemeProvider>
+          <ShellSwitcher userRoles={auth.roles} user={auth.user}>
+            {children}
+          </ShellSwitcher>
+        </ThemeProvider>
       </body>
     </html>
   );

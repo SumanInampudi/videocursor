@@ -40,7 +40,7 @@ export function MobileNav({ userRoles = null }: { userRoles?: NavRole[] | null }
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <nav className="fixed left-0 top-[4.25rem] z-50 h-[calc(100dvh-4.25rem)] w-72 overflow-y-auto border-r border-brand-200 bg-white p-4 shadow-card-hover">
+          <nav className="fixed left-0 top-[4.25rem] z-50 h-[calc(100dvh-4.25rem)] w-72 overflow-y-auto border-r border-brand-200 bg-surface-card p-4 shadow-card-hover dark:border-brand-700/30">
             <div className="mb-3 h-1 rounded-full bg-brand-gradient" aria-hidden />
             {sections.map((section) => (
               <div key={section.id} className="mb-5">
@@ -57,7 +57,7 @@ export function MobileNav({ userRoles = null }: { userRoles?: NavRole[] | null }
                           "block rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
                           item.href === activeHref
                             ? "bg-sidebar-active text-charcoal shadow-btn"
-                            : "text-charcoal hover:bg-brand-50"
+                            : "text-charcoal hover:bg-brand-50 dark:hover:bg-brand-900/25"
                         )}
                       >
                         {item.label}

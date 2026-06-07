@@ -13,13 +13,13 @@ const variants: Record<ButtonVariant, string> = {
   primary:
     "bg-brand-gradient text-charcoal font-semibold shadow-btn border border-brand-600/25 hover:brightness-[1.03] active:brightness-95 focus:ring-brand-500",
   secondary:
-    "bg-white text-charcoal font-medium border-2 border-brand-200 shadow-sm hover:bg-brand-50 hover:border-brand-300 focus:ring-brand-400",
+    "bg-surface-card text-charcoal font-medium border-2 border-brand-200 shadow-sm hover:bg-brand-50 hover:border-brand-300 focus:ring-brand-400 dark:border-brand-700/35 dark:hover:bg-brand-900/30 dark:hover:border-brand-600/50",
   outline:
-    "bg-transparent text-brand-800 font-semibold border-2 border-brand-400 hover:bg-brand-50 focus:ring-brand-400",
+    "bg-transparent text-brand-800 font-semibold border-2 border-brand-400 hover:bg-brand-50 focus:ring-brand-400 dark:text-brand-300 dark:hover:bg-brand-900/25",
   danger:
     "bg-danger text-white font-semibold shadow-sm hover:bg-red-700 border border-red-800/20 focus:ring-danger",
   ghost:
-    "bg-transparent text-charcoal font-medium hover:bg-brand-100/80 hover:text-brand-900 focus:ring-brand-300",
+    "bg-transparent text-charcoal font-medium hover:bg-brand-100/80 hover:text-brand-900 focus:ring-brand-300 dark:hover:bg-brand-900/25 dark:hover:text-brand-100",
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -36,7 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         type={type}
         className={cn(
           "inline-flex touch-target items-center justify-center gap-2 transition-all duration-150",
-          "focus:outline-none focus:ring-2 focus:ring-offset-2",
+          "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background",
           "disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none",
           variants[variant],
           sizes[size],
