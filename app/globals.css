@@ -144,7 +144,11 @@ body {
   }
 
   .table-panel td.font-mono {
-    @apply font-mono text-xs text-gray-500;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: rgb(107 114 128);
   }
 
   /* —— Forms —— */
