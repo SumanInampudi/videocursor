@@ -1,11 +1,26 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { resolveCategory } from "@/lib/category-resolve";
+import { requireBusinessContext } from "@/lib/business-context";
 import { db } from "@/lib/db";
+import {
+  calendarDateToPeriodMonth,
+  formatCalendarDateString,
+  parseCalendarDateString,
+} from "@/lib/dates";
+import { groupPayablesBySupplierAndDay } from "@/lib/payables-by-day";
+import { serializeForClient } from "@/lib/serialize";
+import { ExpenseCategory } from "@prisma/client";
 import { inventoryPurchaseSchema } from "@/lib/validations";
 import { PurchasePaymentStatus } from "@prisma/client";
 
-const PATHS = ["/inventory", "/inventory/payables", "/inventory/purchases/new", "/"];
+const PATHS = [
+  "/inventory",
+  "/inventory/receive",
+  "/inventory/payables",
+  "/",
+];
 
 function revalidatePurchases() {
   for (const path of PATHS) {
@@ -27,8 +42,10 @@ export async function getInventoryPurchases(filters?: {
   openOnly?: boolean;
   inventoryItemId?: string;
 }) {
+  const { businessId } = await requireBusinessContext();
   return db.inventoryPurchase.findMany({
     where: {
+      inventoryItem: { businessId },
       ...(filters?.openOnly
         ? { paymentStatus: { in: ["CREDIT", "PARTIAL"] } }
         : {}),
@@ -44,8 +61,12 @@ export async function getInventoryPurchases(filters?: {
 }
 
 export async function getPayablesSummary() {
+  const { businessId } = await requireBusinessContext();
   const open = await db.inventoryPurchase.findMany({
-    where: { paymentStatus: { in: ["CREDIT", "PARTIAL"] } },
+    where: {
+      paymentStatus: { in: ["CREDIT", "PARTIAL"] },
+      inventoryItem: { businessId },
+    },
     select: {
       id: true,
       description: true,
@@ -65,13 +86,27 @@ export async function getPayablesSummary() {
     0
   );
 
-  return { purchases: open, totalOwed, count: open.length };
+  const bySupplierDay = groupPayablesBySupplierAndDay(
+    open.map((p) => ({
+      ...p,
+      totalAmount: Number(p.totalAmount),
+      amountPaid: Number(p.amountPaid),
+    }))
+  );
+
+  return serializeForClient({
+    purchases: open,
+    totalOwed,
+    count: open.length,
+    bySupplierDay,
+  });
 }
 
 export async function getInventoryItemsForPurchase() {
+  const { businessId } = await requireBusinessContext();
   return db.inventoryItem.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, sku: true, supplier: true },
+    where: { businessId, isActive: true },
+    select: { id: true, name: true, sku: true, supplier: true, supplierId: true },
     orderBy: { name: "asc" },
   });
 }
@@ -87,20 +122,88 @@ export async function createInventoryPurchase(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
+  const { businessId } = await requireBusinessContext();
   const data = parsed.data;
   const status = data.paymentStatus as PurchasePaymentStatus;
   const amountPaid = resolveAmountPaid(status, data.totalAmount, data.amountPaid);
 
+  let supplierName = data.supplier || null;
+  if (data.supplierId) {
+    const sup = await db.supplier.findFirst({
+      where: { id: data.supplierId, businessId },
+      select: { name: true },
+    });
+    if (sup) supplierName = sup.name;
+  }
+
+  let inventoryItemId = data.inventoryItemId || null;
+  if (inventoryItemId) {
+    const item = await db.inventoryItem.findFirst({
+      where: { id: inventoryItemId, businessId },
+    });
+    if (!item) {
+      return { error: { inventoryItemId: ["Inventory item not found"] } };
+    }
+  } else if (data.createNewItem) {
+    const sku = data.newItemSku?.trim();
+    const name = data.newItemName?.trim();
+    const categoryInput = data.newItemCategory?.trim();
+    const unit = data.newItemUnit;
+
+    if (!sku || !name || !categoryInput || !unit) {
+      return {
+        error: {
+          newItemName: ["Fill all new SKU fields to create inline"],
+        },
+      };
+    }
+
+    const { getInventoryCatalogCategories } = await import("@/app/actions/inventory");
+    const existingCategories = await getInventoryCatalogCategories();
+    const categoryResult = resolveCategory(categoryInput, existingCategories);
+    if (!categoryResult.ok) {
+      return { error: { newItemCategory: [categoryResult.message] } };
+    }
+    const category = categoryResult.category;
+
+    const existingSku = await db.inventoryItem.findFirst({
+      where: { businessId, sku },
+      select: { id: true },
+    });
+
+    if (existingSku) {
+      inventoryItemId = existingSku.id;
+    } else {
+      const created = await db.inventoryItem.create({
+        data: {
+          businessId,
+          name,
+          sku,
+          category,
+          quantity: 0,
+          unit,
+          reorderLevel: 0,
+          costPerUnit: 0,
+          supplierId: data.supplierId || null,
+          supplier: supplierName,
+          isActive: true,
+        },
+      });
+      inventoryItemId = created.id;
+    }
+  }
+
   await db.inventoryPurchase.create({
     data: {
-      inventoryItemId: data.inventoryItemId || null,
+      inventoryItemId,
+      supplierId: data.supplierId || null,
       description: data.description,
-      supplier: data.supplier || null,
+      supplier: supplierName,
       totalAmount: data.totalAmount,
       amountPaid,
       paymentStatus: status,
-      purchaseDate: new Date(data.purchaseDate),
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      purchaseDate: parseCalendarDateString(data.purchaseDate),
+      dueDate: data.dueDate ? parseCalendarDateString(data.dueDate) : null,
       notes: data.notes || null,
     },
   });
@@ -128,15 +231,36 @@ export async function recordPurchasePayment(id: string, formData: FormData) {
   const paymentStatus: PurchasePaymentStatus =
     newPaid >= total - 0.001 ? "PAID" : "PARTIAL";
 
-  await db.inventoryPurchase.update({
-    where: { id },
-    data: {
-      amountPaid: Math.min(newPaid, total),
-      paymentStatus,
-    },
+  const { businessId } = await requireBusinessContext();
+
+  await db.$transaction(async (tx) => {
+    await tx.inventoryPurchase.update({
+      where: { id },
+      data: {
+        amountPaid: Math.min(newPaid, total),
+        paymentStatus,
+      },
+    });
+
+    if (amount > 0) {
+      const dayLabel = formatCalendarDateString(purchase.purchaseDate);
+      const expenseDate = parseCalendarDateString(dayLabel);
+      await tx.expense.create({
+        data: {
+          businessId,
+          category: ExpenseCategory.SUPPLIES,
+          description: "Supplier payment (payables)",
+          amount,
+          periodMonth: calendarDateToPeriodMonth(dayLabel),
+          expenseDate,
+          notes: `${purchase.description} · ${purchase.supplier ?? "Supplier"} · ${dayLabel}`,
+        },
+      });
+    }
   });
 
   revalidatePurchases();
+  revalidatePath("/expenses");
   return { success: true };
 }
 

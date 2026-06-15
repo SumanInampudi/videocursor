@@ -10,7 +10,7 @@ export function ean13CheckDigit(body12: string): string {
   return `${digits}${check}`;
 }
 
-/** Internal EAN-13-style barcode. Prefix: 2 = recipe, 3 = ingredient. */
+/** Internal EAN-13-style barcode. Prefix: 2 = product, 3 = ingredient. */
 function generateInternalBarcode(prefix: "2" | "3", seed?: string): string {
   const timePart = Date.now().toString().slice(-8);
   const seedPart = seed
@@ -25,8 +25,8 @@ function generateInternalBarcode(prefix: "2" | "3", seed?: string): string {
   return ean13CheckDigit(body);
 }
 
-/** Recipe barcode (prefix 2). */
-export function generateRecipeBarcode(seed?: string): string {
+/** Product barcode (prefix 2). */
+export function generateProductBarcode(seed?: string): string {
   return generateInternalBarcode("2", seed);
 }
 
@@ -35,10 +35,10 @@ export function generateIngredientBarcode(seed?: string): string {
   return generateInternalBarcode("3", seed);
 }
 
-export function barcodeEntityType(barcode: string): "ingredient" | "recipe" | "unknown" {
+export function barcodeEntityType(barcode: string): "ingredient" | "product" | "unknown" {
   const digit = barcode.replace(/\D/g, "")[0];
   if (digit === "3") return "ingredient";
-  if (digit === "2") return "recipe";
+  if (digit === "2") return "product";
   return "unknown";
 }
 

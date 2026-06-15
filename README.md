@@ -72,9 +72,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-This creates the schema and loads sample inventory (flour, cheese, chicken, etc.) plus two demo recipes:
-- **Margherita Pizza** — 200g flour, 100g cheese, 50g tomatoes
-- **Chicken Curry** — 500g chicken, 200g rice, 100g tomatoes
+This creates the schema and an empty venue (business, tables, POS settings, and login accounts). Add raw materials, stock, and products through the app or `/admin/data` import.
 
 ### 5. Start the dev server
 
@@ -92,7 +90,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run build` | Production build |
 | `npm run db:generate` | Regenerate Prisma client |
 | `npm run db:migrate` | Run database migrations |
-| `npm run db:seed` | Seed sample data |
+| `npm run db:seed` | Reset to empty venue + default logins |
 | `npm run db:push` | Push schema without migration (dev shortcut) |
 
 ## Pages

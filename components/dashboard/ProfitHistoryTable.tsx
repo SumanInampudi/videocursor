@@ -1,3 +1,5 @@
+import { DataTable } from "@/components/ui/DataTable";
+import { formatDateIST } from "@/lib/format";
 import { formatCurrency } from "@/lib/units";
 
 type DayRow = {
@@ -16,39 +18,27 @@ export function ProfitHistoryTable({ rows }: { rows: DayRow[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
+    <DataTable>
+      <table>
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-              Date
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-              Revenue
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-              Gross profit
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-              Expenses
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-              Net profit
-            </th>
+            <th>Date</th>
+            <th className="text-right">Revenue</th>
+            <th className="text-right">Gross profit</th>
+            <th className="text-right">Expenses</th>
+            <th className="text-right">Net profit</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody>
           {recent.map((row) => (
-            <tr key={row.date} className="hover:bg-gray-50">
-              <td className="px-4 py-2 font-medium text-servora-charcoal">
-                {new Date(row.date + "T12:00:00").toLocaleDateString()}
-              </td>
-              <td className="px-4 py-2 text-right">{formatCurrency(row.revenue)}</td>
-              <td className="px-4 py-2 text-right">{formatCurrency(row.grossProfit)}</td>
-              <td className="px-4 py-2 text-right">{formatCurrency(row.expenses)}</td>
+            <tr key={row.date}>
+              <td className="font-medium">{formatDateIST(row.date + "T12:00:00")}</td>
+              <td className="text-right tabular-nums">{formatCurrency(row.revenue)}</td>
+              <td className="text-right tabular-nums">{formatCurrency(row.grossProfit)}</td>
+              <td className="text-right tabular-nums">{formatCurrency(row.expenses)}</td>
               <td
-                className={`px-4 py-2 text-right font-medium ${
-                  row.netProfit < 0 ? "text-servora-red" : "text-green-700"
+                className={`text-right font-medium tabular-nums ${
+                  row.netProfit < 0 ? "text-red-700" : "text-green-700"
                 }`}
               >
                 {formatCurrency(row.netProfit)}
@@ -57,6 +47,6 @@ export function ProfitHistoryTable({ rows }: { rows: DayRow[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </DataTable>
   );
 }

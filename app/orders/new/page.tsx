@@ -1,25 +1,37 @@
 import Link from "next/link";
-import { getRecipesForOrdering } from "@/app/actions/orders";
+import { getCustomerOptions } from "@/app/actions/customers";
+import { getProductsForOrdering } from "@/app/actions/orders";
 import { OrderForm } from "@/components/orders/OrderForm";
+import { Button } from "@/components/ui/Button";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewOrderPage() {
-  const recipes = await getRecipesForOrdering();
+  const [products, customers] = await Promise.all([
+    getProductsForOrdering(),
+    getCustomerOptions(),
+  ]);
 
   return (
     <div>
       <div className="mb-6">
-        <Link href="/orders" className="text-sm text-servora-yellow hover:underline">
+        <Link href="/orders" className="link-brand text-sm">
           ← Back to orders
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-servora-charcoal">Place order</h1>
-        <p className="text-sm text-gray-500">
-          Scan recipe barcodes or tap items to build the cart. Inventory is deducted when
-          you mark the order ready.
-        </p>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="page-title">Place order</h1>
+            <p className="text-sm text-gray-500">
+              Simple form with thumbnails for quick ordering. For iPad / counter use, open
+              full-screen POS register.
+            </p>
+          </div>
+          <Link href="/orders/pos">
+            <Button className="min-h-[44px] whitespace-nowrap">Open POS register →</Button>
+          </Link>
+        </div>
       </div>
-      <OrderForm recipes={recipes} />
+      <OrderForm products={products} customers={customers} />
     </div>
   );
 }

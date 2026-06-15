@@ -9,6 +9,7 @@ import {
   periodMonthsInRange,
   startOfDay,
 } from "@/lib/dates";
+import { serializeForClient } from "@/lib/serialize";
 import { expenseSchema } from "@/lib/validations";
 import { ExpenseCategory } from "@prisma/client";
 
@@ -44,10 +45,14 @@ export async function getExpenses(filters?: {
     where.category = filters.category as ExpenseCategory;
   }
 
-  return db.expense.findMany({
-    where,
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  const rows = await db.expense.findMany({
+    where: { ...where, businessId },
     orderBy: [{ periodMonth: "desc" }, { createdAt: "desc" }],
   });
+  return serializeForClient(rows);
 }
 
 export async function getExpensesGroupedByMonth(periodMonth?: string) {
@@ -58,7 +63,8 @@ export async function getExpensesGroupedByMonth(periodMonth?: string) {
 }
 
 export async function getExpense(id: string) {
-  return db.expense.findUnique({ where: { id } });
+  const expense = await db.expense.findUnique({ where: { id } });
+  return expense ? serializeForClient(expense) : null;
 }
 
 export async function createExpense(formData: FormData) {
@@ -76,8 +82,11 @@ export async function createExpense(formData: FormData) {
       ? new Date(data.expenseDate)
       : null;
 
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
   await db.expense.create({
     data: {
+      businessId,
       category: data.category as ExpenseCategory,
       description: data.description,
       amount: data.amount,
@@ -126,4 +135,54 @@ export async function deleteExpense(id: string) {
   await db.expense.delete({ where: { id } });
   revalidateExpenses();
   return { success: true };
+}
+
+/** Copy all expenses from the previous calendar month into target month. */
+export async function duplicateExpensesFromPreviousMonth(targetPeriodMonth: string) {
+  const parsed = parsePeriodMonth(targetPeriodMonth);
+  if (!parsed) {
+    return { error: "Invalid period month" };
+  }
+
+  const [year, month] = parsed.split("-").map(Number);
+  const prevDate = new Date(year!, month! - 2, 1);
+  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+
+  const { requireBusinessContext } = await import("@/lib/business-context");
+  const { businessId } = await requireBusinessContext();
+
+  const source = await db.expense.findMany({
+    where: { businessId, periodMonth: prevMonth },
+  });
+  if (source.length === 0) {
+    return { error: `No expenses found for ${prevMonth}` };
+  }
+
+  let created = 0;
+  for (const e of source) {
+    const exists = await db.expense.findFirst({
+      where: {
+        businessId,
+        periodMonth: parsed,
+        category: e.category,
+        description: e.description,
+      },
+    });
+    if (exists) continue;
+
+    await db.expense.create({
+      data: {
+        businessId,
+        category: e.category,
+        description: e.description,
+        amount: e.amount,
+        periodMonth: parsed,
+        notes: e.notes ? `Copied from ${prevMonth}: ${e.notes}` : `Copied from ${prevMonth}`,
+      },
+    });
+    created += 1;
+  }
+
+  revalidateExpenses();
+  return { success: true, created, fromMonth: prevMonth };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { OrderCard } from "@/components/orders/OrderCard";
+import { sortOrdersByReceived } from "@/lib/orders-sort";
 import { OrderStatus } from "@prisma/client";
 
 type OrderWithLines = {
@@ -13,8 +14,8 @@ type OrderWithLines = {
     id: string;
     quantity: number;
     unitSalePrice: { toString(): string };
-    recipeName: string;
-    recipe: { name: string; yieldUnit: string } | null;
+    productName: string;
+    product: { name: string; yieldUnit: string } | null;
   }[];
 };
 
@@ -31,6 +32,11 @@ const COLUMNS: {
   {
     status: OrderStatus.PROCESSING,
     title: "Processing",
+    nextAction: { label: "Pack", status: OrderStatus.PACKING },
+  },
+  {
+    status: OrderStatus.PACKING,
+    title: "Packing",
     nextAction: { label: "Ready", status: OrderStatus.READY },
   },
   {
@@ -43,11 +49,14 @@ const COLUMNS: {
 
 export function OrderBoard({ grouped }: OrderBoardProps) {
   return (
-    <div className="grid gap-4 lg:grid-cols-4">
+    <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-3 xl:grid-cols-5">
       {COLUMNS.map((column) => {
-        const orders = grouped[column.status] ?? [];
+        const orders = sortOrdersByReceived(grouped[column.status] ?? []);
         return (
-          <section key={column.status} className="min-w-0">
+          <section
+            key={column.status}
+            className="min-w-[min(100%,280px)] shrink-0 snap-start md:min-w-0"
+          >
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
                 {column.title}

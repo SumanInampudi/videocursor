@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getExpensesGroupedByMonth } from "@/app/actions/expenses";
 import { getProfitLossSummary } from "@/app/actions/finance";
+import { DuplicateMonthButton } from "@/components/expenses/DuplicateMonthButton";
 import { ExpenseTable } from "@/components/expenses/ExpenseTable";
 import { Button } from "@/components/ui/Button";
 import {
@@ -14,16 +15,17 @@ import { formatCurrency } from "@/lib/units";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = {
+type SearchParams = Promise<{
   month?: string;
-};
+}>;
 
 export default async function ExpensesPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
-  const periodMonth = parsePeriodMonth(searchParams.month) ?? currentPeriodMonth();
+  const params = await searchParams;
+  const periodMonth = parsePeriodMonth(params.month) ?? currentPeriodMonth();
   const { from, to } = periodMonthToDateRange(periodMonth);
 
   const [{ expenses, total }, periodSummary] = await Promise.all([
@@ -35,7 +37,7 @@ export default async function ExpensesPage({
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-servora-charcoal">Expenses</h1>
+          <h1 className="page-title">Expenses</h1>
           <p className="text-sm text-gray-500">
             Operating costs by accounting month (rent, salaries, etc.). Each expense
             counts toward P&amp;L in its assigned month, regardless of payment date.
@@ -46,7 +48,7 @@ export default async function ExpensesPage({
         </Link>
       </div>
 
-      <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+      <div className="mb-6 filter-bar text-sm">
         <p className="text-gray-600">
           <span className="font-semibold text-servora-charcoal">
             {formatPeriodMonthLabel(periodMonth)}
@@ -54,7 +56,7 @@ export default async function ExpensesPage({
           expenses: {formatCurrency(total)} · P&amp;L operating expenses for this month:{" "}
           <span className="font-semibold">{formatCurrency(periodSummary.operatingExpenses)}</span>
         </p>
-        <Link href="/" className="mt-1 inline-block text-servora-yellow hover:underline">
+        <Link href="/" className="mt-1 inline-block link-brand">
           View full P&amp;L on dashboard →
         </Link>
       </div>
@@ -62,7 +64,7 @@ export default async function ExpensesPage({
       <form
         method="get"
         action="/expenses"
-        className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-4"
+        className="mb-4 flex flex-wrap items-end gap-3 card-padded"
       >
         <div>
           <label htmlFor="month" className="mb-1 block text-xs font-medium text-gray-500">
@@ -77,6 +79,7 @@ export default async function ExpensesPage({
           />
         </div>
         <Button type="submit">View month</Button>
+        <DuplicateMonthButton periodMonth={periodMonth} />
       </form>
 
       <ExpenseTable expenses={expenses} />

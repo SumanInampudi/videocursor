@@ -20,7 +20,7 @@ export function ProfitLossPanel({
         <MetricCard
           label="Total costs"
           value={formatCurrency(summary.totalCosts)}
-          sub="Ingredient COGS + operating expenses"
+          sub="Raw material COGS + operating expenses"
         />
         <MetricCard
           label="Net profit / loss"
@@ -38,19 +38,19 @@ export function ProfitLossPanel({
           sub={
             summary.grossMarginPercent != null
               ? `${summary.grossMarginPercent.toFixed(1)}% before rent & payroll`
-              : "After ingredient COGS only"
+              : "After raw material COGS only"
           }
         />
       </div>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-5">
-        <h3 className="mb-4 text-sm font-semibold text-servora-charcoal">
+      <section className="card-padded">
+        <h3 className="section-title mb-4">
           Where your money went
         </h3>
         <div className="space-y-3 text-sm">
           <CostRow
             label="Cost of goods sold (COGS)"
-            description="Ingredients used on delivered orders (from inventory when orders marked ready)"
+            description="Raw materials used on delivered orders (from inventory when orders marked ready)"
             amount={summary.cogs}
           />
           <CostRow
@@ -115,9 +115,13 @@ export function ProfitLossPanel({
       )}
 
       <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-900">
-        <strong>COGS is not duplicated in Expenses.</strong> Ingredient cost from sales appears
-        only as COGS. Expenses are for overhead (rent, payroll). Supplier credit for stock
-        purchases is tracked under{" "}
+        <strong>Net profit</strong> = gross profit from delivered orders in this date range
+        minus operating expenses
+        {summary.expensesProrated
+          ? " (prorated to days in range)."
+          : " (full amount for each overlapping accounting month). "}
+        <strong>COGS is not duplicated in Expenses.</strong>{" "}
+        Supplier credit for stock is tracked under{" "}
         <Link href="/inventory/payables" className="font-medium underline">
           Inventory → Payables
         </Link>
@@ -128,7 +132,7 @@ export function ProfitLossPanel({
         <p className="text-sm text-gray-500">
           No delivered orders or expenses in this period. Deliver completed orders to record
           sales and COGS; add monthly costs under{" "}
-          <Link href="/expenses" className="text-servora-yellow hover:underline">
+          <Link href="/expenses" className="link-brand text-xs">
             Expenses
           </Link>
           .
@@ -165,7 +169,7 @@ function CostRow({
         </p>
         <p className="text-xs text-gray-500">{description}</p>
         {href && (
-          <Link href={href} className="text-xs text-servora-yellow hover:underline">
+          <Link href={href} className="text-xs link-brand">
             Manage →
           </Link>
         )}
@@ -187,20 +191,20 @@ function MetricCard({
   highlight?: "danger" | "success";
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
+    <div className="metric-card">
+      <p className="metric-card-label">{label}</p>
       <p
-        className={`mt-1 text-2xl font-bold ${
+        className={`metric-card-value ${
           highlight === "danger"
-            ? "text-servora-red"
+            ? "text-danger"
             : highlight === "success"
-              ? "text-green-700"
-              : "text-servora-charcoal"
+              ? "text-success"
+              : ""
         }`}
       >
         {value}
       </p>
-      {sub && <div className="mt-1 text-xs text-gray-500">{sub}</div>}
+      {sub && <div className="mt-1 text-xs text-charcoal-muted">{sub}</div>}
     </div>
   );
 }

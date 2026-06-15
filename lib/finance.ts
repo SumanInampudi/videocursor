@@ -1,7 +1,10 @@
+import { prorateExpenseAmount } from "@/lib/finance-prorate";
+
 export type ProfitLossSummary = {
   from: Date;
   to: Date;
   periodMonths?: string[];
+  expensesProrated?: boolean;
   orderCount: number;
   revenue: number;
   cogs: number;
@@ -23,8 +26,13 @@ export function aggregateProfitLoss(input: {
     ingredientCost: { toString(): string } | null;
     profit: { toString(): string } | null;
   }[];
-  expenses: { category: string; amount: { toString(): string } }[];
+  expenses: {
+    category: string;
+    amount: { toString(): string };
+    periodMonth?: string;
+  }[];
   orderCount: number;
+  prorateExpenses?: boolean;
 }): ProfitLossSummary {
   let revenue = 0;
   let cogs = 0;
@@ -47,7 +55,15 @@ export function aggregateProfitLoss(input: {
   let operatingExpenses = 0;
 
   for (const expense of input.expenses) {
-    const amount = Number(expense.amount);
+    let amount = Number(expense.amount);
+    if (input.prorateExpenses && expense.periodMonth) {
+      amount = prorateExpenseAmount(
+        amount,
+        expense.periodMonth,
+        input.from,
+        input.to
+      );
+    }
     operatingExpenses += amount;
     expensesByCategoryMap.set(
       expense.category,
@@ -61,6 +77,7 @@ export function aggregateProfitLoss(input: {
   return {
     from: input.from,
     to: input.to,
+    expensesProrated: input.prorateExpenses ?? false,
     orderCount: input.orderCount,
     revenue,
     cogs,

@@ -1,0 +1,101 @@
+"use client";
+
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toggleCounterLineDone } from "@/app/actions/counter";
+import { useToast } from "@/components/ui/Toast";
+import {
+  counterPendingQty,
+  isCounterLineDone,
+  isCounterLineNew,
+  type CounterLineView,
+} from "@/lib/counter-kds";
+
+type CounterLineRowProps = {
+  line: CounterLineView & { product?: { name: string } | null };
+  order: {
+    kitchenAcknowledgedAt?: Date | string | null;
+    kitchenBumpedAt?: Date | string | null;
+  };
+  disabled?: boolean;
+};
+
+export function CounterLineRow({ line, order, disabled }: CounterLineRowProps) {
+  const router = useRouter();
+  const [isToggling, startTransition] = useTransition();
+  const { error: toastError } = useToast();
+
+  const done = isCounterLineDone(line);
+  const isNew = isCounterLineNew(line, order);
+  const pendingQty = counterPendingQty(line);
+  const doneQty = line.quantity - pendingQty;
+  const label = line.product?.name ?? line.productName;
+
+  function toggle() {
+    if (disabled || isToggling) return;
+    startTransition(async () => {
+      const result = await toggleCounterLineDone(line.id);
+      if (result.error) toastError(result.error);
+      router.refresh();
+    });
+  }
+
+  return (
+    <li
+      className={`flex items-start gap-1.5 rounded px-1 py-0.5 transition-colors ${
+        isNew && !done
+          ? "bg-teal-50 ring-1 ring-teal-200/80"
+          : done
+            ? "bg-gray-50/80"
+            : "hover:bg-gray-50"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={disabled || isToggling}
+        aria-pressed={done}
+        aria-label={done ? `Mark ${label} not picked` : `Mark ${label} picked`}
+        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+          done
+            ? "border-teal-600 bg-teal-600 text-white"
+            : isNew
+              ? "border-teal-500 bg-white hover:bg-teal-50"
+              : "border-gray-300 bg-white hover:border-servora-yellow"
+        } disabled:opacity-50`}
+      >
+        {done ? (
+          <svg className="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" aria-hidden>
+            <path
+              d="M2 6l3 3 5-5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : null}
+      </button>
+      <div className="min-w-0 flex-1">
+        <p
+          className={`text-xs leading-snug ${
+            done ? "text-gray-400 line-through decoration-gray-300" : "text-gray-800"
+          }`}
+        >
+          <span className="font-bold tabular-nums text-servora-charcoal">{line.quantity}×</span>{" "}
+          <span className="font-medium">{label}</span>
+        </p>
+        {!done && doneQty > 0 && pendingQty > 0 && (
+          <span className="mt-0.5 text-[9px] text-gray-500">
+            {doneQty} picked · +{pendingQty} new
+          </span>
+        )}
+        {isNew && pendingQty > 0 && doneQty === 0 && (
+          <span className="mt-0.5 inline-block rounded bg-teal-500 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+            New
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}

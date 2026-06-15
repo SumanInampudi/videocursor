@@ -1,11 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { deleteInventoryPurchase, recordPurchasePayment } from "@/app/actions/purchases";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui/DataTable";
 import { Input } from "@/components/ui/Input";
+import { SmartSearchInput } from "@/components/ui/SmartSearchInput";
+import { smartMatches } from "@/lib/smart-search";
 import { formatCurrency } from "@/lib/units";
 import { PurchasePaymentStatus } from "@prisma/client";
 
@@ -25,6 +28,7 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   function balance(p: PurchaseRow) {
     return Math.max(0, Number(p.totalAmount) - Number(p.amountPaid));
@@ -50,62 +54,88 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
     });
   }
 
+  const filteredPurchases = useMemo(() => {
+    if (!query.trim()) return purchases;
+    return purchases.filter((p) =>
+      smartMatches(
+        [p.description, p.supplier, p.inventoryItem?.name, p.paymentStatus, p.purchaseDate.toString()],
+        query
+      )
+    );
+  }, [purchases, query]);
+
   if (purchases.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
+      <div className="empty-state text-sm text-gray-500">
         No open supplier balances.{" "}
-        <Link href="/inventory/purchases/new" className="text-servora-yellow hover:underline">
-          Record a credit purchase
+        <Link href="/inventory/receive" className="link-brand">
+          Receive stock on credit
         </Link>
       </div>
     );
   }
 
+  if (filteredPurchases.length === 0) {
+    return (
+      <div className="space-y-3">
+        <SmartSearchInput
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search purchase, supplier, item, or status..."
+          className="max-w-md"
+        />
+        <p className="text-xs text-gray-500">0 results</p>
+        <div className="empty-state text-sm text-gray-500">
+          No matching payables found for this search.
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-              Purchase
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
-              Due
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-              Total
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-              Owed
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
-          {purchases.map((p) => {
+    <div className="space-y-3">
+      <SmartSearchInput
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search purchase, supplier, item, or status..."
+        className="max-w-md"
+      />
+      <DataTable
+        resultLabel={`${filteredPurchases.length} result${filteredPurchases.length === 1 ? "" : "s"}`}
+      >
+        <table>
+          <thead>
+            <tr>
+              <th>Purchase</th>
+              <th>Due</th>
+              <th className="text-right">Total</th>
+              <th className="text-right">Owed</th>
+              <th className="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+          {filteredPurchases.map((p) => {
             const owed = balance(p);
             return (
-              <tr key={p.id} className="align-top hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <p className="font-medium text-servora-charcoal">{p.description}</p>
+              <tr key={p.id} className="align-top">
+                <td>
+                  <p className="font-medium">{p.description}</p>
                   {p.inventoryItem && (
-                    <p className="text-xs text-gray-500">{p.inventoryItem.name}</p>
+                    <p className="text-xs text-gray-400">{p.inventoryItem.name}</p>
                   )}
-                  {p.supplier && <p className="text-xs text-gray-500">{p.supplier}</p>}
+                  {p.supplier && <p className="text-xs text-gray-400">{p.supplier}</p>}
                   <p className="text-xs text-gray-400">
                     {p.paymentStatus} · {new Date(p.purchaseDate).toLocaleDateString()}
                   </p>
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className="text-muted">
                   {p.dueDate ? new Date(p.dueDate).toLocaleDateString() : "—"}
                 </td>
-                <td className="px-4 py-3 text-right">{formatCurrency(Number(p.totalAmount))}</td>
-                <td className="px-4 py-3 text-right font-semibold text-servora-red">
+                <td className="text-right tabular-nums">{formatCurrency(Number(p.totalAmount))}</td>
+                <td className="text-right font-medium text-red-700 tabular-nums">
                   {formatCurrency(owed)}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   {payingId === p.id ? (
                     <form
                       action={(fd) => submitPayment(p.id, fd)}
@@ -147,8 +177,8 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
                       </Button>
                       <Button
                         type="button"
-                        variant="danger"
-                        className="text-xs"
+                        variant="ghost"
+                        className="text-xs text-red-600 hover:text-red-700"
                         disabled={isPending}
                         onClick={() => handleDelete(p.id, p.description)}
                       >
@@ -160,8 +190,9 @@ export function PayablesTable({ purchases }: { purchases: PurchaseRow[] }) {
               </tr>
             );
           })}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </DataTable>
     </div>
   );
 }
