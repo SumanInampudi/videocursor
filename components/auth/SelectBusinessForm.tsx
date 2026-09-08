@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { selectBusinessAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/Button";
 import { roleLabel } from "@/lib/role-label";
@@ -21,12 +21,14 @@ export function SelectBusinessForm({
   choices: Choice[];
   nextPath?: string;
 }) {
-  const [state, formAction, pending] = useActionState(
-    async (_prev: { error?: string } | null, formData: FormData) => {
-      return (await selectBusinessAction(null, formData)) ?? null;
-    },
-    null
-  );
+  const [state, formAction, pending] = useActionState(selectBusinessAction, null);
+  const redirecting = Boolean(state?.redirectTo);
+
+  useEffect(() => {
+    if (state?.redirectTo) {
+      window.location.replace(state.redirectTo);
+    }
+  }, [state]);
 
   return (
     <form action={formAction} className="mt-6 space-y-3">
@@ -52,8 +54,8 @@ export function SelectBusinessForm({
         </label>
       ))}
       {state?.error && <p className="text-sm text-servora-red">{state.error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Continuing…" : "Continue"}
+      <Button type="submit" className="w-full" disabled={pending || redirecting}>
+        {pending || redirecting ? "Continuing…" : "Continue"}
       </Button>
     </form>
   );
