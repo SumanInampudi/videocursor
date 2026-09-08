@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { loginAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,12 +10,14 @@ type LoginFormProps = {
 };
 
 export function LoginForm({ nextPath }: LoginFormProps) {
-  const [state, formAction, pending] = useActionState(
-    async (_prev: { error?: string } | null, formData: FormData) => {
-      return (await loginAction(null, formData)) ?? null;
-    },
-    null
-  );
+  const [state, formAction, pending] = useActionState(loginAction, null);
+  const redirecting = Boolean(state?.redirectTo);
+
+  useEffect(() => {
+    if (state?.redirectTo) {
+      window.location.replace(state.redirectTo);
+    }
+  }, [state]);
 
   return (
     <form action={formAction} className="mt-6 space-y-4">
@@ -36,8 +38,8 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         required
       />
       {state?.error && <p className="text-sm text-servora-red">{state.error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+      <Button type="submit" className="w-full" disabled={pending || redirecting}>
+        {pending || redirecting ? "Signing in…" : "Sign in"}
       </Button>
     </form>
   );

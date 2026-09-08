@@ -34,10 +34,12 @@ async function buildSessionUser(
   };
 }
 
+export type AuthFormState = { error?: string; redirectTo?: string } | null;
+
 export async function loginAction(
-  _prev: { error?: string } | null,
+  _prev: AuthFormState,
   formData: FormData
-): Promise<{ error?: string } | null> {
+): Promise<AuthFormState> {
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
@@ -85,7 +87,10 @@ export async function loginAction(
 
   if (memberships.length > 1) {
     await setPendingLoginUserId(user.id);
-    redirect(`/select-business?next=${encodeURIComponent(next || "/")}`);
+    // Return the URL instead of redirect() so Set-Cookie is committed first.
+    // Next.js 16 follows redirect() through middleware before the browser
+    // stores the cookie, which bounces the user back to /login.
+    return { redirectTo: `/select-business?next=${encodeURIComponent(next || "/")}` };
   }
 
   const m = memberships[0]!;
@@ -97,13 +102,13 @@ export async function loginAction(
     next && next.startsWith("/") && !next.startsWith("/login")
       ? next
       : roleHomePath(m.role);
-  redirect(dest);
+  return { redirectTo: dest };
 }
 
 export async function selectBusinessAction(
-  _prev: { error?: string } | null,
+  _prev: AuthFormState,
   formData: FormData
-): Promise<{ error?: string } | null> {
+): Promise<AuthFormState> {
   const businessId = String(formData.get("businessId") ?? "");
   const next = String(formData.get("next") ?? "/").trim();
 
@@ -137,7 +142,7 @@ export async function selectBusinessAction(
     businessName: membership.business.name,
   });
 
-  redirect(next.startsWith("/") ? next : roleHomePath(membership.role));
+  return { redirectTo: next.startsWith("/") ? next : roleHomePath(membership.role) };
 }
 
 export async function getUserBusinessChoices(userId: string) {
